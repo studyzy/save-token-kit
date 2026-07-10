@@ -1,0 +1,5 @@
+{
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["headroom"],
+  "disabledMcpjsonServers": []
+}

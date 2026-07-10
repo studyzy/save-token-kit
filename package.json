@@ -1,0 +1,44 @@
+{
+  "name": "save-token-kit",
+  "version": "0.1.0",
+  "description": "A CLI tool (stk) that helps AI Agents save tokens by diagnosing and optimizing context usage.",
+  "type": "module",
+  "bin": {
+    "stk": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "src/templates"
+  ],
+  "scripts": {
+    "build": "unbuild",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "ansis": "^3.3.2",
+    "cac": "^6.7.14",
+    "tinyexec": "^0.3.1"
+  },
+  "devDependencies": {
+    "@inquirer/prompts": "^5.3.0",
+    "@types/node": "^22.5.0",
+    "@vitest/coverage-v8": "^2.0.5",
+    "eslint": "^9.9.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4",
+    "unbuild": "^2.0.0",
+    "vitest": "^2.0.5"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
