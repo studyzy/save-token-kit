@@ -47,23 +47,88 @@ export interface McpEntry {
   name: string
   /** Status: enabled | disabled */
   status: 'enabled' | 'disabled'
+  /** Transport type */
+  type?: 'stdio' | 'sse' | 'http'
+  /** Launch command (stdio) */
+  command?: string
+  /** Endpoint URL (sse/http) */
+  url?: string
   /** Number of tools defined by this MCP server */
   toolsCount: number
+  /** Deferred loading enabled */
+  deferLoading?: boolean
   /** Estimated tokens of tool definitions */
   estimatedTokens: number
+  /** Whether a CLI alternative exists */
+  hasCliAlternative?: boolean
+  /** The CLI alternative command */
+  cliAlternative?: string
   /** Source file path */
   source?: string
 }
+
+export type SkillSource = 'user' | 'project' | 'plugin' | 'plugin-marketplace' | 'bundled'
+export type ToolId = 'rtk' | 'caveman' | 'headroom' | 'lean-ctx' | 'graphify' | 'ponytail'
 
 export interface SkillEntry {
   /** Skill name */
   name: string
   /** Source location */
-  source?: string
+  source?: SkillSource
+  /** Source path on disk */
+  sourcePath?: string
   /** Estimated tokens */
   estimatedTokens: number
+  /** Whether the skill is loaded into the current context */
+  loaded?: boolean | null
   /** Usage frequency hint (optional) */
   usageFrequency?: 'high' | 'medium' | 'low'
+}
+
+export interface RuleEntry {
+  name: string
+  path: string
+  /** true when the rule has no `paths:` frontmatter — loaded in every session */
+  alwaysLoaded: boolean
+  fileSizeBytes: number
+  estimatedTokens: number
+}
+
+export interface PluginEntry {
+  id: string
+  pluginId: string
+  marketplace: string
+  enabled: boolean
+  installedPath: string | null
+  isLowFrequency: boolean
+}
+
+export interface HookEntry {
+  event: string
+  matcher: string
+  command: string
+  timeout: number | null
+  source: 'settings' | 'local'
+}
+
+export interface ConfigFileSummary {
+  path: string
+  exists: boolean
+  sizeBytes: number
+  lineCount: number
+  estimatedTokens: number
+  impactLevel: 'low' | 'medium' | 'high'
+}
+
+export interface ToolDetection {
+  name: ToolId
+  installed: boolean
+  enabled: boolean
+  version: string | null
+  installPath: string | null
+  codebuddyIntegrated: boolean
+  /** Human-readable saving estimate shown in the report */
+  recommendedSaving?: string
 }
 
 export interface ToolCategoryStats {
@@ -99,6 +164,57 @@ export interface DiagnosisReport {
   toolBreakdown: ToolBreakdown
   /** Warnings detected during scan */
   warnings: string[]
+  /** Plugin list discovered on the filesystem */
+  pluginList?: PluginEntry[]
+  /** Hook list from settings */
+  hookList?: HookEntry[]
+  /** Rules discovered in rules/ directories */
+  ruleList?: RuleEntry[]
+  /** Config file summaries (CODEBUDDY.md, project CODEBUDDY.md, rules dir) */
+  configFiles?: ConfigFileSummary[]
+  /** Third-party tool detection (rtk/caveman/headroom/graphify/ponytail/...) */
+  toolDetection?: ToolDetection[]
+  /** Whether headless probing of the agent was available */
+  headlessAvailable?: boolean
+  /** Where the diagnosis data came from */
+  dataSource?: 'proxy' | 'headless' | 'fs-only'
+  /** Extra details captured from the intercepted proxy request */
+  proxyDetails?: ProxyDetails
+}
+
+/** Plugins known to be low-frequency / rarely used. */
+export const LOW_FREQUENCY_PLUGINS = new Set<string>([
+  'pptx@codebuddy-plugins-official',
+  'docx@codebuddy-plugins-official',
+  'xlsx@codebuddy-plugins-official',
+  'agent-browser@codebuddy-plugins-official',
+  'playwright-cli@codebuddy-plugins-official',
+])
+
+/** CLI alternatives for common MCP servers. */
+export const MCP_CLI_ALTERNATIVES: Record<string, string> = {
+  Playwright: 'playwright',
+  playwright: 'playwright',
+  github: 'gh',
+  'github-mcp': 'gh',
+  slack: 'slack-cli',
+  filesystem: 'node fs',
+  notion: 'notion-cli',
+  linear: 'linear-cli',
+  jira: 'jira-cli',
+}
+
+/** Extra details captured from the intercepted proxy request body. */
+export interface ProxyDetails {
+  model: string
+  /** Tool definitions parsed from the request (builtin + mcp + deferred) */
+  toolDefinitions: ToolDef[]
+  /** Per-message role/type/token breakdown */
+  messageBreakdown: MessageBreakdown[]
+  /** Skill names referenced in <available_skills> blocks of the request */
+  skillReferences: string[]
+  /** MCP server references discovered in the request body */
+  mcpReferences: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -312,6 +428,22 @@ export interface ProxyDiagnosisData {
   mcpServers: McpServerDetection[]
   /** Total estimated tokens */
   totalEstimatedTokens: number
+  /** Model name from request */
+  model: string
+  /** Per-skill token breakdown from Skill tool description */
+  skillTokens: Record<string, { description: string; estimatedTokens: number }>
+  /** Skill names detected in system prompt text */
+  skillReferences: string[]
+  /** MCP server names detected in system prompt text */
+  mcpReferences: string[]
+  /** Plugins detected via message content markers */
+  detectedPlugins: string[]
+  /** Estimated tokens consumed by the system rules block (CODEBUDDY.md) */
+  rulesTokens: number
+  /** Estimated tokens consumed by the memory system-reminder block */
+  memoryTokens: number
+  /** Tool descriptions keyed by tool name */
+  toolDescriptions: Record<string, string>
 }
 
 export interface ProxyCapture {

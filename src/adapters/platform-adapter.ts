@@ -10,6 +10,22 @@ export interface InstallPaths {
   skillsDir: string
 }
 
+/** Platform-specific file paths discovered on the host. */
+export interface PlatformConfigPaths {
+  mcp: string
+  settings: string
+  codebuddyMd: string
+  skillsDir: string
+  commandsDir: string
+  rulesDir: string
+  agentsDir: string
+  pluginsMarketplacesDir: string
+  historyFile: string
+  blobsDir: string
+  /** CLI binary name used to trigger requests / headless probes */
+  cliBinary: string
+}
+
 export interface PlatformAdapter {
   /** Stable agent identifier, e.g. "codebuddy" */
   readonly name: string
@@ -26,4 +42,12 @@ export interface PlatformAdapter {
   readonly proxyEnvVar: string
   /** Trigger command used to force a single LLM request through the proxy */
   readonly triggerCommand: string[]
+  /** Whether the agent CLI is installed and discoverable on PATH */
+  detectInstall(): Promise<boolean>
+  /** Resolve platform-specific file paths */
+  getConfigPaths(): PlatformConfigPaths
+  /** Build headless probe command args for a given prompt + optional JSON schema */
+  getHeadlessCommand(prompt: string, schema?: object): string[]
+  /** Parse raw headless probe stdout into structured data (null on failure) */
+  parseHeadlessOutput(raw: string): unknown
 }

@@ -50,7 +50,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 
 // Run only when invoked directly (not when imported by tests).
 import { fileURLToPath } from 'node:url'
+import { realpathSync } from 'node:fs'
 import { DEFAULT_PROXY_PORT } from './types/index.js'
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+// Resolve symlinks: when installed via bin symlink, process.argv[1] is the
+// symlink path while import.meta.url resolves to the real file.
+if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
   main().catch(() => process.exit(1))
 }
