@@ -6,6 +6,7 @@
  *   - TasksFile          (tasks.json, from `/stk-optimize`)
  *   - SaveTokenReport    (save-token-report.json, from `/stk-report`)
  *   - ProxyDiagnosisData (intermediate parsed capture)
+ *   - RepoScan           (repo-scan.json, from `/stk-analyze` repo scan)
  */
 
 // ---------------------------------------------------------------------------
@@ -230,6 +231,9 @@ export type OperationType =
   | 'trim-file'
   | 'install-tool'
   | 'other'
+  // Extensions for stk-analyze rebuild (002): parallel sub-agent optimization
+  | 'defer-tools' // Explicitly declare minimal necessary tools for a Plugin/Hook
+  | 'knowledge-base' // Enable a code knowledge-graph tool (Graphify/Codebase-Memory MCP/CodeGraph/GitNexus)
 
 export type RiskLevel = 'low' | 'medium' | 'high'
 
@@ -250,6 +254,50 @@ export interface AnalysisSuggestion {
   risk: RiskLevel
   /** Whether the change is reversible (hint only; rollback not implemented) */
   reversible: boolean
+  /** Scenario attribution (e.g. "code" / "doc" / "office" / "general") */
+  scenario?: string
+  /** Optional supporting data/evidence for the suggestion (e.g. diagnostic field values) */
+  evidence?: string
+}
+
+// ---------------------------------------------------------------------------
+// 1b. RepoScan (repo-scan.json, from /stk-analyze repo scan)
+// ---------------------------------------------------------------------------
+
+/** Result of scanning the current repository's code/docs for knowledge-graph recommendations. */
+export interface RepoScan {
+  /** Scan timestamp (ISO 8601) */
+  scannedAt: string
+  /** Number of code files (by extension) */
+  codeFileCount: number
+  /** Number of documentation files (.md/.mdx/.rst/.txt) */
+  docFileCount: number
+  /** Approximate total code line count */
+  codeLineCount: number
+  /** Approximate total documentation line count */
+  docLineCount: number
+  /** Top 3 languages by file count (descending) */
+  topLanguages: string[]
+  /** Whether a docs/ dir or README* entry exists */
+  hasDocsDir: boolean
+  /** Whether a project-level CODEBUDDY.md exists */
+  hasCodebuddyMd: boolean
+  /** Whether the repo is a monorepo (multiple package.json/Cargo.toml/go.mod) */
+  isMonorepo: boolean
+  /** Error message if scan failed; null on success */
+  scanError?: string | null
+}
+
+/** User scenario context collected by /stk-analyze (persisted to save-token/context.json). */
+export interface AnalysisContext {
+  /** Collection timestamp (ISO 8601) */
+  collectedAt: string
+  /** Primary usage purpose */
+  purpose: 'code' | 'doc' | 'office' | 'general'
+  /** Whether code and docs live in the same repo */
+  sameRepo: 'same' | 'separate'
+  /** Selected code knowledge-graph tool (storage value, lower-kebab; undefined if not asked) */
+  graphTool?: 'graphify' | 'codebase-memory-mcp' | 'codegraph' | 'gitnexus' | 'none' | string
 }
 
 export interface AnalysisFile {
@@ -257,6 +305,8 @@ export interface AnalysisFile {
   generatedAt: string
   /** Source diagnosis file */
   sourceDiagnosis: string
+  /** User scenario context */
+  context: AnalysisContext
   /** Suggestions sorted by estimated saving (descending) */
   suggestions: AnalysisSuggestion[]
   /** Total estimated saving tokens (sum, may overlap — reference only) */
