@@ -28,9 +28,9 @@ description: '重构 stk-analyze SKILL 实现任务列表'
 
 **目的**: 分支与契约基线就绪
 
-- [ ] T001 确认当前分支为 `002-stk-analyze-rebuild`（`git branch --show-current`）
-- [ ] T002 [P] 备份现有 `src/templates/skills/stk-analyze/SKILL.md` 到 `/tmp/stk-analyze-SKILL.md.bak`
-- [ ] T003 [P] 备份现有 `save-token/context.json` 到 `/tmp/context.json.bak`（用于回归对比）
+- [X] T001 确认当前分支为 `002-stk-analyze-rebuild`（`git branch --show-current`）
+- [X] T002 [P] 备份现有 `src/templates/skills/stk-analyze/SKILL.md` 到 `/tmp/stk-analyze-SKILL.md.bak`
+- [X] T003 [P] 备份现有 `save-token/context.json` 到 `/tmp/context.json.bak`（用于回归对比）
 
 **检查点**: 基线已备份，可安全重写
 
@@ -42,11 +42,11 @@ description: '重构 stk-analyze SKILL 实现任务列表'
 
 **⚠️ 关键**: 此阶段完成前不可开始任何用户故事任务
 
-- [ ] T004 在 `src/types/index.ts:224` 的 `OperationType` 联合类型新增 `'defer-tools' | 'knowledge-base'` 两个成员（保留既有 `defer-mcp`，不新增 `mcp-defer`）
-- [ ] T005 在 `src/types/index.ts` 的 `AnalysisSuggestion` 接口（约 `:236`）新增可选字段 `scenario?: string` 与 `evidence?: string`，并补英文 JSDoc
-- [ ] T006 在 `src/types/index.ts` 新增接口 `RepoScan`（字段对齐 `specs/002-stk-analyze-rebuild/contracts/repo-scan.md`：scannedAt/codeFileCount/docFileCount/codeLineCount/docLineCount/topLanguages/hasDocsDir/hasCodebuddyMd/isMonorepo/scanError?）
-- [ ] T007 在 `src/types/index.ts` 的 `Context` 相关结构新增 `graphTool?: string` 字段（对齐 `contracts/context.md`）
-- [ ] T008 运行 `pnpm build` 确认 types 编译通过，无破坏现有契约
+- [X] T004 在 `src/types/index.ts:224` 的 `OperationType` 联合类型新增 `'defer-tools' | 'knowledge-base'` 两个成员（保留既有 `defer-mcp`，不新增 `mcp-defer`）
+- [X] T005 在 `src/types/index.ts` 的 `AnalysisSuggestion` 接口（约 `:236`）新增可选字段 `scenario?: string` 与 `evidence?: string`，并补英文 JSDoc
+- [X] T006 在 `src/types/index.ts` 新增接口 `RepoScan`（字段对齐 `specs/002-stk-analyze-rebuild/contracts/repo-scan.md`：scannedAt/codeFileCount/docFileCount/codeLineCount/docLineCount/topLanguages/hasDocsDir/hasCodebuddyMd/isMonorepo/scanError?）
+- [X] T007 在 `src/types/index.ts` 的 `Context` 相关结构新增 `graphTool?: string` 字段（对齐 `contracts/context.md`）
+- [X] T008 运行 `pnpm build` 确认 types 编译通过，无破坏现有契约
 
 **检查点**: 基础契约就绪，可并行实施用户故事
 
@@ -62,17 +62,17 @@ description: '重构 stk-analyze SKILL 实现任务列表'
 
 > **先写测试，确保失败后再实现**
 
-- [ ] T009 [P] [US1] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写结构校验测试：断言 SKILL.md 含四阶段章节标题（上下文与场景收集 / 仓库代码文档采集 / 并行子 Agent 派发 / 汇总生成 tasks.md）
-- [ ] T010 [P] [US1] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md 子 Agent 定义表含 8 行（tool-enable/mcp-opt/model-opt/defer-tools/skill-trim/knowledge-base/repo-scan/hook-audit）且每行含"启动条件"
-- [ ] T011 [P] [US1] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：tasks.md 输出格式章节保留"一个 SKILL 一个 Task、一个工具一个 Task、一个 MCP 一个 Task"原则
+- [X] T009 [P] [US1] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写结构校验测试：断言 SKILL.md 含四阶段章节标题（上下文与场景收集 / 仓库代码文档采集 / 并行子 Agent 派发 / 汇总生成 tasks.md）
+- [X] T010 [P] [US1] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md 子 Agent 定义表含 8 行（tool-enable/mcp-opt/model-opt/defer-tools/skill-trim/knowledge-base/repo-scan/hook-audit）且每行含"启动条件"
+- [X] T011 [P] [US1] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：tasks.md 输出格式章节保留"一个 SKILL 一个 Task、一个工具一个 Task、一个 MCP 一个 Task"原则
 
 ### 用户故事 1 的实现
 
-- [ ] T012 [US1] 重写 `src/templates/skills/stk-analyze/SKILL.md` 为四阶段结构：`## 目标`/`## 执行流程`/`## 边界`（对齐 diagnose/optimize/report 风格，移除 `allowed-tools` frontmatter）
-- [ ] T013 [US1] 在 SKILL.md 步骤 1 实现诊断校验：读取 `save-token/diagnosis-report.json`，存在且 `scanTimestamp` ≤ 5 分钟复用；否则提示先运行 `stk diagnose` 并停止
-- [ ] T014 [US1] 在 SKILL.md 步骤 4 实现汇总：读取 `save-token/suggestions-*.json`，按 `category` 分组写 `save-token/tasks.md`，顶部 `<!-- scenario: ... -->` 注释，ID 全局重编号，列出跳过/失败 Agent
-- [ ] T015 [US1] 在 SKILL.md 步骤 5 实现控制台摘要：总计节省 Token/百分比、`tasks.md` 路径、场景标注、跳过列表、失败列表
-- [ ] T016 [US1] 运行 `pnpm vitest run tests/unit/templates/stk-analyze-skill.test.ts` 确认 T009-T011 通过
+- [X] T012 [US1] 重写 `src/templates/skills/stk-analyze/SKILL.md` 为四阶段结构：`## 目标`/`## 执行流程`/`## 边界`（对齐 diagnose/optimize/report 风格，移除 `allowed-tools` frontmatter）
+- [X] T013 [US1] 在 SKILL.md 步骤 1 实现诊断校验：读取 `save-token/diagnosis-report.json`，存在且 `scanTimestamp` ≤ 5 分钟复用；否则提示先运行 `stk diagnose` 并停止
+- [X] T014 [US1] 在 SKILL.md 步骤 4 实现汇总：读取 `save-token/suggestions-*.json`，按 `category` 分组写 `save-token/tasks.md`，顶部 `<!-- scenario: ... -->` 注释，ID 全局重编号，列出跳过/失败 Agent
+- [X] T015 [US1] 在 SKILL.md 步骤 5 实现控制台摘要：总计节省 Token/百分比、`tasks.md` 路径、场景标注、跳过列表、失败列表
+- [X] T016 [US1] 运行 `pnpm vitest run tests/unit/templates/stk-analyze-skill.test.ts` 确认 T009-T011 通过
 
 **检查点**: 用户故事 1 功能化且独立可测（无子 Agent 细节也能跑通主干）
 
@@ -86,16 +86,16 @@ description: '重构 stk-analyze SKILL 实现任务列表'
 
 ### 用户故事 2 的测试
 
-- [ ] T017 [P] [US2] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md 第二阶段含仓库扫描步骤，列出 `repo-scan.json` 字段（codeFileCount/docFileCount/topLanguages/hasCodebuddyMd/isMonorepo）
-- [ ] T018 [P] [US2] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md 含图谱工具倾向性询问，选项含 Graphify/Codebase-Memory MCP/CodeGraph/GitNexus/暂不需要，且带推荐标记逻辑
-- [ ] T019 [P] [US2] 在 `tests/unit/types/stk-analyze-types.test.ts` 编写 `RepoScan` 与 `graphTool` 字段类型测试（对齐 contracts）
+- [X] T017 [P] [US2] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md 第二阶段含仓库扫描步骤，列出 `repo-scan.json` 字段（codeFileCount/docFileCount/topLanguages/hasCodebuddyMd/isMonorepo）
+- [X] T018 [P] [US2] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md 含图谱工具倾向性询问，选项含 Graphify/Codebase-Memory MCP/CodeGraph/GitNexus/暂不需要，且带推荐标记逻辑
+- [X] T019 [P] [US2] 在 `tests/unit/types/stk-analyze-types.test.ts` 编写 `RepoScan` 与 `graphTool` 字段类型测试（对齐 contracts）
 
 ### 用户故事 2 的实现
 
-- [ ] T020 [US2] 在 SKILL.md 步骤 2 实现仓库扫描：用 Bash（`find`/`wc -l`）+ Glob 统计代码/文档文件数、行数、Top3 语言、CODEBUDDY.md 检测、monorepo 检测，写 `save-token/repo-scan.json`（排除 node_modules/.git/dist/build/coverage/.cache）
-- [ ] T021 [US2] 在 SKILL.md 步骤 2 实现第一轮问答（purpose + sameRepo）与第二轮条件问答（codeFileCount ≥ 5 触发图谱工具倾向性，含推荐矩阵：TS/JS→Graphify、多语言大型→Codebase-Memory MCP、monorepo→GitNexus、默认→Graphify）
-- [ ] T022 [US2] 在 SKILL.md 写入 `context.json` 结构（含 `graphTool` 可选字段，存储值小写 kebab，展示名首字母大写），7 天复用窗口
-- [ ] T023 [US2] 运行 `pnpm vitest run tests/unit/templates/stk-analyze-skill.test.ts tests/unit/types/stk-analyze-types.test.ts` 确认 T017-T019 通过
+- [X] T020 [US2] 在 SKILL.md 步骤 2 实现仓库扫描：用 Bash（`find`/`wc -l`）+ Glob 统计代码/文档文件数、行数、Top3 语言、CODEBUDDY.md 检测、monorepo 检测，写 `save-token/repo-scan.json`（排除 node_modules/.git/dist/build/coverage/.cache）
+- [X] T021 [US2] 在 SKILL.md 步骤 2 实现第一轮问答（purpose + sameRepo）与第二轮条件问答（codeFileCount ≥ 5 触发图谱工具倾向性，含推荐矩阵：TS/JS→Graphify、多语言大型→Codebase-Memory MCP、monorepo→GitNexus、默认→Graphify）
+- [X] T022 [US2] 在 SKILL.md 写入 `context.json` 结构（含 `graphTool` 可选字段，存储值小写 kebab，展示名首字母大写），7 天复用窗口
+- [X] T023 [US2] 运行 `pnpm vitest run tests/unit/templates/stk-analyze-skill.test.ts tests/unit/types/stk-analyze-types.test.ts` 确认 T017-T019 通过
 
 **检查点**: 用户故事 1+2 独立可测
 
@@ -109,14 +109,14 @@ description: '重构 stk-analyze SKILL 实现任务列表'
 
 ### 用户故事 3 的测试
 
-- [ ] T024 [P] [US3] 在 `tests/unit/types/stk-analyze-types.test.ts` 编写 `SuggestionFile` 接口测试：字段 agentName/category/generatedAt/skipped/suggestions[]，suggestion 含 id/title/detail/operationType/target/estimatedSavingTokens/risk/reversible/scenario/evidence?
-- [ ] T025 [P] [US3] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md "统一 Schema" 章节字段定义与 `contracts/suggestion-file.md` 一致
+- [X] T024 [P] [US3] 在 `tests/unit/types/stk-analyze-types.test.ts` 编写 `SuggestionFile` 接口测试：字段 agentName/category/generatedAt/skipped/suggestions[]，suggestion 含 id/title/detail/operationType/target/estimatedSavingTokens/risk/reversible/scenario/evidence?
+- [X] T025 [P] [US3] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md "统一 Schema" 章节字段定义与 `contracts/suggestion-file.md` 一致
 
 ### 用户故事 3 的实现
 
-- [ ] T026 [US3] 在 SKILL.md 定义统一 Schema 章节（对齐 `contracts/suggestion-file.md`），明确 `operationType` 取值含 `defer-tools`/`knowledge-base`，`defer-mcp` 语义 = `.mcp.json` 中 `"defer_loading": true`
-- [ ] T027 [US3] 在 SKILL.md 步骤 3 实现并行派发：单条消息多次 Agent 调用，每个子 Agent 输出 `save-token/suggestions-<agent-name>.json`
-- [ ] T028 [US3] 运行 `pnpm vitest run tests/unit/types/stk-analyze-types.test.ts tests/unit/templates/stk-analyze-skill.test.ts` 确认 T024-T025 通过
+- [X] T026 [US3] 在 SKILL.md 定义统一 Schema 章节（对齐 `contracts/suggestion-file.md`），明确 `operationType` 取值含 `defer-tools`/`knowledge-base`，`defer-mcp` 语义 = `.mcp.json` 中 `"defer_loading": true`
+- [X] T027 [US3] 在 SKILL.md 步骤 3 实现并行派发：单条消息多次 Agent 调用，每个子 Agent 输出 `save-token/suggestions-<agent-name>.json`
+- [X] T028 [US3] 运行 `pnpm vitest run tests/unit/types/stk-analyze-types.test.ts tests/unit/templates/stk-analyze-skill.test.ts` 确认 T024-T025 通过
 
 **检查点**: 用户故事 1+2+3 独立可测
 
@@ -130,14 +130,14 @@ description: '重构 stk-analyze SKILL 实现任务列表'
 
 ### 用户故事 4 的测试
 
-- [ ] T029 [P] [US4] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md 子 Agent 启动条件均为"诊断报告某对象存在/非空"形式（如 `mcpList[]` 非空）
-- [ ] T030 [P] [US4] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：FR-4 表格 8 行与 data-model.md 子 Agent 映射表一致
+- [X] T029 [P] [US4] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：SKILL.md 子 Agent 启动条件均为"诊断报告某对象存在/非空"形式（如 `mcpList[]` 非空）
+- [X] T030 [P] [US4] 在 `tests/unit/templates/stk-analyze-skill.test.ts` 编写断言：FR-4 表格 8 行与 data-model.md 子 Agent 映射表一致
 
 ### 用户故事 4 的实现
 
-- [ ] T031 [US4] 在 SKILL.md `## 子 Agent 定义` 重写 8 个子 Agent（tool-enable/mcp-opt/model-opt/defer-tools/skill-trim/knowledge-base/repo-scan/hook-audit），每个含输入、规则表、输出 category
-- [ ] T032 [US4] 同步 `src/templates/commands/analyze.md`：修复第 36 行 7 维度与 8 子 Agent 不一致，引用 `suggestions-*.json` 与 `context.graphTool`
-- [ ] T033 [US4] 运行 `pnpm vitest run tests/unit/templates/stk-analyze-skill.test.ts` 确认 T029-T030 通过
+- [X] T031 [US4] 在 SKILL.md `## 子 Agent 定义` 重写 8 个子 Agent（tool-enable/mcp-opt/model-opt/defer-tools/skill-trim/knowledge-base/repo-scan/hook-audit），每个含输入、规则表、输出 category
+- [X] T032 [US4] 同步 `src/templates/commands/analyze.md`：修复第 36 行 7 维度与 8 子 Agent 不一致，引用 `suggestions-*.json` 与 `context.graphTool`
+- [X] T033 [US4] 运行 `pnpm vitest run tests/unit/templates/stk-analyze-skill.test.ts` 确认 T029-T030 通过
 
 **检查点**: 所有用户故事独立功能化
 
@@ -147,12 +147,12 @@ description: '重构 stk-analyze SKILL 实现任务列表'
 
 **目的**: 全量验证与文档对齐
 
-- [ ] T034 [P] 运行 `pnpm cover` 确认整体覆盖率 ≥ 60%
-- [ ] T035 [P] 运行 `pnpm lint` 确认无 lint 错误
-- [ ] T036 运行 `pnpm format` 格式化新增文件
-- [ ] T037 按 `specs/002-stk-analyze-rebuild/quickstart.md` 4 个用例（标准/无 MCP/小仓库/7天复用）人工验证 SKILL 行为
-- [ ] T038 对比 `save-token/context.json` 新旧结构，确认 `graphTool` 字段向后兼容
-- [ ] T039 提交所有变更到 `002-stk-analyze-rebuild` 分支（`git add -A && git commit -m "refactor(stk-analyze): 四阶段结构 + 8 子 Agent 并行 + 统一 Schema"`）
+- [X] T034 [P] 运行 `pnpm cover` 确认整体覆盖率 ≥ 60%
+- [X] T035 [P] 运行 `pnpm lint` 确认无 lint 错误
+- [X] T036 运行 `pnpm format` 格式化新增文件
+- [X] T037 按 `specs/002-stk-analyze-rebuild/quickstart.md` 4 个用例（标准/无 MCP/小仓库/7天复用）人工验证 SKILL 行为
+- [X] T038 对比 `save-token/context.json` 新旧结构，确认 `graphTool` 字段向后兼容
+- [X] T039 提交所有变更到 `002-stk-analyze-rebuild` 分支（`git add -A && git commit -m "refactor(stk-analyze): 四阶段结构 + 8 子 Agent 并行 + 统一 Schema"`）
 
 ---
 
