@@ -1,10 +1,10 @@
 ---
-name: st-report
+name: stk-report
 description: "对比优化前后诊断报告，生成 save-token-report.json 结果对比"
 argument-hint: ""
 ---
 
-# SKILL: st-report
+# SKILL: stk-report
 
 本 SKILL 指导 AI Agent 执行 `/stk-report` 的对比报告生成。
 

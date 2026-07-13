@@ -10,13 +10,8 @@ argument-hint: ""
 
 ## 步骤
 
-1. 检查 `stk` 命令是否已安装（如 `which stk` 或 `stk --version`）。如未安装，先执行安装：
-   ```bash
-   npm install -g save-token-kit
-   # 或
-   pnpm add -g save-token-kit
-   ```
-2. 运行以下命令采集并保存诊断数据（无条件执行）：
+1. 检查 `./save-token/` 目录是否存在诊断数据（`diagnosis-report.json`）。
+2. 如不存在，运行以下命令采集数据（首次诊断报告需手动重定向保存）：
    ```bash
    stk diagnose >> ./save-token/diagnosis-report.md
    ```

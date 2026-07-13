@@ -1,10 +1,10 @@
 ---
-name: st-optimize
+name: stk-optimize
 description: "执行 analysis.json 中的优化建议，落盘 tasks.json，操作前备份"
 argument-hint: ""
 ---
 
-# SKILL: st-optimize
+# SKILL: stk-optimize
 
 本 SKILL 指导 AI Agent 执行 `/stk-optimize` 的实际修改。
 

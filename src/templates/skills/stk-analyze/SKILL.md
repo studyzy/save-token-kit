@@ -1,10 +1,10 @@
 ---
-name: st-analyze
+name: stk-analyze
 description: "分析 Token 诊断数据，产出按节省量排序的优化建议 analysis.json"
 argument-hint: ""
 ---
 
-# SKILL: st-analyze
+# SKILL: stk-analyze
 
 本 SKILL 指导 AI Agent 执行 `/stk-analyze` 的分析决策。
 

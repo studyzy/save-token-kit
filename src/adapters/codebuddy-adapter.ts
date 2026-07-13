@@ -13,7 +13,7 @@ function safeParse(s: string): unknown {
 
 /**
  * CodeBuddy adapter.
- * Commands: .codebuddy/commands/save-token-kit/{command}.md
+ * Commands: .codebuddy/commands/stk/{command}.md
  * Skills:   .codebuddy/skills/{skill}/SKILL.md
  */
 export class CodeBuddyAdapter implements PlatformAdapter {
@@ -26,7 +26,7 @@ export class CodeBuddyAdapter implements PlatformAdapter {
   resolveInstallPaths(local: boolean): InstallPaths {
     const base = local ? join(process.cwd(), '.codebuddy') : join(homedir(), '.codebuddy')
     return {
-      commandsDir: join(base, 'commands', 'save-token-kit'),
+      commandsDir: join(base, 'commands', 'stk'),
       skillsDir: join(base, 'skills'),
     }
   }

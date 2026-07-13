@@ -1,10 +1,10 @@
 ---
-name: st-diagnose
+name: stk-diagnose
 description: "采集 CodeBuddy 会话的 Token 占用诊断数据，供后续分析与优化使用"
 argument-hint: ""
 ---
 
-# SKILL: st-diagnose
+# SKILL: stk-diagnose
 
 本 SKILL 指导 AI Agent 执行 `/stk-diagnose` 命令的逻辑。
 

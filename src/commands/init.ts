@@ -12,13 +12,25 @@ export interface InitOptions {
 }
 
 const COMMANDS = ['diagnose', 'analyze', 'optimize', 'report'] as const
-const SKILLS = ['st-diagnose', 'st-analyze', 'st-optimize', 'st-report'] as const
+const SKILLS = ['stk-diagnose', 'stk-analyze', 'stk-optimize', 'stk-report'] as const
 
-/** Templates base dir (resolves to src/templates at dev time, dist/../src/templates at runtime). */
+/**
+ * Templates base dir. Resolves to `src/templates` at dev time (next to src/)
+ * and to the package-root `src/templates` at runtime (templates are shipped
+ * under the package root, see package.json "files"). Walks up from this file
+ * to the package root so it is independent of how unbuild lays out chunks.
+ */
 function templatesDir(): string {
-  const here = dirname(fileURLToPath(import.meta.url))
-  // here is .../dist/commands when built, or .../src/commands when running via tsx/vitest.
-  const candidates = [join(here, '..', '..', 'src', 'templates'), join(here, '..', 'templates')]
+  let dir = dirname(fileURLToPath(import.meta.url))
+  // Walk up until we find the package root (dir containing package.json).
+  while (dir !== dirname(dir) && !existsSync(join(dir, 'package.json'))) {
+    dir = dirname(dir)
+  }
+  const pkgRoot = dir
+  const candidates = [
+    join(pkgRoot, 'src', 'templates'),
+    join(pkgRoot, 'templates'),
+  ]
   return candidates.find((c) => existsSync(join(c, 'commands'))) ?? candidates[0]
 }
 
