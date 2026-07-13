@@ -61,3 +61,4 @@ CLI 入口 `src/cli.ts`（cac）注册三个命令：`diagnose`、`init`、`roll
 - `proxy/server.ts` 中代理转发依赖真实 CodeBuddy API 可达；诊断数据 100% 来自拦截的请求体，不做额外 Agent 调用，故秒级完成。
 - 优化操作不自动备份，`rollback` 仅提示手动恢复——任何“节省 Token”的修改都是用户侧配置变更，本工具不反向修改。
 - 令牌估算全为 `length/4` 经验值，非真实 tokenizer，仅用于相对比较。
+- 所有产出物包括中间产物我最终报告等，都统一在`./save-token`文件夹。
