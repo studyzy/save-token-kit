@@ -1,7 +1,7 @@
 ---
 name: stk-optimize
-description: "执行 analysis.json 中的优化建议，落盘 tasks.json，操作前备份"
-argument-hint: ""
+description: '执行 analysis.json 中的优化建议，落盘 tasks.json，操作前备份'
+argument-hint: ''
 ---
 
 # SKILL: stk-optimize

@@ -30,7 +30,7 @@ export function buildDiagnosisReport(
   // Categorize token usage into context overview breakdown.
   const categories: ContextItem[] = []
 
-  const systemPromptTokens = Math.max(0, (parsed.messages.roleTokens['system'] ?? 0))
+  const systemPromptTokens = Math.max(0, parsed.messages.roleTokens['system'] ?? 0)
   categories.push(makeItem('system-prompt', 'system messages', systemPromptTokens))
 
   if (parsed.rulesTokens > 0) {
@@ -73,9 +73,21 @@ export function buildDiagnosisReport(
   const deferredTokens = parsed.tools.deferred.reduce((s, t) => s + t.estimatedTokens, 0)
 
   const toolBreakdown: ToolBreakdown = {
-    builtin: { count: parsed.tools.builtin.length, estimatedTokens: builtinTokens, names: parsed.tools.builtin.map((t) => t.name) },
-    mcp: { count: parsed.tools.mcp.length, estimatedTokens: mcpTokens, names: parsed.tools.mcp.map((t) => t.name) },
-    deferred: { count: parsed.tools.deferred.length, estimatedTokens: deferredTokens, names: parsed.tools.deferred.map((t) => t.name) },
+    builtin: {
+      count: parsed.tools.builtin.length,
+      estimatedTokens: builtinTokens,
+      names: parsed.tools.builtin.map((t) => t.name),
+    },
+    mcp: {
+      count: parsed.tools.mcp.length,
+      estimatedTokens: mcpTokens,
+      names: parsed.tools.mcp.map((t) => t.name),
+    },
+    deferred: {
+      count: parsed.tools.deferred.length,
+      estimatedTokens: deferredTokens,
+      names: parsed.tools.deferred.map((t) => t.name),
+    },
   }
 
   const warnings: string[] = []
@@ -86,7 +98,9 @@ export function buildDiagnosisReport(
     warnings.push('Skills 占用较高，存在可禁用的低频 Skill。')
   }
   if (parsed.detectedPlugins.length > 0) {
-    warnings.push(`检测到活跃插件: ${parsed.detectedPlugins.join(', ')}，其 system-reminder 占用上下文。`)
+    warnings.push(
+      `检测到活跃插件: ${parsed.detectedPlugins.join(', ')}，其 system-reminder 占用上下文。`,
+    )
   }
 
   // Build skill list from skillTokens (rich, from Skill tool desc)
@@ -153,13 +167,23 @@ function emptyReport(): DiagnosisReport {
     contextOverview: { totalEstimatedTokens: 0, breakdown: [] },
     mcpList: [],
     skillList: [],
-    toolBreakdown: { builtin: { count: 0, estimatedTokens: 0, names: [] }, mcp: { count: 0, estimatedTokens: 0, names: [] }, deferred: { count: 0, estimatedTokens: 0, names: [] } },
+    toolBreakdown: {
+      builtin: { count: 0, estimatedTokens: 0, names: [] },
+      mcp: { count: 0, estimatedTokens: 0, names: [] },
+      deferred: { count: 0, estimatedTokens: 0, names: [] },
+    },
     warnings: [],
   }
 }
 
 /** Render a DiagnosisReport as terminal-friendly output matching save-token style. */
-export function renderMarkdown(report: DiagnosisReport & { toolDefinitions?: ToolDef[]; skillTokens?: Record<string, { description: string; estimatedTokens: number }>; model?: string }): string {
+export function renderMarkdown(
+  report: DiagnosisReport & {
+    toolDefinitions?: ToolDef[]
+    skillTokens?: Record<string, { description: string; estimatedTokens: number }>
+    model?: string
+  },
+): string {
   const lines: string[] = []
   lines.push('CodeBuddy Token 诊断报告')
   lines.push('='.repeat(50))
@@ -173,7 +197,9 @@ export function renderMarkdown(report: DiagnosisReport & { toolDefinitions?: Too
   lines.push(`总估算 Token: ${report.contextOverview.totalEstimatedTokens}`)
   lines.push('')
   lines.push('按占用降序:')
-  const sorted = [...report.contextOverview.breakdown].sort((a, b) => b.estimatedTokens - a.estimatedTokens)
+  const sorted = [...report.contextOverview.breakdown].sort(
+    (a, b) => b.estimatedTokens - a.estimatedTokens,
+  )
   for (const item of sorted) {
     const pct = report.contextOverview.totalEstimatedTokens
       ? ((item.estimatedTokens / report.contextOverview.totalEstimatedTokens) * 100).toFixed(1)
@@ -212,7 +238,9 @@ export function renderMarkdown(report: DiagnosisReport & { toolDefinitions?: Too
     lines.push('  (无)')
   } else {
     for (const mcp of report.mcpList) {
-      lines.push(`  ${mcp.name.padEnd(15)} [enabled] ${mcp.toolsCount} 个工具 ~${mcp.estimatedTokens} tok`)
+      lines.push(
+        `  ${mcp.name.padEnd(15)} [enabled] ${mcp.toolsCount} 个工具 ~${mcp.estimatedTokens} tok`,
+      )
     }
   }
   lines.push('')
@@ -223,7 +251,9 @@ export function renderMarkdown(report: DiagnosisReport & { toolDefinitions?: Too
     lines.push('  (无)')
   } else {
     for (const skill of report.skillList) {
-      lines.push(`  [${skill.source ?? 'skill'}] ${skill.name.padEnd(20)} ~${skill.estimatedTokens} tok`)
+      lines.push(
+        `  [${skill.source ?? 'skill'}] ${skill.name.padEnd(20)} ~${skill.estimatedTokens} tok`,
+      )
     }
   }
   lines.push('')

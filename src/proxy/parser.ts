@@ -1,5 +1,11 @@
 import { estimateTokensOf, truncateIfLarge } from '../collectors/token-estimator.js'
-import type { MessageBreakdown, ProxyDiagnosisData, ToolDef, DetectedSkill, McpServerDetection } from '../types/index.js'
+import type {
+  MessageBreakdown,
+  ProxyDiagnosisData,
+  ToolDef,
+  DetectedSkill,
+  McpServerDetection,
+} from '../types/index.js'
 
 /**
  * Known builtin CodeBuddy tools. Anything not in this set is classified as MCP/deferred.
@@ -105,7 +111,9 @@ function extractMcpFromText(text: string, mcpReferences: string[]): void {
  * Extract per-skill token breakdown from the Skill tool definition.
  * Parses the <available_skills> block in the Skill tool's description.
  */
-function extractSkillTokens(tools: any[]): Record<string, { description: string; estimatedTokens: number }> {
+function extractSkillTokens(
+  tools: any[],
+): Record<string, { description: string; estimatedTokens: number }> {
   const skillTool = tools.find((t) => extractToolName(t) === 'Skill')
   if (!skillTool) return {}
 
@@ -142,7 +150,10 @@ function extractSkillTokens(tools: any[]): Record<string, { description: string;
  * <available_deferred_tools> block. Bare `mcp__XXX` lines are server-level
  * references; `mcp__XXX: ...` lines are concrete tool definitions.
  */
-function extractDeferredMcpTools(tools: any[]): { tools: { name: string; estimatedTokens: number }[]; references: string[] } {
+function extractDeferredMcpTools(tools: any[]): {
+  tools: { name: string; estimatedTokens: number }[]
+  references: string[]
+} {
   const toolSearchDef = tools.find((t) => extractToolName(t) === 'ToolSearch')
   if (!toolSearchDef) return { tools: [], references: [] }
 
@@ -287,9 +298,15 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
 
     if (category === 'mcp') {
       mcp.push({ name, estimatedTokens: est })
-      const parts = name.startsWith('mcp__') ? name.slice('mcp__'.length).split('__') : name.split('__')
+      const parts = name.startsWith('mcp__')
+        ? name.slice('mcp__'.length).split('__')
+        : name.split('__')
       const server = parts[0] ?? name
-      const entry = (mcpServers[server] ??= { serverName: server, toolCount: 0, estimatedTokens: 0 })
+      const entry = (mcpServers[server] ??= {
+        serverName: server,
+        toolCount: 0,
+        estimatedTokens: 0,
+      })
       entry.toolCount += 1
       entry.estimatedTokens += est
     } else if (category === 'deferred') {
@@ -303,7 +320,9 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
   const deferredMcp = extractDeferredMcpTools(tools)
   for (const dt of deferredMcp.tools) {
     mcp.push({ name: dt.name, estimatedTokens: dt.estimatedTokens })
-    const parts = dt.name.startsWith('mcp__') ? dt.name.slice('mcp__'.length).split('__') : dt.name.split('__')
+    const parts = dt.name.startsWith('mcp__')
+      ? dt.name.slice('mcp__'.length).split('__')
+      : dt.name.split('__')
     const server = parts[0] ?? dt.name
     const entry = (mcpServers[server] ??= { serverName: server, toolCount: 0, estimatedTokens: 0 })
     entry.toolCount += 1

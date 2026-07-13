@@ -125,7 +125,7 @@ export function findMainChatBody(bodies: unknown[]): Record<string, unknown> | n
     const messages = b['messages'] as Array<Record<string, unknown>> | undefined
     if (!messages || !Array.isArray(messages)) continue
     const hasUser = messages.some((m) => m['role'] === 'user')
-    const hasTools = Array.isArray(b['tools']) && ((b['tools'] as unknown[]).length > 0)
+    const hasTools = Array.isArray(b['tools']) && (b['tools'] as unknown[]).length > 0
     const hasManyMessages = messages.length > 2
     if (hasUser && (hasTools || hasManyMessages)) {
       return b

@@ -8,7 +8,12 @@ import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
 import { parseRequestBody } from '../proxy/parser.js'
 import { scanFilesystem } from '../collectors/fs-collector.js'
 import { getAllTools, headroomTool, ponytailTool } from '../tools/index.js'
-import { DEFAULT_PROXY_PORT, SAVE_TOKEN_DIR, type ToolDetection, type ProxyDiagnosisData } from '../types/index.js'
+import {
+  DEFAULT_PROXY_PORT,
+  SAVE_TOKEN_DIR,
+  type ToolDetection,
+  type ProxyDiagnosisData,
+} from '../types/index.js'
 
 export interface DiagnoseOptions {
   agent?: string

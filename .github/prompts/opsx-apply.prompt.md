@@ -20,9 +20,11 @@ description: 从 OpenSpec 变更中实现任务（实验性）
    始终宣告："使用变更：<name>"，以及如何覆盖（例如 `/opsx:apply <other>`）。
 
 2. **检查状态以理解 schema**
+
    ```bash
    openspec-cn status --change "<name>" --json
    ```
+
    解析 JSON 以理解：
    - `schemaName`：使用的工作流（例如 "spec-driven"）
    - `planningHome`、`changeRoot` 和 `actionContext`：规划范围与编辑约束
@@ -135,6 +137,7 @@ description: 从 OpenSpec 变更中实现任务（实验性）
 ```
 
 **护栏**
+
 - 持续处理任务直至完成或受阻
 - 开始前始终读取上下文文件（来自实现指令输出）
 - 若任务有歧义，暂停并询问后再实现

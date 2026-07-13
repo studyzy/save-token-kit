@@ -8,7 +8,14 @@ import type {
 } from '../types/index.js'
 import { MCP_CLI_ALTERNATIVES, LOW_FREQUENCY_PLUGINS } from '../types/index.js'
 import type { PlatformAdapter } from '../adapters/platform-adapter.js'
-import { exists, getStats, readDir, readFile, isDirectory, readJsonSafe } from '../utils/fs-operations.js'
+import {
+  exists,
+  getStats,
+  readDir,
+  readFile,
+  isDirectory,
+  readJsonSafe,
+} from '../utils/fs-operations.js'
 import { estimate, estimateMcpTokens, impactLevel } from './token-estimator.js'
 
 export interface FsCollectResult {

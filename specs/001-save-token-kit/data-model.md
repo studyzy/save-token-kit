@@ -34,7 +34,15 @@ interface ContextOverview {
 
 interface ContextItem {
   /** Category: system-prompt, system-tools, memory-file, skill, mcp-tools, messages */
-  type: 'system-prompt' | 'system-tools' | 'memory-file' | 'skill' | 'mcp-tools' | 'messages' | 'rules' | 'hooks'
+  type:
+    | 'system-prompt'
+    | 'system-tools'
+    | 'memory-file'
+    | 'skill'
+    | 'mcp-tools'
+    | 'messages'
+    | 'rules'
+    | 'hooks'
   /** Human-readable name */
   name: string
   /** Estimated token count */
@@ -106,13 +114,13 @@ interface AnalysisSuggestion {
   detail: string
   /** 操作类型 */
   operationType:
-    | 'disable-skill'      // 禁用某个 Skill
-    | 'disable-mcp'        // 关闭某个 MCP
-    | 'defer-mcp'          // 改为延迟加载 MCP
+    | 'disable-skill' // 禁用某个 Skill
+    | 'disable-mcp' // 关闭某个 MCP
+    | 'defer-mcp' // 改为延迟加载 MCP
     | 'replace-mcp-with-cli' // 用 CLI 替代 MCP
-    | 'trim-codebuddy-md'  // 精简 CODEBUDDY.md
-    | 'trim-file'          // 精简/移动某个配置文件
-    | 'install-tool'       // 安装省 Token 工具（RTK/Caveman 等）
+    | 'trim-codebuddy-md' // 精简 CODEBUDDY.md
+    | 'trim-file' // 精简/移动某个配置文件
+    | 'install-tool' // 安装省 Token 工具（RTK/Caveman 等）
     | 'other'
   /** 目标标识（skill 名 / mcp 名 / 文件路径），依 operationType 而定 */
   target?: string

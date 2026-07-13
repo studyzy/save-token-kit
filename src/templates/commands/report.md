@@ -1,7 +1,7 @@
 ---
 name: stk:report
-description: "对比优化前后诊断报告，生成 Token 节省结果对比报告并落盘 save-token-report.json"
-argument-hint: ""
+description: '对比优化前后诊断报告，生成 Token 节省结果对比报告并落盘 save-token-report.json'
+argument-hint: ''
 ---
 
 # /stk-report

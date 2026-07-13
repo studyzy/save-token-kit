@@ -5,8 +5,8 @@ license: MIT
 compatibility: 需要 openspec-cn CLI。
 metadata:
   author: openspec
-  version: "1.0"
-  generatedBy: "1.5.0"
+  version: '1.0'
+  generatedBy: '1.5.0'
 ---
 
 在实验性工作流中归档已完成的变更。
@@ -71,6 +71,7 @@ metadata:
 5. **执行归档**
 
    若 `planningHome.changesDir` 下不存在 `archive` 目录则创建：
+
    ```bash
    mkdir -p "<planningHome.changesDir>/archive"
    ```
@@ -108,6 +109,7 @@ metadata:
 ```
 
 **护栏**
+
 - 若未提供变更选择，始终提示
 - 使用产出物图（openspec-cn status --json）检查完成情况
 - 不要因警告阻止归档 - 仅告知并确认

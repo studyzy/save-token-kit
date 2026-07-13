@@ -41,6 +41,7 @@ CLI 入口 `src/cli.ts`（cac）注册三个命令：`diagnose`、`init`、`roll
 6. 第三方省 Token 工具检测通过 `tools/registry.ts` 注册表（`tools/index.ts` 导入各 `impl/*` 触发自注册）配合 `detectToolsViaRegistry` 完成。
 
 **契约类型（`src/types/index.ts`）** 是数据模型核心，需跨多文件理解：
+
 - `DiagnosisReport` ← `stk diagnose`（JSON 契约见文件头注释，对应 `diagnosis-report.json`）
 - `AnalysisFile`（analysis.json）← `/stk-analyze`；`TasksFile`（tasks.json）← `/stk-optimize`；`SaveTokenReport`（save-token-report.json）← `/stk-report`
 - `ProxyDiagnosisData` / `ProxyCapture` 是代理采集的中间结构

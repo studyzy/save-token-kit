@@ -8,6 +8,7 @@
 **决策**: 使用 `cac`（参考 save-token）
 
 **理由**:
+
 - save-token 已验证 `cac` 的轻量性和实用性
 - 比 Commander.js 更精简（符合 Token 效率原则和章程"简洁至上"）
 - 原生 TypeScript 支持，ESM 兼容
@@ -20,6 +21,7 @@
 **决策**: 使用 Node.js 原生 `http` 模块实现（参考 save-token 的 `src/proxy/server.ts`）
 
 **关键技术点**:
+
 - **默认端口**: 8899（规范中定义），端口冲突时自动回退到随机端口
 - **Agent 路由**: `--agent` 决定 Proxy 的目标配置（API base、触发命令、环境变量名）。本期仅 `codebuddy`：`CODEBUDDY_BASE_URL` + `codebuddy -p`；其他 Agent 暂未实现，由 CLI 在参数解析阶段拦截报错。
 - **拦截目标**: `POST /v2/*` 路径的请求（CodeBuddy 发送给 LLM 的 API）
@@ -29,6 +31,7 @@
 - **请求体捕获**: 在 `req.on('end')` 中拦截有 body 的 POST 请求，JSON.parse 后保存
 
 **理由**:
+
 - save-token 的 Proxy 实现已充分验证，核心逻辑可复用
 - 原生 `http` 模块零依赖，符合"简洁至上"原则
 - 透明转发保证 CodeBuddy 正常对话不受影响（延迟 <100ms）
@@ -38,6 +41,7 @@
 **决策**: 实现独立的请求体解析器（参考 save-token 的 `src/proxy/parser.ts`）
 
 **解析内容**:
+
 - **Messages 分解**: 按 role（system/user/assistant）分类统计 token
 - **特殊内容识别**: system prompt、memory files（`<system-reminder data-role="memory">`）、rules（`<rules>`、`codebuddyMd`）
 - **Tools 分类**: builtin tools / MCP tools（`mcp__` 前缀）/ deferred tools
@@ -51,6 +55,7 @@
 **决策**: 采用 save-token 的 CJK 感知算法
 
 **算法**:
+
 - 纯 ASCII: `Math.ceil(content.length / 3.3)`（基于 cl100k/Claude BPE 实测，比朴素 4.0 更准）
 - 混合 CJK: `Math.ceil(ASCII长度 / 3.3) + CJK字符数`（CJK ≈ 1.0 token/字符）
 - 纯 ASCII 快路径：先 `!/[\u0080-\uFFFF]/.test(content)` 跳过逐字符扫描
@@ -65,16 +70,17 @@
 
 **决策**: CLI 写 2 个 JSON 文件（每次覆盖）；Markdown 报告由用户重定向保存，CLI 不写 `.md`
 
-| 文件 | 内容 | 来源 |
-|---|---|---|
-| `./save-token/proxy-raw-body.json` | 原始 POST 请求体 | CLI 写入（覆盖） |
-| `./save-token/diagnosis-report.json` | 解析后的结构化 JSON 报告（仅最近一次） | CLI 写入（覆盖） |
-| `./save-token/diagnosis-report.md` | 首次诊断 Markdown 报告 | `stk diagnose >> ./save-token/diagnosis-report.md` |
-| `./save-token/diagnosis-report2.md` | 优化后二次诊断 Markdown 报告 | `stk diagnose >> ./save-token/diagnosis-report2.md` |
+| 文件                                 | 内容                                   | 来源                                                |
+| ------------------------------------ | -------------------------------------- | --------------------------------------------------- |
+| `./save-token/proxy-raw-body.json`   | 原始 POST 请求体                       | CLI 写入（覆盖）                                    |
+| `./save-token/diagnosis-report.json` | 解析后的结构化 JSON 报告（仅最近一次） | CLI 写入（覆盖）                                    |
+| `./save-token/diagnosis-report.md`   | 首次诊断 Markdown 报告                 | `stk diagnose >> ./save-token/diagnosis-report.md`  |
+| `./save-token/diagnosis-report2.md`  | 优化后二次诊断 Markdown 报告           | `stk diagnose >> ./save-token/diagnosis-report2.md` |
 
 **对比约定**：`/stk-report` 的 before/after 对比以两个 `.md` 文件为准；`diagnosis-report.json` 每次被覆盖、不保留历史。
 
 **diagnosis-report.json 结构**: 基于 save-token 的 `DiagnosisReport` 类型，精简为必要字段：
+
 - `scanTimestamp`: 扫描时间戳
 - `codebuddyVersion`: CodeBuddy 版本
 - `contextOverview`: Token 总览（totalTokens + breakdown 数组）
@@ -88,12 +94,14 @@
 **决策**: 效仿 OpenSpec-cn 的 `InitCommand`（`src/core/init.ts`），使用 `@inquirer/prompts` 做交互式选择
 
 **交互流程**:
+
 1. 检测项目根目录（`.git` 或 `package.json`）
 2. 展示 AI Agent 列表（CodeBuddy 可选，其余标记"暂不支持"）
 3. 用户选择后，将 Commands 和 SKILL 文件写入对应目录
 4. 已有文件时提示确认覆盖
 
 **CodeBuddy 适配器**（参考 OpenSpec-cn 的 `codebuddyAdapter`）:
+
 - Commands 路径: `.codebuddy/commands/save-token-kit/{command}.md`
 - Skills 路径: `.codebuddy/skills/{skill}/SKILL.md`
 - Frontmatter 格式: `name`, `description`, `argument-hint`
@@ -101,6 +109,7 @@
 **Commands/SKILL 文件内容**: 预定义的模板文件，通过 CLI 内置的字符串模板生成，不需要从文件系统读取。
 
 **理由**:
+
 - OpenSpec-cn 的 init 模式已成熟验证
 - `@inquirer/prompts` 提供良好的交互体验
 - 适配器模式便于后续扩展（Claude Code、Cursor 等）
@@ -114,17 +123,19 @@
 **决策**: 效仿 OpenSpec-cn 的格式
 
 **Command 文件格式** (`.codebuddy/commands/save-token-kit/{name}.md`，文件名 `diagnose.md`/`analyze.md`/`optimize.md`/`report.md`):
+
 ```markdown
 ---
 name: stk-diagnose
-description: "诊断当前 CodeBuddy 环境的 Token 占用情况"
-argument-hint: "[options]"
+description: '诊断当前 CodeBuddy 环境的 Token 占用情况'
+argument-hint: '[options]'
 ---
 
 [中文指令正文，告诉 AI Agent 如何执行诊断]
 ```
 
 **SKILL 文件格式** (`.codebuddy/skills/st-{name}/SKILL.md`):
+
 ```markdown
 ---
 name: st-diagnose
@@ -133,7 +144,7 @@ license: MIT
 compatibility: 需要 stk CLI。
 metadata:
   author: save-token-kit
-  version: "1.0"
+  version: '1.0'
 ---
 
 [中文指令正文，告诉 AI Agent 如何执行诊断]
@@ -178,6 +189,7 @@ tests/
 ```
 
 **理由**:
+
 - save-token 的分层结构清晰，职责分离好
 - 去掉 save-token 中不需要的模块（analyzers、tools、i18n 等）
 - 新增 `templates/` 目录存放 Command/SKILL 模板
@@ -187,11 +199,13 @@ tests/
 **决策**: 使用 `unbuild` 构建 + `vitest` 测试（参考 save-token）
 
 **构建配置**:
+
 - `unbuild` 单文件打包，`entries: ['src/cli']`
 - `declaration: true`，`clean: true`
 - rollup: `emitCJS: false`（纯 ESM），`inlineDependencies: true`
 
 **测试配置**:
+
 - `vitest` + `@vitest/coverage-v8`
 - 覆盖率阈值: 60%（branches/functions/lines/statements）
 - 测试文件: `tests/**/*.test.ts`
@@ -201,27 +215,27 @@ tests/
 
 ## 11. 技术栈汇总
 
-| 类别 | 选择 | 参考来源 |
-|---|---|---|
-| 语言 | TypeScript strict, ESM | 章程 |
-| 运行时 | Node.js >= 18 | 章程 |
-| 包管理 | pnpm | 章程 |
-| CLI 框架 | cac | save-token |
-| 构建 | unbuild | save-token |
-| 测试 | vitest + @vitest/coverage-v8 | 章程 + save-token |
-| 代码规范 | ESLint + Prettier | 章程 |
-| 交互提示 | @inquirer/prompts | OpenSpec-cn |
-| 终端颜色 | ansis | save-token |
-| 子进程 | tinyexec | save-token |
-| 版本管理 | Changesets | 章程 |
+| 类别     | 选择                         | 参考来源          |
+| -------- | ---------------------------- | ----------------- |
+| 语言     | TypeScript strict, ESM       | 章程              |
+| 运行时   | Node.js >= 18                | 章程              |
+| 包管理   | pnpm                         | 章程              |
+| CLI 框架 | cac                          | save-token        |
+| 构建     | unbuild                      | save-token        |
+| 测试     | vitest + @vitest/coverage-v8 | 章程 + save-token |
+| 代码规范 | ESLint + Prettier            | 章程              |
+| 交互提示 | @inquirer/prompts            | OpenSpec-cn       |
+| 终端颜色 | ansis                        | save-token        |
+| 子进程   | tinyexec                     | save-token        |
+| 版本管理 | Changesets                   | 章程              |
 
 ## 12. 关键差异：stk vs save-token
 
-| 维度 | save-token（旧版） | stk（新版） |
-|---|---|---|
+| 维度     | save-token（旧版）                                      | stk（新版）                                                           |
+| -------- | ------------------------------------------------------- | --------------------------------------------------------------------- |
 | CLI 命令 | 6 个（diagnose/analyze/optimize/rollback/report/trace） | 2 个（diagnose/init）；analyze/optimize/report 由 Commands/SKILL 驱动 |
-| 分析优化 | CLI 硬编码规则 + LLM 辅助 | AI Agent 通过 Commands/SKILL 完成 |
-| 多平台 | PlatformAdapter 接口（仅 CodeBuddy 实现） | 预留扩展，本期仅 CodeBuddy |
-| i18n | i18next（中英文） | 无（章程"简洁至上"，中文默认） |
-| 插件 | 有 Plugin 封装 | 无（仅 Commands + SKILL） |
-| 安装 | npm 全局安装 | `stk init` 交互式安装 Commands/SKILL |
+| 分析优化 | CLI 硬编码规则 + LLM 辅助                               | AI Agent 通过 Commands/SKILL 完成                                     |
+| 多平台   | PlatformAdapter 接口（仅 CodeBuddy 实现）               | 预留扩展，本期仅 CodeBuddy                                            |
+| i18n     | i18next（中英文）                                       | 无（章程"简洁至上"，中文默认）                                        |
+| 插件     | 有 Plugin 封装                                          | 无（仅 Commands + SKILL）                                             |
+| 安装     | npm 全局安装                                            | `stk init` 交互式安装 Commands/SKILL                                  |

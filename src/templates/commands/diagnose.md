@@ -1,7 +1,7 @@
 ---
 name: stk:diagnose
-description: "诊断当前 CodeBuddy 会话的 Token 占用，采集 System Prompt / Tools / Skills / Messages 各部分用量"
-argument-hint: ""
+description: '诊断当前 CodeBuddy 会话的 Token 占用，采集 System Prompt / Tools / Skills / Messages 各部分用量'
+argument-hint: ''
 ---
 
 # /stk-diagnose
@@ -24,4 +24,5 @@ argument-hint: ""
 4. 如 `warnings` 字段非空，高亮提示用户（如 MCP 工具过多、Skills 占用过高等）。
 
 ## 注意
+
 如实展示`diagnosis-report.md`的内容即可，无需点评或者给出建议。

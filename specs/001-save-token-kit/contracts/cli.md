@@ -12,11 +12,11 @@ stk diagnose [options]
 
 ### 选项
 
-| 选项 | 类型 | 默认值 | 说明 |
-|---|---|---|---|
-| `--agent <name>` | string | `codebuddy` | 目标 AI Agent（`codebuddy` 可用；`claude`/`codex`/`cursor` 暂不支持） |
-| `--port <number>` | number | 8899 | 代理监听端口 |
-| `--help` | flag | - | 显示帮助信息 |
+| 选项              | 类型   | 默认值      | 说明                                                                  |
+| ----------------- | ------ | ----------- | --------------------------------------------------------------------- |
+| `--agent <name>`  | string | `codebuddy` | 目标 AI Agent（`codebuddy` 可用；`claude`/`codex`/`cursor` 暂不支持） |
+| `--port <number>` | number | 8899        | 代理监听端口                                                          |
+| `--help`          | flag   | -           | 显示帮助信息                                                          |
 
 ### 行为
 
@@ -39,13 +39,13 @@ stk diagnose [options]
 
 ### 退出码
 
-| 码 | 说明 |
-|---|---|
-| 0 | 成功 |
-| 1 | CodeBuddy 未安装或不在 PATH 中；或指定了暂不支持的 Agent（`--agent` 非 `codebuddy`） |
-| 2 | 端口被占用 |
-| 3 | Proxy 启动失败 |
-| 4 | 请求捕获失败（无请求被拦截） |
+| 码  | 说明                                                                                 |
+| --- | ------------------------------------------------------------------------------------ |
+| 0   | 成功                                                                                 |
+| 1   | CodeBuddy 未安装或不在 PATH 中；或指定了暂不支持的 Agent（`--agent` 非 `codebuddy`） |
+| 2   | 端口被占用                                                                           |
+| 3   | Proxy 启动失败                                                                       |
+| 4   | 请求捕获失败（无请求被拦截）                                                         |
 
 ### 示例
 
@@ -80,13 +80,13 @@ stk init [options]
 
 ### 选项
 
-| 选项 | 类型 | 默认值 | 说明 |
-|---|---|---|---|
-| `--agent <name>` | string | - | 直接指定 AI Agent（跳过交互选择） |
-| `--local` | flag | - | 安装到项目级 `.codebuddy/` 而非全局 `~/.codebuddy/` |
-| `--skills` | flag | - | 额外安装 SKILL 文件（默认不安装） |
-| `--force` | flag | - | 覆盖已有文件而不提示确认 |
-| `--help` | flag | - | 显示帮助信息 |
+| 选项             | 类型   | 默认值 | 说明                                                |
+| ---------------- | ------ | ------ | --------------------------------------------------- |
+| `--agent <name>` | string | -      | 直接指定 AI Agent（跳过交互选择）                   |
+| `--local`        | flag   | -      | 安装到项目级 `.codebuddy/` 而非全局 `~/.codebuddy/` |
+| `--skills`       | flag   | -      | 额外安装 SKILL 文件（默认不安装）                   |
+| `--force`        | flag   | -      | 覆盖已有文件而不提示确认                            |
+| `--help`         | flag   | -      | 显示帮助信息                                        |
 
 ### 行为
 
@@ -98,22 +98,24 @@ stk init [options]
 
 ### AI Agent 支持
 
-| Agent | 状态 | Commands 目录 | Skills 目录 |
-|---|---|---|---|
-| `codebuddy` | 可用 | `~/.codebuddy/commands/save-token-kit/`（全局）或 `.codebuddy/commands/save-token-kit/`（`--local`） | `~/.codebuddy/skills/`（`--skills`）或 `.codebuddy/skills/`（`--local --skills`） |
-| `claude` | 暂不支持 | - | - |
-| `codex` | 暂不支持 | - | - |
-| `cursor` | 暂不支持 | - | - |
+| Agent       | 状态     | Commands 目录                                                                                        | Skills 目录                                                                       |
+| ----------- | -------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `codebuddy` | 可用     | `~/.codebuddy/commands/save-token-kit/`（全局）或 `.codebuddy/commands/save-token-kit/`（`--local`） | `~/.codebuddy/skills/`（`--skills`）或 `.codebuddy/skills/`（`--local --skills`） |
+| `claude`    | 暂不支持 | -                                                                                                    | -                                                                                 |
+| `codex`     | 暂不支持 | -                                                                                                    | -                                                                                 |
+| `cursor`    | 暂不支持 | -                                                                                                    | -                                                                                 |
 
 ### 安装的文件
 
 **Commands** (`.codebuddy/commands/save-token-kit/`):
+
 - `diagnose.md`
 - `analyze.md`
 - `optimize.md`
 - `report.md`
 
 **Skills** (`.codebuddy/skills/`):
+
 - `st-diagnose/SKILL.md`
 - `st-analyze/SKILL.md`
 - `st-optimize/SKILL.md`
@@ -126,11 +128,11 @@ stk init [options]
 
 ### 退出码
 
-| 码 | 说明 |
-|---|---|
-| 0 | 成功 |
-| 1 | 用户取消操作 |
-| 2 | 文件写入失败 |
+| 码  | 说明         |
+| --- | ------------ |
+| 0   | 成功         |
+| 1   | 用户取消操作 |
+| 2   | 文件写入失败 |
 
 ### 示例
 

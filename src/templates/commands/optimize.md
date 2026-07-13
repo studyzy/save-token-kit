@@ -1,7 +1,7 @@
 ---
 name: stk:optimize
-description: "执行 analysis.json 中的优化建议，修改配置文件/禁用 MCP/Skill，并落盘 tasks.json"
-argument-hint: ""
+description: '执行 analysis.json 中的优化建议，修改配置文件/禁用 MCP/Skill，并落盘 tasks.json'
+argument-hint: ''
 ---
 
 # /stk-optimize

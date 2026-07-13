@@ -27,12 +27,12 @@ stk init
 
 ### 安装选项
 
-| 选项 | 说明 |
-|---|---|
-| `--local` | 安装到项目级 `.codebuddy/`（默认全局 `~/.codebuddy/`） |
-| `--skills` | 额外安装 4 个 SKILL 文件 |
-| `--force` | 覆盖已存在的文件 |
-| `--agent <name>` | 目标 Agent（本期仅 `codebuddy`） |
+| 选项             | 说明                                                   |
+| ---------------- | ------------------------------------------------------ |
+| `--local`        | 安装到项目级 `.codebuddy/`（默认全局 `~/.codebuddy/`） |
+| `--skills`       | 额外安装 4 个 SKILL 文件                               |
+| `--force`        | 覆盖已存在的文件                                       |
+| `--agent <name>` | 目标 Agent（本期仅 `codebuddy`）                       |
 
 ## 完整工作流
 
@@ -56,11 +56,11 @@ stk diagnose >> ./save-token/diagnosis-report.md   # 保存首次报告
 在 CodeBuddy 对话中依次运行 `/stk-diagnose` → `/stk-analyze` → `/stk-optimize` → `/stk-report`。
 各阶段产物：
 
-| 文件 | 阶段 | 说明 |
-|---|---|---|
-| `analysis.json` | /stk-analyze | 优化建议（机器可读） |
-| `tasks.json` | /stk-optimize | 优化任务执行结果 |
-| `save-token-report.json` | /stk-report | 前后 Token 对比报告 |
+| 文件                     | 阶段          | 说明                 |
+| ------------------------ | ------------- | -------------------- |
+| `analysis.json`          | /stk-analyze  | 优化建议（机器可读） |
+| `tasks.json`             | /stk-optimize | 优化任务执行结果     |
+| `save-token-report.json` | /stk-report   | 前后 Token 对比报告  |
 
 优化后重新诊断：`stk diagnose >> ./save-token/diagnosis-report2.md`。
 
@@ -68,10 +68,10 @@ stk diagnose >> ./save-token/diagnosis-report.md   # 保存首次报告
 
 ### `stk diagnose`
 
-| 选项 | 默认值 | 说明 |
-|---|---|---|
-| `--agent <name>` | `codebuddy` | 目标 Agent（`claude`/`codex`/`cursor` 暂不支持） |
-| `--port <number>` | `8899` | 代理端口（占用时自动回退随机端口） |
+| 选项              | 默认值      | 说明                                             |
+| ----------------- | ----------- | ------------------------------------------------ |
+| `--agent <name>`  | `codebuddy` | 目标 Agent（`claude`/`codex`/`cursor` 暂不支持） |
+| `--port <number>` | `8899`      | 代理端口（占用时自动回退随机端口）               |
 
 ### `stk rollback`
 

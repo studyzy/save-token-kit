@@ -27,10 +27,7 @@ function templatesDir(): string {
     dir = dirname(dir)
   }
   const pkgRoot = dir
-  const candidates = [
-    join(pkgRoot, 'src', 'templates'),
-    join(pkgRoot, 'templates'),
-  ]
+  const candidates = [join(pkgRoot, 'src', 'templates'), join(pkgRoot, 'templates')]
   return candidates.find((c) => existsSync(join(c, 'commands'))) ?? candidates[0]
 }
 

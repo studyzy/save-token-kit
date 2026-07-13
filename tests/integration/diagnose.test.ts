@@ -22,7 +22,10 @@ describe('stk diagnose pipeline', () => {
         { role: 'system', content: 'you are a helpful assistant' },
         { role: 'user', content: 'hi' },
       ],
-      tools: [{ type: 'function', function: { name: 'Read' } }, { type: 'function', function: { name: 'mcp__github__search' } }],
+      tools: [
+        { type: 'function', function: { name: 'Read' } },
+        { type: 'function', function: { name: 'mcp__github__search' } },
+      ],
     })
     await new Promise<void>((resolve, reject) => {
       const req = http.request(

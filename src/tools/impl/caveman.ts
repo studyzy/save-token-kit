@@ -8,7 +8,8 @@ class CavemanTool extends BaseSaveTokenTool {
   readonly description = 'Caveman — AI 回复压缩 65-75%'
   readonly savingEstimate = '65-75% AI 回复压缩'
   readonly type = 'plugin'
-  readonly installCommand = 'git clone https://github.com/studyzy/caveman /tmp/caveman && cd /tmp/caveman && ./install.sh'
+  readonly installCommand =
+    'git clone https://github.com/studyzy/caveman /tmp/caveman && cd /tmp/caveman && ./install.sh'
   readonly verifyCommand = 'ls ~/.codebuddy/plugins/marketplaces/caveman/'
   readonly configCommand = ''
 

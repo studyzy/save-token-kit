@@ -13,7 +13,7 @@
 - **Commands**：定义 CodeBuddy 对话中可用的 `/stk-diagnose`、`/stk-analyze`、`/stk-optimize` 等斜杠命令，作为 AI Agent 执行诊断/分析/优化工作流的入口。
 - **SKILL**：为每个命令提供具体的执行指令，告诉 AI Agent 如何解读诊断报告、如何分析 Token 优化空间、如何执行优化操作。分析和优化的决策由 AI Agent 完成，不是 stk CLI 的硬编码规则。
 
-## 用户场景与测试 *(必填)*
+## 用户场景与测试 _(必填)_
 
 ### 用户故事 1 - stk diagnose 诊断 Token 占用 (优先级: P1)
 
@@ -27,16 +27,16 @@
 
 `stk diagnose` 执行后将 2 个 JSON 文件写入当前项目的 `save-token/` 目录（每次运行**覆盖**旧文件）：
 
-| 文件 | 说明 |
-|---|---|
-| `proxy-raw-body.json` | 原始 POST 请求体，未经解析的完整内容 |
+| 文件                    | 说明                                               |
+| ----------------------- | -------------------------------------------------- |
+| `proxy-raw-body.json`   | 原始 POST 请求体，未经解析的完整内容               |
 | `diagnosis-report.json` | 解析后的结构化 JSON 诊断报告（仅反映最近一次诊断） |
 
 控制台另以 Markdown 格式输出诊断摘要，用户通过重定向保存为 `.md` 文件，CLI 本身**不写** `.md`：
 
-| 文件 | 说明 | 生成方式 |
-|---|---|---|
-| `diagnosis-report.md` | 首次诊断的 Markdown 报告 | `stk diagnose >> ./save-token/diagnosis-report.md` |
+| 文件                   | 说明                           | 生成方式                                            |
+| ---------------------- | ------------------------------ | --------------------------------------------------- |
+| `diagnosis-report.md`  | 首次诊断的 Markdown 报告       | `stk diagnose >> ./save-token/diagnosis-report.md`  |
 | `diagnosis-report2.md` | 优化后二次诊断的 Markdown 报告 | `stk diagnose >> ./save-token/diagnosis-report2.md` |
 
 **对比约定**：`/stk-report` 的 before/after 对比**以两个 `.md` 文件为准**（`diagnosis-report.md` 为前、`diagnosis-report2.md` 为后）。`diagnosis-report.json` 每次被覆盖、不保留历史，不用于对比。
@@ -101,11 +101,11 @@
 
 **对比报告数据源**:
 
-| 文件 | 说明 |
-|---|---|
-| `./save-token/diagnosis-report.md` | 优化前的诊断报告（Markdown） |
-| `./save-token/diagnosis-report2.md` | 优化后重新诊断的报告（Markdown） |
-| `./save-token/tasks.json` | `/stk-optimize` 阶段生成的优化任务执行结果（可选） |
+| 文件                                | 说明                                               |
+| ----------------------------------- | -------------------------------------------------- |
+| `./save-token/diagnosis-report.md`  | 优化前的诊断报告（Markdown）                       |
+| `./save-token/diagnosis-report2.md` | 优化后重新诊断的报告（Markdown）                   |
+| `./save-token/tasks.json`           | `/stk-optimize` 阶段生成的优化任务执行结果（可选） |
 
 **验收场景**:
 
@@ -177,7 +177,7 @@ $ stk init
 - 当 `.codebuddy/commands/` 或 `.codebuddy/skills/` 目录已存在同名文件时，`stk init` 应提示用户确认是否覆盖（除非指定 `--force`）。
 - 当用户选择了标记为"暂不支持"的 AI Agent 时，应明确提示"该 Agent 暂不支持，欢迎贡献"并退出。
 
-## 需求 *(必填)*
+## 需求 _(必填)_
 
 ### 功能需求
 
@@ -211,7 +211,7 @@ $ stk init
 - **FR-021**: 诊断数据必须包含：上下文总览（各部分 Token 占用）、MCP 列表（名称/工具数量/状态）、Skill 列表（名称/来源/Token 占用）、配置文件摘要（CODEBUDDY.md 大小、settings.json 关键配置、hooks 列表）。
 - **FR-022**: 诊断数据必须支持结构化 JSON 输出（`diagnosis-report.json`），字段命名使用英文，字段值中的描述文本使用中文。
 
-### 关键实体 *(如果功能涉及数据则包含)*
+### 关键实体 _(如果功能涉及数据则包含)_
 
 - **诊断报告 (DiagnosisReport)**: Proxy 采集的完整数据，包含请求概览（请求次数、时间范围）、各部分 Token 占用明细（System Prompt/Tools/Skills/Memory/Messages）、MCP 列表、Skill 列表、配置文件摘要、采集时间戳。CLI 写 `diagnosis-report.json`，Markdown 由用户重定向为 `diagnosis-report.md` / `diagnosis-report2.md`。
 - **优化建议 (OptimizationSuggestion)**: AI Agent 生成的单条建议（落盘 `analysis.json`），包含类型、目标、原因、预估节省 Token 数、风险等级、是否可逆、操作描述。
@@ -219,7 +219,7 @@ $ stk init
 - **优化结果对比报告 (SaveTokenReport)**: AI Agent 生成的优化效果对比报告（落盘 `save-token-report.json`），包含优化前后 Token 占用对比、各类别变化明细、任务执行效果汇总、总体节省摘要。
 - **rollback 已移除**：本期不实现 `stk rollback` 与备份记录。
 
-## 成功标准 *(必填)*
+## 成功标准 _(必填)_
 
 ### 可衡量的结果
 
@@ -237,14 +237,14 @@ $ stk init
 
 本项目效仿 OpenSpec-cn 的 Commands + SKILL 驱动架构：
 
-| OpenSpec-cn | Save Token Kit |
-|---|---|
-| `openspec-cn init` — 初始化项目配置 | `stk init` — 安装 Commands 和 SKILL 到 AI Agent |
-| `/opsx:explore` — 探索项目结构 | `/stk-diagnose` — 诊断 Token 占用 |
-| `/opsx:propose` — 生成变更提案 | `/stk-analyze` — 生成优化建议 |
-| `/opsx:apply` — 执行变更 | `/stk-optimize` — 执行优化操作 |
-| `/opsx:archive` — 归档已完成变更 | `/stk-report` — 生成优化结果对比报告 |
-| CLI `openspec-cn` — 管理制品 | CLI `stk` — `stk init` / `stk diagnose`（诊断采集）；分析与优化由 Commands/SKILL 驱动 |
+| OpenSpec-cn                         | Save Token Kit                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------------- |
+| `openspec-cn init` — 初始化项目配置 | `stk init` — 安装 Commands 和 SKILL 到 AI Agent                                       |
+| `/opsx:explore` — 探索项目结构      | `/stk-diagnose` — 诊断 Token 占用                                                     |
+| `/opsx:propose` — 生成变更提案      | `/stk-analyze` — 生成优化建议                                                         |
+| `/opsx:apply` — 执行变更            | `/stk-optimize` — 执行优化操作                                                        |
+| `/opsx:archive` — 归档已完成变更    | `/stk-report` — 生成优化结果对比报告                                                  |
+| CLI `openspec-cn` — 管理制品        | CLI `stk` — `stk init` / `stk diagnose`（诊断采集）；分析与优化由 Commands/SKILL 驱动 |
 
 **工作流**: `/stk-diagnose` → `/stk-analyze` → `/stk-optimize` → (重新 `stk diagnose`) → `/stk-report`
 

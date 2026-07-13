@@ -1,7 +1,7 @@
 ---
 name: stk-report
-description: "对比优化前后诊断报告，生成 save-token-report.json 结果对比"
-argument-hint: ""
+description: '对比优化前后诊断报告，生成 save-token-report.json 结果对比'
+argument-hint: ''
 ---
 
 # SKILL: stk-report

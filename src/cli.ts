@@ -26,15 +26,15 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     .option('--skills', 'Also install the 4 SKILL files')
     .option('--force', 'Overwrite existing files without prompting')
     .option('--agent <name>', 'Target AI agent (default: codebuddy)', { default: 'codebuddy' })
-    .action(async (options: { local?: boolean; skills?: boolean; force?: boolean; agent: string }) => {
-      await runInit(options)
-    })
+    .action(
+      async (options: { local?: boolean; skills?: boolean; force?: boolean; agent: string }) => {
+        await runInit(options)
+      },
+    )
 
-  cli
-    .command('rollback', 'Restore configuration from backup (reserved)')
-    .action(async () => {
-      await runRollback()
-    })
+  cli.command('rollback', 'Restore configuration from backup (reserved)').action(async () => {
+    await runRollback()
+  })
 
   cli.help()
   cli.version('0.1.0')
@@ -54,6 +54,9 @@ import { realpathSync } from 'node:fs'
 import { DEFAULT_PROXY_PORT } from './types/index.js'
 // Resolve symlinks: when installed via bin symlink, process.argv[1] is the
 // symlink path while import.meta.url resolves to the real file.
-if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
+if (
+  process.argv[1] &&
+  realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
+) {
   main().catch(() => process.exit(1))
 }

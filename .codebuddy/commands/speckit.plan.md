@@ -25,7 +25,7 @@ $ARGUMENTS
 
 2. **加载上下文**: 读取 FEATURE_SPEC 和 `.specify/memory/constitution.md`. 加载 IMPL_PLAN 模板(已复制).
 
-3. **执行计划工作流**: 按照 IMPL_PLAN 模板中的结构: 
+3. **执行计划工作流**: 按照 IMPL_PLAN 模板中的结构:
    - 填充技术上下文(将未知项标记为 NEEDS CLARIFICATION)
    - 从章程文档填充章程检查部分
    - 评估关卡(如果违规无正当理由则报错)
@@ -40,12 +40,13 @@ $ARGUMENTS
 
 ### 阶段 0: 大纲与研究
 
-1. **从上述技术上下文中提取未知项**: 
+1. **从上述技术上下文中提取未知项**:
    - 每个 NEEDS CLARIFICATION → 研究任务
    - 每个依赖项 → 最佳实践任务
    - 每个集成 → 模式任务
 
-2. **生成和分发研究代理**: 
+2. **生成和分发研究代理**:
+
    ```
    For each unknown in Technical Context:
      Task: "Research {unknown} for {feature context}"
@@ -53,7 +54,7 @@ $ARGUMENTS
      Task: "Find best practices for {tech} in {domain}"
    ```
 
-3. **在 `research.md` 中整合发现**, 使用格式: 
+3. **在 `research.md` 中整合发现**, 使用格式:
    - Decision: [选择了什么]
    - Rationale: [为什么选择]
    - Alternatives considered: [还评估了什么]
@@ -64,7 +65,7 @@ $ARGUMENTS
 
 **前提条件**: `research.md` 完成
 
-1. **从功能规范中提取实体** → `data-model.md`: 
+1. **从功能规范中提取实体** → `data-model.md`:
    - 实体名称, 字段, 关系
    - 来自需求的验证规则
    - 状态转换(如适用)
@@ -75,7 +76,7 @@ $ARGUMENTS
    - 示例: 库的公共 API、CLI 工具的命令模式、Web 服务的端点、解析器的语法、应用程序的 UI 合同
    - 如果项目是纯内部项目(构建脚本、一次性工具等), 跳过此步骤
 
-3. **代理上下文更新**: 
+3. **代理上下文更新**:
    - 运行 `.specify/scripts/bash/update-agent-context.sh codebuddy`
    - 这些脚本检测正在使用哪个 AI 代理
    - 更新相应的代理特定上下文文件

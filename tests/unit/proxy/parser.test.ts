@@ -32,9 +32,7 @@ describe('parseRequestBody', () => {
 
   it('classifies unknown tools as mcp', () => {
     const body = {
-      tools: [
-        { type: 'function', function: { name: 'SomeCustomTool', description: 'custom' } },
-      ],
+      tools: [{ type: 'function', function: { name: 'SomeCustomTool', description: 'custom' } }],
     }
     const r = parseRequestBody(body)
     expect(r.tools.mcp).toHaveLength(1)
@@ -98,7 +96,9 @@ describe('parseRequestBody', () => {
     const a = parseRequestBody({ messages: [{ role: 'user', content: 'a' }] })
     const b = parseRequestBody({ messages: [{ role: 'user', content: 'bb' }] })
     const agg = aggregateCaptures([a, b])
-    expect(agg.totalEstimatedTokens).toBe(Math.round((a.totalEstimatedTokens + b.totalEstimatedTokens) / 2))
+    expect(agg.totalEstimatedTokens).toBe(
+      Math.round((a.totalEstimatedTokens + b.totalEstimatedTokens) / 2),
+    )
   })
 
   it('returns empty diagnosis when no fragments provided', () => {
