@@ -20,6 +20,7 @@ export function buildDiagnosisReport(
   rawBodies: unknown[],
   fs?: FsCollectResult,
   toolDetection?: ToolDetection[],
+  codebuddyVersion?: string | null,
 ): DiagnosisReport {
   if (rawBodies.length === 0 && !fs) {
     return emptyReport()
@@ -124,7 +125,7 @@ export function buildDiagnosisReport(
 
   return {
     scanTimestamp: new Date().toISOString(),
-    codebuddyVersion: process.env.CODEBUDDY_VERSION ?? 'unknown',
+    codebuddyVersion: codebuddyVersion ?? process.env.CODEBUDDY_VERSION ?? 'unknown',
     contextOverview: { totalEstimatedTokens: total, breakdown: categories },
     mcpList: [...mcpMap.entries()].map(([name, info]) => ({
       name,
@@ -139,7 +140,7 @@ export function buildDiagnosisReport(
     hookList: fs?.hookList ?? [],
     ruleList: fs?.ruleList ?? [],
     configFiles: fs?.configFiles ?? [],
-    toolDetection: toolDetection ?? [],
+    toolDetection: (toolDetection ?? []).filter((t) => t.installed),
     headlessAvailable: false,
     dataSource: 'proxy',
     // Extended fields for rich terminal output

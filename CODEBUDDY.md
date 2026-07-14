@@ -63,3 +63,11 @@ CLI 入口 `src/cli.ts`（cac）注册三个命令：`diagnose`、`init`、`roll
 - 优化操作不自动备份，`rollback` 仅提示手动恢复——任何“节省 Token”的修改都是用户侧配置变更，本工具不反向修改。
 - 令牌估算全为 `length/4` 经验值，非真实 tokenizer，仅用于相对比较。
 - 所有产出物包括中间产物我最终报告等，都统一在`./save-token`文件夹。
+
+## 上下文节省（文档读取约定）
+
+本仓库含大量文档类 markdown（changelog、示例 docs、历史说明等，约 84 个）。为减少不必要的上下文占用：
+
+- **不要主动读取** `CHANGELOG*`、`**/changelog*`、纯文档目录（如 `docs/`、`examples/` 下的说明文档）等大体积 markdown，除非用户明确指向或任务确实需要。
+- 需要了解项目用法时，优先参考本 CODEBUDDY.md 与 `src/types/index.ts` 契约定义，而非回读全部文档。
+- skill 描述与插件说明已自动注入上下文，无需为“了解某个 skill 做什么”而额外读取其 SKILL.md。

@@ -8,3 +8,4 @@ save-token/
 *.log
 .env*
 .DS_Store
+.mcp.json

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { exec } from 'tinyexec'
 import { bold, green, red, yellow } from 'ansis'
 import { getAdapter } from '../adapters/codebuddy-adapter.js'
+import { detectCodeBuddyVersion } from '../utils/platform.js'
 import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
 import { parseRequestBody } from '../proxy/parser.js'
@@ -18,6 +19,7 @@ import {
 export interface DiagnoseOptions {
   agent?: string
   port?: string
+  reportPath?: string
 }
 
 const CAPTURE_TIMEOUT_MS = 60_000
@@ -82,13 +84,14 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     process.exitCode = 1
     return
   }
-  console.log(green(`  ✓ 已捕获 ${capturedBodies.length} 个请求，识别出主对话请求`))
+  console.error(green(`  ✓ 已捕获 ${capturedBodies.length} 个请求，识别出主对话请求`))
 
   // 6. Build report: proxy body + filesystem scan + third-party tool detection
   const fs = scanFilesystem(adapter)
   const proxyParsed: ProxyDiagnosisData | null = parseRequestBody(mainBody)
   const toolDetection = await detectToolsViaRegistry(fs, proxyParsed)
-  const report = buildDiagnosisReport([mainBody], fs, toolDetection)
+  const codebuddyVersion = await detectCodeBuddyVersion()
+  const report = buildDiagnosisReport([mainBody], fs, toolDetection, codebuddyVersion)
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
   mkdirSync(outDir, { recursive: true })
@@ -96,10 +99,18 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   writeFileSync(join(outDir, 'proxy-raw-body.json'), JSON.stringify(mainBody, null, 2))
   writeFileSync(join(outDir, 'diagnosis-report.json'), JSON.stringify(report, null, 2))
 
-  // 7. Console Markdown summary
-  console.log('')
-  console.log(renderMarkdown(report))
-  console.log(bold(green(`\n诊断完成：文件已写入 ./${SAVE_TOKEN_DIR}/`)))
+  const markdown = renderMarkdown(report)
+
+  if (options.reportPath) {
+    // 指定 --report-path：写入该路径（覆盖），状态信息输出到 stderr 以免污染文件
+    writeFileSync(options.reportPath, markdown)
+    console.error(bold(green(`诊断完成：Markdown 报告已写入 ${options.reportPath}`)))
+  } else {
+    // 默认：将摘要写入 ./save-token/diagnosis-report.md（供 LLM 读取与重定向）。
+    // 注意：不将 markdown 打印到 stdout，否则 `stk diagnose > file` 会与文件内容重复。
+    writeFileSync(join(outDir, 'diagnosis-report.md'), markdown)
+    console.error(bold(green(`\n诊断完成：文件已写入 ./${SAVE_TOKEN_DIR}/`)))
+  }
 }
 
 /**

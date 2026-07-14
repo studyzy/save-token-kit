@@ -34,3 +34,15 @@ export async function isProcessRunning(name: string): Promise<boolean> {
     return false
   }
 }
+
+/** Detect the installed CodeBuddy CLI version (e.g. "2.119.3"), or null if unavailable. */
+export async function detectCodeBuddyVersion(binary = 'codebuddy'): Promise<string | null> {
+  try {
+    const res = await exec(binary, ['--version'])
+    if (res.exitCode !== 0) return null
+    const match = res.stdout.trim().match(/(\d+\.\d+\.\d+)/)
+    return match ? match[1] : null
+  } catch {
+    return null
+  }
+}

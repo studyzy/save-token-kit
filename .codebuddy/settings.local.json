@@ -1,5 +1,5 @@
 {
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["headroom"],
+  "enabledMcpjsonServers": ["mcp-server-tapd"],
   "disabledMcpjsonServers": []
 }

@@ -14,19 +14,19 @@ argument-hint: ''
 
 ## 执行流程
 
-1. 检查 `./save-token/diagnosis-report.json` 是否存在。
-2. 若不存在，调用：
+1. 检查 `stk` 命令是否已安装（如 `which stk` 或 `stk --version`）。如未安装，先执行安装：
    ```bash
-   stk diagnose >> ./save-token/diagnosis-report.md
+   npm install -g save-token-kit
+   # 或
+   pnpm add -g save-token-kit
    ```
-   说明：`diagnosis-report.json` 每次覆盖，`diagnosis-report.md` 为首次基线；优化后需用 `>> diagnosis-report2.md` 保存第二次。
-3. 读取 `diagnosis-report.json`，向用户展示：
-   - 总 Token 与各分类占比
-   - MCP 服务器、Skills 列表
-   - warnings 高亮提示
-4. 告知用户：后续对比以两个 `.md` 文件为准。
+2. 运行以下命令采集并保存诊断数据（无条件执行）：
+   ```bash
+   stk diagnose --report-path=./save-token/diagnosis-report.md
+   ```
+3. 读取 `./save-token/diagnosis-report.md`，在对话中展示诊断报告。
+4. 如 `warnings` 字段非空，高亮提示用户（如 MCP 工具过多、Skills 占用过高等）。
 
-## 边界
+## 注意
 
-- 不修改任何配置文件，仅采集与展示数据。
-- 若 `stk` 未安装，提示 `npm install -g save-token-kit`。
+如实展示`diagnosis-report.md`的内容即可，无需点评或者给出建议。
