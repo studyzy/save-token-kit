@@ -10,7 +10,9 @@ class HeadroomTool extends BaseSaveTokenTool {
   readonly type = 'cli'
   readonly installCommand = 'pip install "headroom-ai[all]"'
   readonly verifyCommand = 'headroom --version'
-  readonly configCommand = 'headroom mcp install'
+  getConfigCommand(): string {
+    return 'headroom mcp install'
+  }
 
   detect(): Promise<boolean> {
     return commandExists('headroom')

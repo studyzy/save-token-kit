@@ -10,7 +10,9 @@ class PonytailTool extends BaseSaveTokenTool {
   readonly type = 'plugin'
   readonly installCommand = 'codebuddy plugin marketplace add https://github.com/studyzy/ponytail'
   readonly verifyCommand = 'ls ~/.codebuddy/plugins/marketplaces/ponytail/'
-  readonly configCommand = ''
+  getConfigCommand(): string {
+    return ''
+  }
 
   detect(): Promise<boolean> {
     return Promise.resolve(this.hasMarketplaceDir())

@@ -12,7 +12,9 @@ class GraphifyTool extends BaseSaveTokenTool {
   readonly type = 'cli'
   readonly installCommand = 'uv tool install graphifyy'
   readonly verifyCommand = 'graphify --version'
-  readonly configCommand = 'graphify install --platform codebuddy'
+  getConfigCommand(agent: string): string {
+    return `graphify install --platform ${agent}`
+  }
 
   detect(): Promise<boolean> {
     return commandExists('graphify')

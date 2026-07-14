@@ -11,7 +11,9 @@ class CavemanTool extends BaseSaveTokenTool {
   readonly installCommand =
     'git clone https://github.com/studyzy/caveman /tmp/caveman && cd /tmp/caveman && ./install.sh'
   readonly verifyCommand = 'ls ~/.codebuddy/plugins/marketplaces/caveman/'
-  readonly configCommand = ''
+  getConfigCommand(): string {
+    return ''
+  }
 
   detect(): Promise<boolean> {
     return Promise.resolve(this.hasMarketplaceDir())

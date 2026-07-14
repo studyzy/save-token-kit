@@ -10,7 +10,9 @@ class RtkTool extends BaseSaveTokenTool {
   readonly type = 'cli'
   readonly installCommand = 'brew install rtk'
   readonly verifyCommand = 'rtk gain'
-  readonly configCommand = 'rtk init -g --agent codebuddy'
+  getConfigCommand(agent: string, global: boolean): string {
+    return `rtk init${global ? ' -g' : ''} --agent ${agent}`
+  }
 
   detect(): Promise<boolean> {
     return commandExists('rtk')

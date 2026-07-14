@@ -10,7 +10,9 @@ class LeanCtxTool extends BaseSaveTokenTool {
   readonly type = 'cli'
   readonly installCommand = 'brew install lean-ctx'
   readonly verifyCommand = 'lean-ctx doctor'
-  readonly configCommand = 'lean-ctx setup'
+  getConfigCommand(): string {
+    return 'lean-ctx setup'
+  }
 
   detect(): Promise<boolean> {
     return commandExists('lean-ctx')
