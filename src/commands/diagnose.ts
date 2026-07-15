@@ -124,7 +124,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
  * Detect third-party save-token tools via the tool registry, enriching with
  * context from the filesystem scan and the intercepted proxy request.
  */
-async function detectToolsViaRegistry(
+export async function detectToolsViaRegistry(
   fs: ReturnType<typeof scanFilesystem>,
   proxyParsed: ProxyDiagnosisData | null,
 ): Promise<ToolDetection[]> {
