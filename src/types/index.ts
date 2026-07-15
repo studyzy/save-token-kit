@@ -69,7 +69,15 @@ export interface McpEntry {
 }
 
 export type SkillSource = 'user' | 'project' | 'plugin' | 'plugin-marketplace' | 'bundled'
-export type ToolId = 'rtk' | 'caveman' | 'headroom' | 'lean-ctx' | 'graphify' | 'ponytail' | 'karpathy-skills'
+export type ToolId =
+  | 'rtk'
+  | 'caveman'
+  | 'headroom'
+  | 'lean-ctx'
+  | 'graphify'
+  | 'ponytail'
+  | 'karpathy-skills'
+  | 'gitnexus'
 
 export interface SkillEntry {
   /** Skill name */

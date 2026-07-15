@@ -8,7 +8,7 @@ import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
 import { parseRequestBody } from '../proxy/parser.js'
 import { scanFilesystem } from '../collectors/fs-collector.js'
-import { getAllTools, headroomTool, ponytailTool } from '../tools/index.js'
+import { getAllTools, headroomTool, ponytailTool, gitnexusTool } from '../tools/index.js'
 import {
   DEFAULT_PROXY_PORT,
   SAVE_TOKEN_DIR,
@@ -145,6 +145,16 @@ async function detectToolsViaRegistry(
     if (proxyParsed.detectedPlugins?.includes('ponytail')) {
       const pIdx = detections.findIndex((d) => d.name === 'ponytail')
       if (pIdx !== -1) detections[pIdx] = ponytailTool.markInstalledFromProxy(detections[pIdx])
+    }
+
+    // GitNexus enabled detection via MCP
+    const gitnexusEnabled = fs.mcpList.some(
+      (m) => m.name === 'gitnexus' && m.status === 'enabled',
+    )
+    if (gitnexusEnabled) {
+      gitnexusTool.setMcpEnabled(true)
+      const gIdx = detections.findIndex((d) => d.name === 'gitnexus')
+      if (gIdx !== -1) detections[gIdx] = await gitnexusTool.markInstalledFromMcp(detections[gIdx])
     }
   }
 
