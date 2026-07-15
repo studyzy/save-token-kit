@@ -128,7 +128,9 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 | `skill-trim`     | `skillList[]`                     | 数组非空                                |
 | `knowledge-base` | `repo-scan.json` + `context.json` | 仓库超阈值 **且** `graphTool` 非 `none` |
 | `repo-scan`      | 仓库扫描结果                      | 始终（扫描成功后）                      |
+| `rules-opt`      | `ruleList[]`                      | 数组非空                                |
 | `hook-audit`     | `hookList[]`                      | 数组非空                                |
+| `codebuddy-md`   | `CODEBUDDY.md`（项目级）          | 文件存在                                |
 
 ### 阶段 4: 汇总生成 tasks.md
 
@@ -186,7 +188,7 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 | ---- | ------------------------------------- |
 | 初级 | `target` 或工具名为 `rtk`、`caveman`、`caveman-*`、`ponytail`、`ponytail-*`、`karpathy-skills` 之一（省 Token 工具类，安装即用、零配置） |
 | 高级 | `target` 为 `headroom`，或属于代码知识库类（子 Agent `knowledge-base` 产出，如 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` 等） |
-| 中级 | 其余所有：SKILL 优化（`skill-trim`）、Agent / Plugin 优化（`defer-tools` / `model-opt`）、MCP 优化（`mcp-opt`）、Hook 审查（`hook-audit`）、仓库专项（`repo-scan`）等 |
+| 中级 | 其余所有：SKILL 优化（`skill-trim`）、Agent / Plugin 优化（`defer-tools` / `model-opt`）、MCP 优化（`mcp-opt`）、Rules 优化（`rules-opt`）、Hook 审查（`hook-audit`）、仓库专项（`repo-scan`）等 |
 
 > 同一 Agent 内部混合示例：`tool-enable` 中"启用 RTK"→ 初级，"启用 Headroom"→ 高级。各子 Agent 在输出时**逐条**按上表判定 `level`，不得整组统一标级。
 
@@ -317,6 +319,50 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 **输出 category**：`仓库专项`
 **`level`**：中级（仓库配置优化类）
 
+### 子 Agent 7.5: Rules 优化 (rules-opt)
+
+**输入**：`ruleList[]`（来自 `diagnosis-report.json` 的 `fsCollectResult.ruleList`，每项为 `{ name, path, description, alwaysApply, paths, estTokens }`）+ `rulesTokens`（CODEBUDDY.md 系统规则块估算 token）+ `context.json`
+
+**机制依据**：CodeBuddy 规则支持 `alwaysApply: false` + `paths`（glob）实现按文件作用域加载；未命中的规则不进入上下文。规则应"聚焦、可操作、≤ 500 行"，大规则拆为多个可组合规则并加 `paths` 作用域，可显著降低每轮上下文占用。`CODEBUDDY.md` 则全文每轮注入，需精简。
+
+遍历 `ruleList[]`，对每条规则检查：
+
+| 条件                                                                                              | 输出                                                                                                                                |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `alwaysApply === true` 且规则可用 `paths` 收敛（`name`/`description` 表明仅作用于部分文件）      | 建议改为 `alwaysApply: false` 并补 `paths`。`action`: "规则 <name> 加 paths 作用域：<glob>"，`reason`: "当前每轮常驻上下文，实际仅用于部分文件" |
+| 单条规则过长（估算 `estTokens` 超过阈值，如 > 1000）或含多个不相关主题                            | 建议拆分为多条 `alwaysApply: false` + `paths` 的细分规则。`action`: "拆分规则 <name> 为 <子主题1>/<子主题2>"，`reason`: "精简单条降低常驻占用" |
+| 规则内容含大段解释性文档/示例/推理过程（非可执行指令）                                          | 建议删除冗余，仅保留指令；长参考移至独立文件并让规则只写一句"参见 `<file>`"。`action`: "精简规则 <name> 冗余内容" |
+| `rulesTokens` 整体偏大（如 > 3000）或 CODEBUDDY.md 冗长                                         | 建议把 CODEBUDDY.md 中项目级细节下沉为 `.codebuddy/rules/*.md`（`alwaysApply: false` + `paths`）。`action`: "将 CODEBUDDY.md 部分内容拆分为 rules" |
+
+每条 `suggestion` 须填 `target: "<rule name>"`（CODEBUDDY.md 下沉场景填 `CODEBUDDY.md`），`estimatedSavingTokens` 取该规则/内容当前 `estTokens` 量级或 0；`risk`: "low"，`reversible`: true，`scenario` 取 `code` 或依据阶段 2 结论，`evidence` 填 `alwaysApply=true, paths=[]` 或 `estTokens=N`。
+
+**输出 category**：`Rules 优化`
+**`level`**：中级（Rules 优化类）
+
+### 子 Agent 8.5: CODEBUDDY.md 审查 (codebuddy-md)
+
+**输入**：项目级 `CODEBUDDY.md`（存在即启动，`repo-scan.json.hasCodebuddyMd` 已标记）+ `context.json`
+
+> 机制依据（渐进式披露 / 索引式主文件最佳实践，2026 社区共识）：
+> - 主文件每次会话全量注入上下文；**官方建议精简、不超过 200 行**，更强实践主张 ≤ 150 指令（Boris Cherny，超此 AI 遵从率跌破 ~80%）或 ≤ 50 行。
+> - 主文件应作**索引/资源地图**：项目描述 + 常用命令 + 关键文件指针；细节（架构、数据流、契约、长文档）下沉到 `@引用` 文件或 Skills，**按需加载**。
+> - 判定标准：逐行问"删掉这行 AI 会犯错吗？"不会则删。读代码能推断的、仅特定场景相关的、长篇解释/教程，都不该写进主文件。
+
+基于上述知识对 `CODEBUDDY.md` 做 Review，逐项检查并产出建议（可多条）：
+
+| 检查维度 | 判定条件 | 输出 |
+| --- | --- | --- |
+| 行数/体量 | 行数 > 200，或估算 token 远超 ~150 指令阈值 | 建议精简并下沉细节。`action`: "精简 CODEBUDDY.md 至 ≤200 行"，`reason`: "主文件每次会话全量注入，过长淹没关键指令" |
+| 全量写入可推断内容 | 含读代码即可得的架构/数据流/文件职责描述（如逐文件说明、调用链） | 建议下沉为 `@引用` 文件或 Skills。`action`: "将 <章节名> 下沉为 @docs/xxx.md 或 skill"，`reason`: "AI 可读代码推断，无需每轮注入" |
+| 缺索引/资源地图 | 无"关键文件"指针或目录组织，AI 需自行探索文件系统 | 建议补 Resource Map。`action`: "为 CODEBUDDY.md 增加关键文件/目录索引"，`reason`: "索引式主文件省去探索 token" |
+| 含长篇解释/教程 | 大段说明、示例、推理过程而非可执行指令 | 建议删除冗余，仅留指令；参考移至独立文件。`action`: "精简 CODEBUDDY.md <章节名> 冗余内容" |
+| 缺按需加载机制 | 项目级细节（如文档读取约定、特定规则）未拆为 `.codebuddy/rules/*.md`（`alwaysApply:false`+`paths`）或 Skills | 建议拆分。`action`: "将 CODEBUDDY.md <章节名> 拆分为按需 rules/skill"，`reason`: "细节按需加载降低常驻占用" |
+
+每条 `suggestion` 须填 `target: "CODEBUDDY.md"`，`detail` 引用具体行号/章节与对应最佳实践条款；`estimatedSavingTokens` 取该章节估算 token 量级或 0；`risk`: "low"，`reversible`: true，`scenario` 取 `code` 或阶段 2 结论，`evidence` 填如 `lines=73, 超 200 行阈值` / `含可推断数据流描述`。
+
+**输出 category**：`CODEBUDDY.md 审查`
+**`level`**：初级（配置优化类）
+
 ### 子 Agent 8: Hook 审查 (hook-audit)
 
 **输入**：`hookList[]` + `context.json`
@@ -375,10 +421,24 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 - [ ] [中级] 排除 docs/ 出自动上下文（预估节省 ~3000 Token）
       原因：同仓，文档每次对话重复注入
 
+## 7.5 Rules 优化
+
+- [ ] [中级] 规则 lint-rule 加 paths 作用域：src/**/*.ts（预估节省 ~XXX Token）
+      原因：alwaysApply=true, paths=[]
+- [ ] [中级] 将 CODEBUDDY.md 中"文档读取约定"拆分为 rules: doc-read（预估节省 ~XXX Token）
+      原因：rulesTokens 整体偏大，项目级细节可下沉为按需加载规则
+
+## 8.5 CODEBUDDY.md 审查
+
+- [ ] [初级] 精简 CODEBUDDY.md 至 ≤200 行（预估节省 ~XXX Token）
+  原因：lines=73 含可推断数据流/架构描述，主文件每次会话全量注入，应下沉为 @引用 或 skill
+- [ ] [初级] 为 CODEBUDDY.md 增加关键文件/目录索引
+  原因：缺 Resource Map，AI 需自行探索文件系统
+
 ## 8. Hook 审查
 
 - [ ] [中级] 精简 hook: rtk（预估节省 ~XXX Token）
-      原因：每次对话注入压缩提示
+  原因：每次对话注入压缩提示
 
 ---
 
@@ -386,7 +446,7 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 总计：预估节省 ~XXXXX Token (XX.X%)
 ```
 
-每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.模型优化 → 4.工具明确化 → 5.Skill 精简 → 6.知识图谱推荐 → 7.仓库专项 → 8.Hook 审查。每条一行 `- [ ]` + 原因缩进两空格，总计行末尾用 `---` 分隔。
+每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.模型优化 → 4.工具明确化 → 5.Skill 精简 → 6.知识图谱推荐 → 7.仓库专项 → 7.5 Rules 优化 → 8.5 CODEBUDDY.md 审查 → 8.Hook 审查。每条一行 `- [ ]` + 原因缩进两空格，总计行末尾用 `---` 分隔。
 
 ## 边界
 

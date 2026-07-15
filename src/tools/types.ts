@@ -74,6 +74,7 @@ export abstract class BaseSaveTokenTool implements SaveTokenTool {
   readonly uninstallCommand = ''
 
   // Default: no agent-specific config step. Tools that need it override this.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getConfigCommand(_agent: string, _global: boolean): string {
     return ''
   }

@@ -66,15 +66,11 @@ function classifyTool(name: string): 'builtin' | 'mcp' | 'deferred' {
  *   {"type":"function","function":{"name":"Agent","description":"...","parameters":{...}}}
  * Falls back to t.name for other formats.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractToolName(t: any): string {
   if (typeof t?.function?.name === 'string') return t.function.name
   if (typeof t?.name === 'string') return t.name
   return 'unknown'
-}
-
-function extractToolDescription(t: any): string {
-  const desc = t?.function?.description ?? t?.description ?? ''
-  return desc.length > 100 ? desc.slice(0, 100) + '...' : desc
 }
 
 /**
@@ -112,6 +108,7 @@ function extractMcpFromText(text: string, mcpReferences: string[]): void {
  * Parses the <available_skills> block in the Skill tool's description.
  */
 function extractSkillTokens(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tools: any[],
 ): Record<string, { description: string; estimatedTokens: number }> {
   const skillTool = tools.find((t) => extractToolName(t) === 'Skill')
@@ -150,6 +147,7 @@ function extractSkillTokens(
  * <available_deferred_tools> block. Bare `mcp__XXX` lines are server-level
  * references; `mcp__XXX: ...` lines are concrete tool definitions.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractDeferredMcpTools(tools: any[]): {
   tools: { name: string; estimatedTokens: number }[]
   references: string[]
@@ -190,6 +188,7 @@ function extractDeferredMcpTools(tools: any[]): {
 }
 
 /** Detect active plugins via mode markers in message content. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function detectPluginsFromMessages(messages: any[]): string[] {
   const markers: Record<string, string> = {
     caveman: 'CAVEMAN MODE ACTIVE',
@@ -201,6 +200,7 @@ function detectPluginsFromMessages(messages: any[]): string[] {
     if (typeof msg?.content === 'string') {
       content = msg.content
     } else if (Array.isArray(msg?.content)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       content = msg.content.map((b: any) => (typeof b?.text === 'string' ? b.text : '')).join('\n')
     }
     for (const [plugin, marker] of Object.entries(markers)) {
@@ -216,6 +216,7 @@ function detectPluginsFromMessages(messages: any[]): string[] {
  * Parse a single captured LLM POST request body into a ProxyDiagnosisData fragment.
  */
 export function parseRequestBody(body: unknown): ProxyDiagnosisData {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const req = (body ?? {}) as Record<string, any>
   const messages = Array.isArray(req.messages) ? req.messages : []
   const tools = Array.isArray(req.tools) ? req.tools : []

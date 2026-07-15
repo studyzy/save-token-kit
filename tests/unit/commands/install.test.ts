@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { runInstall } from '@/commands/install.js'
 import { registerTool, getTool } from '@/tools/index.js'
 import { rtkTool } from '@/tools/impl/rtk.js'
@@ -7,6 +7,7 @@ import type { SaveTokenTool, InstallResult } from '@/tools/types.js'
 
 // A fake tool whose install just records the args it received.
 function makeFakeTool(name: string): SaveTokenTool & { lastArgs: [boolean, string] | null } {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fake: any = {
     name,
     description: 'fake',

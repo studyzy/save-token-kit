@@ -64,7 +64,7 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
 
   const mcpList = scanMcpConfig(paths.mcp)
   const settings = readSettings(paths.settings)
-  const pluginList = scanPlugins(settings, paths.pluginsMarketplacesDir)
+  const pluginList = scanPlugins(settings)
   const hookList = scanHooks(settings)
   const skillList = scanSkills(paths.skillsDir, 'user')
   const projectSkills = scanSkills(`${process.cwd()}/.codebuddy/skills`, 'project')
@@ -168,7 +168,7 @@ function readSettings(path: string): SettingsFile {
   return readJsonSafe<SettingsFile>(path) ?? {}
 }
 
-function scanPlugins(settings: SettingsFile, configDir: string): PluginEntry[] {
+function scanPlugins(settings: SettingsFile): PluginEntry[] {
   const entries: PluginEntry[] = []
   for (const [id, enabled] of Object.entries(settings.enabledPlugins ?? {})) {
     const [pluginId, marketplace] = id.split('@')

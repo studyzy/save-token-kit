@@ -3,7 +3,6 @@ import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { runInit } from '@/commands/init.js'
-import { homedir } from 'node:os'
 
 describe('stk init', () => {
   let tmp: string

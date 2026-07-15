@@ -4,10 +4,6 @@ import type {
   ContextItem,
   ToolBreakdown,
   ToolDef,
-  PluginEntry,
-  HookEntry,
-  RuleEntry,
-  ConfigFileSummary,
   ToolDetection,
 } from '../types/index.js'
 import type { FsCollectResult } from '../collectors/fs-collector.js'
@@ -216,6 +212,7 @@ export function renderMarkdown(
     lines.push('-'.repeat(40))
     const categories: Record<string, ToolDef[]> = {}
     for (const t of toolDefs) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cat = (t as any).category ?? 'builtin'
       ;(categories[cat] ??= []).push(t)
     }
