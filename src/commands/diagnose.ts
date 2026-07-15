@@ -8,7 +8,13 @@ import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
 import { parseRequestBody } from '../proxy/parser.js'
 import { scanFilesystem } from '../collectors/fs-collector.js'
-import { getAllTools, headroomTool, ponytailTool, gitnexusTool } from '../tools/index.js'
+import {
+  getAllTools,
+  headroomTool,
+  ponytailTool,
+  gitnexusTool,
+  codebaseMemoryTool,
+} from '../tools/index.js'
 import {
   DEFAULT_PROXY_PORT,
   SAVE_TOKEN_DIR,
@@ -155,6 +161,17 @@ async function detectToolsViaRegistry(
       gitnexusTool.setMcpEnabled(true)
       const gIdx = detections.findIndex((d) => d.name === 'gitnexus')
       if (gIdx !== -1) detections[gIdx] = await gitnexusTool.markInstalledFromMcp(detections[gIdx])
+    }
+
+    // Codebase Memory MCP enabled detection via MCP
+    const codebaseMemoryEnabled = fs.mcpList.some(
+      (m) => m.name === 'codebase-memory' && m.status === 'enabled',
+    )
+    if (codebaseMemoryEnabled) {
+      codebaseMemoryTool.setMcpEnabled(true)
+      const cIdx = detections.findIndex((d) => d.name === 'codebase-memory')
+      if (cIdx !== -1)
+        detections[cIdx] = await codebaseMemoryTool.markInstalledFromMcp(detections[cIdx])
     }
   }
 

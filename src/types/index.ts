@@ -79,6 +79,8 @@ export type ToolId =
   | 'karpathy-skills'
   | 'gitnexus'
   | 'tokenjuice'
+  | 'codebase-memory'
+  | 'codegraph'
 
 export interface SkillEntry {
   /** Skill name */
