@@ -14,6 +14,7 @@ import {
   ponytailTool,
   gitnexusTool,
   codebaseMemoryTool,
+  contextModeTool,
 } from '../tools/index.js'
 import {
   DEFAULT_PROXY_PORT,
@@ -154,9 +155,7 @@ async function detectToolsViaRegistry(
     }
 
     // GitNexus enabled detection via MCP
-    const gitnexusEnabled = fs.mcpList.some(
-      (m) => m.name === 'gitnexus' && m.status === 'enabled',
-    )
+    const gitnexusEnabled = fs.mcpList.some((m) => m.name === 'gitnexus' && m.status === 'enabled')
     if (gitnexusEnabled) {
       gitnexusTool.setMcpEnabled(true)
       const gIdx = detections.findIndex((d) => d.name === 'gitnexus')
@@ -172,6 +171,14 @@ async function detectToolsViaRegistry(
       const cIdx = detections.findIndex((d) => d.name === 'codebase-memory')
       if (cIdx !== -1)
         detections[cIdx] = await codebaseMemoryTool.markInstalledFromMcp(detections[cIdx])
+    }
+
+    // Context Mode enabled detection via MCP
+    const contextModeMcp = fs.mcpList.find((m) => m.name === 'context-mode')
+    if (contextModeMcp) {
+      contextModeTool.setMcpEnabled(contextModeMcp.status !== 'disabled')
+      const cmIdx = detections.findIndex((d) => d.name === 'context-mode')
+      if (cmIdx !== -1) detections[cmIdx] = await contextModeTool.buildDetection()
     }
   }
 

@@ -81,6 +81,7 @@ export type ToolId =
   | 'tokenjuice'
   | 'codebase-memory'
   | 'codegraph'
+  | 'context-mode'
 
 export interface SkillEntry {
   /** Skill name */
