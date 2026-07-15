@@ -17,7 +17,7 @@ describe('stk init', () => {
     process.env.HOME = tmp
     // Point HOME at temp so global install lands inside tmp.
     await runInit({ agent: 'codebuddy', force: true })
-    const base = join(tmp, '.codebuddy', 'commands', 'save-token-kit')
+    const base = join(tmp, '.codebuddy', 'commands', 'stk')
     for (const c of ['diagnose', 'analyze', 'optimize', 'report']) {
       expect(existsSync(join(base, `${c}.md`))).toBe(true)
     }
@@ -28,7 +28,7 @@ describe('stk init', () => {
     mkdirSync(join(tmp, 'project'), { recursive: true })
     process.chdir(join(tmp, 'project'))
     await runInit({ agent: 'codebuddy', local: true, force: true })
-    const base = join(tmp, 'project', '.codebuddy', 'commands', 'save-token-kit')
+    const base = join(tmp, 'project', '.codebuddy', 'commands', 'stk')
     expect(existsSync(join(base, 'diagnose.md'))).toBe(true)
   })
 
@@ -37,7 +37,7 @@ describe('stk init', () => {
     process.env.HOME = tmp
     await runInit({ agent: 'codebuddy', force: true, skills: true })
     const skillsBase = join(tmp, '.codebuddy', 'skills')
-    for (const s of ['st-diagnose', 'st-analyze', 'st-optimize', 'st-report']) {
+    for (const s of ['stk-diagnose', 'stk-analyze', 'stk-optimize', 'stk-report']) {
       expect(existsSync(join(skillsBase, s, 'SKILL.md'))).toBe(true)
     }
   })
@@ -54,7 +54,7 @@ describe('stk init', () => {
   it('skips existing files unless --force', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'stk-init-'))
     process.env.HOME = tmp
-    const base = join(tmp, '.codebuddy', 'commands', 'save-token-kit')
+    const base = join(tmp, '.codebuddy', 'commands', 'stk')
     mkdirSync(base, { recursive: true })
     writeFileSync(join(base, 'diagnose.md'), 'OLD')
     await runInit({ agent: 'codebuddy' })
