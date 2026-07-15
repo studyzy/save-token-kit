@@ -78,6 +78,7 @@ export type ToolId =
   | 'ponytail'
   | 'karpathy-skills'
   | 'gitnexus'
+  | 'tokenjuice'
 
 export interface SkillEntry {
   /** Skill name */

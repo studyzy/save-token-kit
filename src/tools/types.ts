@@ -1,4 +1,5 @@
 import type { ToolDetection, ToolId } from '../types/index.js'
+import { exec } from 'tinyexec'
 
 /** Result of running a single shell step during `stk install`. */
 export interface InstallStep {
@@ -102,7 +103,6 @@ export abstract class BaseSaveTokenTool implements SaveTokenTool {
   async install(global: boolean, agent: string): Promise<InstallResult> {
     const steps: InstallStep[] = []
     const run = async (cmd: string): Promise<void> => {
-      const { exec } = await import('../utils/platform.js')
       await exec(cmd, { shell: true })
     }
     try {
