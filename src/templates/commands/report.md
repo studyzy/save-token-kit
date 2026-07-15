@@ -10,26 +10,29 @@ argument-hint: ''
 
 ## 前置条件
 
-- 优化已执行，且重新诊断完成：`diagnosis-report2.md` 存在。
-- 如 `diagnosis-report.md` 缺失 → 提示"缺少优化前诊断数据，请先运行 /stk-diagnose 采集基线数据"。
-- 如 `diagnosis-report2.md` 缺失 → 提示先运行 `stk diagnose >> ./save-token/diagnosis-report2.md`。
+对比源为 proxy 透明代理采集的诊断报告（由 `stk diagnose` 拦截真实请求产出）：
+
+- 优化前基线 `save-token/diagnosis-report.md` 应已存在（`stk diagnose` 首次采集）。
+- `save-token/tasks.json`（`/stk-optimize` 执行结果）可选；缺失时仍生成报告，仅做前后诊断对比。
+
+> 注：`stk diagnose` 默认同时写 `.json`+`.md`，但优化后用 `--report-path` 时 JSON 会覆盖写回 `diagnosis-report.json` 冲掉基线。故对比统一以两份 Markdown（`diagnosis-report.md` 前 / `diagnosis-report2.md` 后）为准。
 
 ## 步骤
 
-1. 读取文件：
+1. **采集优化后报告（必须）**：运行 `stk diagnose --report-path=./save-token/diagnosis-report2.md`，通过 proxy 拦截真实请求产出优化后诊断报告。此步是后续分析的前提，不可跳过；仅当用户指定复用已有 `diagnosis-report2.md` 时可跳过。
+2. 读取文件：
    - `./save-token/diagnosis-report.md`（优化前）
-   - `./save-token/diagnosis-report2.md`（优化后）
+   - `./save-token/diagnosis-report2.md`（优化后，上一步产出）
    - `./save-token/tasks.json`（任务执行结果，可选）
-2. 计算 before / after 总 Token 差值（由两 `.md` 总 Token 直接相减）与各分类变化。
-3. 将任务执行效果与 Token 变化归因，生成对比报告：
-   - 优化前后 Token 总占用对比（绝对值变化 + 百分比变化）
-   - 按类别（System Prompt / Tools / Skills / Memory / Messages）分解的 Token 变化明细表
-   - 每条已执行优化任务的执行状态与效果（completed / partial / failed），标注偏差（如预估省 500 实际省 200）并给原因分析
-   - 总体节省摘要（总节省 Token 数、节省比例）
-4. **必须**以 JSON 落盘 `./save-token/save-token-report.json`（结构见 data-model.md §4）。
-5. 可另写 `./save-token/save-token-report.md` 作展示（可选），并在对话中展示摘要。
+3. 从两份 Markdown 解析总 Token 与分类明细（System Prompt / Tools / Skills / Memory / Messages / Rules / Hooks），计算 before / after 差值与百分比。
+3. 将任务执行效果与 Token 变化按 `suggestionId` 归因（仅当 `tasks.json` 存在）：
+   - `actualSavingTokens`：completed 取可归属分类 delta（无法精确归属按占比估算并标 `deviation`）；partial 按实际生效；failed/skipped 记 0。
+   - 预估 ≠ 实际时 `deviation` 必非空；failed 在 `error` 记原因。
+   - 总体节省摘要（总节省 Token 数、节省比例、各状态计数）。
+4. **必须**以 JSON 落盘 `./save-token/save-token-report.json`（结构见 `src/types/index.ts` 的 `SaveTokenReport` 契约）。
+5. 可另写 `./save-token/save-token-report.md` 作展示（可选），并在对话中展示中文摘要（总节省百分比 + 分类变化表 + 任务效果表）。
 
 ## 错误处理
 
-- JSON 解析失败 → 报告具体文件和行号，**不崩溃**。
-- 任务清单不存在 → 仅对比前后诊断数据，不展示任务级效果。
+- Markdown/JSON 解析失败 → 报告具体文件与位置，**不崩溃**。
+- `tasks.json` 不存在 → 仅对比前后诊断数据，不展示任务级效果（`taskResults` 为空）。
