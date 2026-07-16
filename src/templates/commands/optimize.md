@@ -1,6 +1,6 @@
 ---
 name: stk:optimize
-description: '读取 save-token/tasks.md，按用户选择的优化等级筛选并逐项执行 Token 优化任务，落盘 tasks.json'
+description: '读取 save-token/tasks.md，按用户选择的优化等级筛选并逐项执行 Token 优化任务'
 argument-hint: ''
 ---
 
@@ -23,10 +23,7 @@ argument-hint: ''
    - **关闭 MCP**：将 MCP 从 `.mcp.json` 中禁用（而非删除）；提示对应 CLI 工具命令。
    - **精简 CODEBUDDY.md**：生成精简后内容写入，原文件备份。
    - **no-op**：标记 `skipped`，不做任何修改。
-4. **必须**将执行结果以 JSON 落盘 `./save-token/tasks.json`（结构见 data-model.md §3）。
-   - 每条任务记录：suggestionId、description、operationType、status、estimatedSavingTokens、risk、reversible、appliedChange；失败标记 `status: "failed"` 并填 `error`；no-op 标记 `status: "skipped"`。
-   - `actualSavingTokens` 本期留空，由 `/stk-report` 计算。
-5. 完成后提示用户重新运行：
+4. 完成后提示用户重新运行：
    ```bash
    stk diagnose >> ./save-token/diagnosis-report2.md
    ```
