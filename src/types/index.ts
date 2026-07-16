@@ -95,6 +95,17 @@ export interface SkillEntry {
   loaded?: boolean | null
   /** Usage frequency hint (optional) */
   usageFrequency?: 'high' | 'medium' | 'low'
+  /** Skill description (from Skill tool description block) */
+  description?: string
+}
+
+export interface AgentEntry {
+  /** Agent (subagent) name */
+  name: string
+  /** Estimated tokens of its description */
+  estimatedTokens: number
+  /** Source marker, e.g. "project" or "plugin@marketplace" */
+  source?: string
 }
 
 export interface RuleEntry {
@@ -172,10 +183,10 @@ export interface DiagnosisReport {
   mcpList: McpEntry[]
   /** Skill list */
   skillList: SkillEntry[]
+  /** Subagent (Agent) list */
+  agentList: AgentEntry[]
   /** Tool definition breakdown by category */
   toolBreakdown: ToolBreakdown
-  /** Warnings detected during scan */
-  warnings: string[]
   /** Plugin list discovered on the filesystem */
   pluginList?: PluginEntry[]
   /** Hook list from settings */
@@ -420,6 +431,13 @@ export interface DetectedSkill {
   estimatedTokens: number
 }
 
+export interface DetectedAgent {
+  name: string
+  description: string
+  estimatedTokens: number
+  source?: string
+}
+
 export interface McpServerDetection {
   serverName: string
   toolCount: number
@@ -447,6 +465,8 @@ export interface ProxyDiagnosisData {
   }
   /** Detected skills */
   skills: DetectedSkill[]
+  /** Detected subagents (from Agent tool description list) */
+  agents: DetectedAgent[]
   /** Detected MCP servers (from mcp__ prefix) */
   mcpServers: McpServerDetection[]
   /** Total estimated tokens */
@@ -454,7 +474,7 @@ export interface ProxyDiagnosisData {
   /** Model name from request */
   model: string
   /** Per-skill token breakdown from Skill tool description */
-  skillTokens: Record<string, { description: string; estimatedTokens: number }>
+  skillTokens: Record<string, { description: string; estimatedTokens: number; location?: string }>
   /** Skill names detected in system prompt text */
   skillReferences: string[]
   /** MCP server names detected in system prompt text */

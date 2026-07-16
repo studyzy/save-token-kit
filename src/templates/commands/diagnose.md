@@ -21,7 +21,6 @@ argument-hint: ''
    stk diagnose --report-path=./save-token/diagnosis-report.md
    ```
 3. 读取 `./save-token/diagnosis-report.md`，在对话中展示诊断报告。
-4. 如 `warnings` 字段非空，高亮提示用户（如 MCP 工具过多、Skills 占用过高等）。
 
 ## 注意
 

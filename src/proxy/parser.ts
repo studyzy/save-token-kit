@@ -4,6 +4,7 @@ import type {
   ProxyDiagnosisData,
   ToolDef,
   DetectedSkill,
+  DetectedAgent,
   McpServerDetection,
 } from '../types/index.js'
 
@@ -104,13 +105,40 @@ function extractMcpFromText(text: string, mcpReferences: string[]): void {
 }
 
 /**
+ * Extract subagent (Agent) definitions from text by matching the
+ * "- name: description (source)(Tools: ...)" list pattern emitted in the
+ * system prompt. Excludes the inherited default "general-purpose" agent.
+ */
+function extractAgentsFromText(
+  text: string,
+  agents: DetectedAgent[],
+  seen: Set<string>,
+): void {
+  const pat =
+    /- ([a-zA-Z0-9_\-]+): ([^\n]*)\((?:[^()]*@[^()]*|project)\)\(Tools:[^)]*\)/g
+  let m: RegExpExecArray | null
+  while ((m = pat.exec(text)) !== null) {
+    const name = m[1]
+    if (name === 'general-purpose' || seen.has(name)) continue
+    seen.add(name)
+    const description = m[2].trim()
+    agents.push({
+      name,
+      description,
+      estimatedTokens: Math.ceil((name.length + description.length) / 4),
+      source: m[0].includes('@') ? 'plugin' : 'project',
+    })
+  }
+}
+
+/**
  * Extract per-skill token breakdown from the Skill tool definition.
  * Parses the <available_skills> block in the Skill tool's description.
  */
 function extractSkillTokens(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tools: any[],
-): Record<string, { description: string; estimatedTokens: number }> {
+): Record<string, { description: string; estimatedTokens: number; location?: string }> {
   const skillTool = tools.find((t) => extractToolName(t) === 'Skill')
   if (!skillTool) return {}
 
@@ -120,7 +148,7 @@ function extractSkillTokens(
 
   const block = match[1] ?? ''
   const entries = block.split('\n- ')
-  const result: Record<string, { description: string; estimatedTokens: number }> = {}
+  const result: Record<string, { description: string; estimatedTokens: number; location?: string }> = {}
 
   for (const entry of entries) {
     const trimmed = entry.trim()
@@ -137,6 +165,7 @@ function extractSkillTokens(
     result[name] = {
       description: trimmed,
       estimatedTokens: Math.ceil(trimmed.length / 4),
+      location: location !== 'bundled' ? location : undefined,
     }
   }
   return result
@@ -230,6 +259,8 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
   let memoryTokens = 0
   const skillReferences: string[] = []
   const mcpReferences: string[] = []
+  const agents: DetectedAgent[] = []
+  const agentSeen = new Set<string>()
 
   for (const m of messages) {
     const role = typeof m?.role === 'string' ? m.role : 'unknown'
@@ -317,6 +348,13 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
     }
   }
 
+  // --- Subagents from the Agent tool description list ---
+  for (const t of tools) {
+    if (extractToolName(t) !== 'Agent') continue
+    const desc = t?.function?.description ?? t?.description ?? ''
+    extractAgentsFromText(desc, agents, agentSeen)
+  }
+
   // --- Deferred MCP tools from ToolSearch description (<available_deferred_tools>) ---
   const deferredMcp = extractDeferredMcpTools(tools)
   for (const dt of deferredMcp.tools) {
@@ -359,6 +397,7 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
     skillTokens,
     skillReferences,
     mcpReferences,
+    agents,
     detectedPlugins,
     rulesTokens,
     memoryTokens,
@@ -377,6 +416,7 @@ export function aggregateCaptures(fragments: ProxyDiagnosisData[]): ProxyDiagnos
       messages: { roleCounts: {}, roleTokens: {}, breakdown: [] },
       tools: { builtin: [], mcp: [], deferred: [] },
       skills: [],
+      agents: [],
       mcpServers: [],
       totalEstimatedTokens: 0,
       model: 'unknown',

@@ -87,24 +87,13 @@ export function buildDiagnosisReport(
     },
   }
 
-  const warnings: string[] = []
-  if (mcpToolCount > 30) {
-    warnings.push(`检测到 ${mcpToolCount} 个 MCP 工具定义，考虑延迟加载或精简。`)
-  }
-  if (skillsTokens > 500) {
-    warnings.push('Skills 占用较高，存在可禁用的低频 Skill。')
-  }
-  if (parsed.detectedPlugins.length > 0) {
-    warnings.push(
-      `检测到活跃插件: ${parsed.detectedPlugins.join(', ')}，其 system-reminder 占用上下文。`,
-    )
-  }
-
   // Build skill list from skillTokens (rich, from Skill tool desc)
   const skillList = Object.entries(parsed.skillTokens).map(([name, info]) => ({
     name,
     source: 'skill',
     estimatedTokens: info.estimatedTokens,
+    sourcePath: info.location,
+    description: info.description,
   }))
 
   // MCP list: concrete servers parsed from tool defs + deferred server references.
@@ -130,8 +119,12 @@ export function buildDiagnosisReport(
       estimatedTokens: info.estimatedTokens,
     })),
     skillList,
+    agentList: parsed.agents.map((a) => ({
+      name: a.name,
+      estimatedTokens: a.estimatedTokens,
+      source: a.source,
+    })),
     toolBreakdown,
-    warnings,
     pluginList: fs?.pluginList ?? [],
     hookList: fs?.hookList ?? [],
     ruleList: fs?.ruleList ?? [],
@@ -141,7 +134,6 @@ export function buildDiagnosisReport(
     dataSource: 'proxy',
     // Extended fields for rich terminal output
     toolDefinitions: allTools,
-    skillTokens: parsed.skillTokens,
     model: parsed.model,
     proxyDetails: {
       model: parsed.model,
@@ -164,12 +156,12 @@ function emptyReport(): DiagnosisReport {
     contextOverview: { totalEstimatedTokens: 0, breakdown: [] },
     mcpList: [],
     skillList: [],
+    agentList: [],
     toolBreakdown: {
       builtin: { count: 0, estimatedTokens: 0, names: [] },
       mcp: { count: 0, estimatedTokens: 0, names: [] },
       deferred: { count: 0, estimatedTokens: 0, names: [] },
     },
-    warnings: [],
   }
 }
 
@@ -177,7 +169,6 @@ function emptyReport(): DiagnosisReport {
 export function renderMarkdown(
   report: DiagnosisReport & {
     toolDefinitions?: ToolDef[]
-    skillTokens?: Record<string, { description: string; estimatedTokens: number }>
     model?: string
   },
 ): string {
@@ -252,16 +243,30 @@ export function renderMarkdown(
       lines.push(
         `  [${skill.source ?? 'skill'}] ${skill.name.padEnd(20)} ~${skill.estimatedTokens} tok`,
       )
+      if (skill.sourcePath) {
+        lines.push(`      ↳ ${skill.sourcePath}`)
+      }
+      if (skill.description) {
+        lines.push(`      ${skill.description}`)
+      }
     }
   }
   lines.push('')
 
-  if (report.warnings.length) {
-    lines.push('警告')
-    lines.push('-'.repeat(40))
-    for (const w of report.warnings) lines.push(`  - ${w}`)
-    lines.push('')
+  // --- Agents (subagents) ---
+  const agents = report.agentList ?? []
+  lines.push(`Agents (${agents.length} 个)`)
+  lines.push('-'.repeat(40))
+  if (agents.length === 0) {
+    lines.push('  (无)')
+  } else {
+    for (const a of agents) {
+      lines.push(
+        `  [${a.source ?? 'project'}] ${a.name.padEnd(22)} ~${a.estimatedTokens} tok`,
+      )
+    }
   }
+  lines.push('')
 
   // --- Plugins ---
   const plugins = report.pluginList ?? []
