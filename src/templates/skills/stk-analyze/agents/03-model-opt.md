@@ -13,28 +13,33 @@
 
 ## 机制依据
 
-CodeBuddy 自定义 Agent / Plugin 可在 frontmatter 或配置中指定 `model:` 字段（如 `model: lite`）。`lite` 模型成本低、速度快，适合**规则驱动 / 模板化 / 简单重复**任务；复杂推理任务应保持默认模型。本 agent 仅对**白名单中明确为低复杂度任务**的对象建议降级，不凭名称猜测。
+CodeBuddy 子代理（`.codebuddy/agents/*.md`）的 frontmatter 支持 `model` 字段指定模型别名（如 `model: lite`）。Skill 的 frontmatter 也支持 `model` 字段，但**仅在 `context: fork` 时生效**（非 fork 模式的 Skill 由主对话模型执行，`model` 字段无效）。
+
+`lite` 模型成本低、速度快，适合**规则驱动 / 模板化 / 简单重复**任务；复杂推理任务应保持默认模型。本 agent 仅对**白名单中明确为低复杂度任务**的对象建议降级，不凭名称猜测。
+
+内置子代理 `Explore` 默认使用 `lite` 级别模型，`cavecrew-investigator` / `cavecrew-reviewer` 已使用 `haiku`（比 `lite` 更激进），这些是 model 降级的参考先例。
 
 ## 判定规则
 
 仅对下表**精确名称匹配**的对象产出建议（白名单制，不扩展）：
 
-| 对象名 | 类型 | 任务特征 | 建议模型 | 原因 |
-| --- | --- | --- | --- | --- |
-| `lint-check-fix` | skill | lint 检查 + 自动修复 | `lite` | 规则驱动，按 eslint 配置机械执行 |
-| `code-reviewer` | skill | 代码审查 | `lite` | 规则化检查清单驱动 |
-| `caveman-commit` | skill | commit 信息生成 | `lite` | 模板化输出 |
-| `caveman-stats` | skill | token 统计 | `lite` | 简单聚合计算 |
-| `caveman-compress` | skill | 压缩 CLAUDE.md | `lite` | 模板化压缩 |
-| `caveman-review` | skill | 代码审查（caveman 风格） | `lite` | 规则化检查 |
-| `st-analyze` / `stk-analyze` | skill | token 优化分析 | **保持默认** | 不产出（涉及多步推理与综合判断） |
-| `ut-writer` | skill | 补单元测试 | **保持默认** | 不产出（需理解代码语义） |
+| 对象名 | 类型 | 任务特征 | 建议模型 | fork 要求 | 原因 |
+| --- | --- | --- | --- | --- | --- |
+| `lint-check-fix` | skill | lint 检查 + 自动修复 | `lite` | 需 `context: fork` | 规则驱动，按 eslint 配置机械执行 |
+| `caveman-commit` | skill | commit 信息生成 | `lite` | 需 `context: fork`（已满足） | 模板化输出 |
+| `caveman-stats` | skill | token 统计 | `lite` | 需 `context: fork`（已满足） | 简单聚合计算 |
+| `caveman-compress` | skill | 压缩 CLAUDE.md | `lite` | 需 `context: fork` | 模板化压缩 |
+| `caveman-review` | skill | 代码审查（caveman 风格） | `lite` | 需 `context: fork` | 规则化检查 |
+| `st-analyze` / `stk-analyze` | skill | token 优化分析 | **保持默认** | - | 不产出（涉及多步推理与综合判断） |
+| `ut-writer` | skill | 补单元测试 | **保持默认** | - | 不产出（需理解代码语义） |
 
 **前置条件**（必须同时满足才产出）：
 
 1. 对象存在于 `skillList[]` 或 `pluginList[]` 中（精确名称匹配 `name` 或 `pluginId`）
 2. 对象 `enabled !== false`（禁用对象不产出）
-3. 对象当前未已指定 `model: lite`（若已指定，不重复建议——此条件无法从诊断报告确认时，按"未指定"处理并在 `detail` 注明"若未指定 model 字段则建议添加"）
+3. 对象当前未已指定 `model: lite`。**若诊断报告无法确认 model 状态，倾向于不产出**（宁可漏报，不误报）。若产出，`detail` 必须注明"若该 skill/agent frontmatter 未指定 model 字段则建议添加"
+
+**Skill `model` 字段的特殊约束**：Skill 的 `model` 字段**仅在 `context: fork` 时生效**。对于需要 model 降级但当前不是 fork 模式的 Skill，建议需同时包含"添加 `context: fork` + `model: lite`"。若该 Skill 不适合 fork 执行（如有明确任务无具体指令），则不应产出建议。
 
 ## 不输出的情况
 

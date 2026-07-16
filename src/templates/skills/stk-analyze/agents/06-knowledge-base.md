@@ -11,7 +11,7 @@
 ## 输入
 
 - `repo-scan.json`：含 `codeFileCount` / `docFileCount` / `codeLineCount` / `topLanguages` / `hasDocsDir` / `hasCodebuddyMd` / `isMonorepo` / `scanError`
-- `context.json`：含 `graphTool`（用户阶段 2 选择，取值 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` / `none`）
+- `context.json`：含 `graphTool`（用户阶段 2 选择，取值 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` / `none`）。**注意**：`codebase-memory-mcp` 在诊断报告的 `ToolId` 类型中对应 `codebase-memory`，两者等效
 - `toolDetection[]`：判定知识库工具是否已安装/启用
 - `context.graphTool === 'none'` 或缺失：返回 `skipped: true` + 空 `suggestions`（用户明确不需要）
 
@@ -21,12 +21,17 @@
 
 | 条件 | 判定 | 输出 |
 | --- | --- | --- |
-| `context.graphTool` 指定具体工具（非 `none`）且 `repo-scan.codeFileCount` ≥ 50 | 仓库规模达标，建议启用 | `action`: "启用 <graphTool 展示名>"，`operationType`: "knowledge-base"，`evidence`: "codeFileCount=N, topLanguages=[...]"，`estimatedSavingTokens`: 按 `codeLineCount / 100 × 5` 估算（每百行代码约省 5 token 回读） |
-| `context.graphTool` 指定具体工具且 `codeFileCount` < 20 | 仓库过小，反向提示 | `action`: "暂不启用 <graphTool>（仓库规模过小）"，`operationType`: "other"，`reason`: "codeFileCount=N < 20，知识图谱开销大于收益"，`estimatedSavingTokens`: 0，`risk`: "low" |
-| `context.graphTool` 指定具体工具且 20 ≤ `codeFileCount` < 50 | 中等规模，可选启用 | `action`: "考虑启用 <graphTool>（中等规模，收益有限）"，`operationType`: "knowledge-base"，`reason`: "codeFileCount=N，收益视代码复杂度而定"，`estimatedSavingTokens`: 按 `codeLineCount / 100 × 2` 估算 |
+| `context.graphTool` 指定具体工具（非 `none`）且 `repo-scan.codeFileCount` ≥ 200 | 仓库规模达标，强烈推荐 | `action`: "启用 <graphTool 展示名>"，`operationType`: "knowledge-base"，`evidence`: "codeFileCount=N, topLanguages=[...]"，`estimatedSavingTokens`: 按 `codeFileCount × 15` 估算（基于 CodeGraph benchmark：~600 文件省 73% token，每文件约 6-15 token） |
+| `context.graphTool` 指定具体工具且 `codeFileCount` < 50 | 仓库过小，反向提示 | `action`: "暂不启用 <graphTool>（仓库规模过小）"，`operationType`: "other"，`reason`: "codeFileCount=N < 50，知识图谱开销大于收益（Graphify 官方建议 ≥ 100 文件；CodeGraph 在 ~150 文件仅省 22%）"，`estimatedSavingTokens`: 0，`risk`: "low" |
+| `context.graphTool` 指定具体工具且 50 ≤ `codeFileCount` < 200 | 中等规模，可选启用 | `action`: "考虑启用 <graphTool>（中等规模，收益有限）"，`operationType`: "knowledge-base"，`reason`: "codeFileCount=N，收益视代码复杂度而定"，`estimatedSavingTokens`: 按 `codeFileCount × 8` 估算 |
 | `toolDetection` 中对应工具 `installed === true` 且 `enabled === false` | 已装未启用 | 由 agent 1 产出"启用"建议，本 agent **不重复产出**（见职责边界） |
 | `toolDetection` 中对应工具 `installed === true` 且 `enabled === true` | 已就绪 | 不产出 |
 | `repo-scan.scanError` 非 null | 扫描失败 | `action`: "无法评估 <graphTool>（仓库扫描失败）"，`operationType`: "other"，`estimatedSavingTokens`: 0，`risk`: "low"，`evidence`: "scanError=<msg>" |
+
+**辅助判据**：
+- 若 `isMonorepo === true`，知识图谱收益更高（可跨包查询），`estimatedSavingTokens` 乘以 1.5
+- 若 `docFileCount ≥ 50`，即使 `codeFileCount < 50`，也降级为"中等"而非"不推荐"（知识图谱可整合文档）
+- `gitnexus`（纯浏览器端、零服务端）对 < 50 文件仓库可放宽阈值
 
 **展示名映射**：
 
@@ -48,13 +53,17 @@
 
 | level | 命中条件 |
 | --- | --- |
-| 高级 | 全部知识图谱推荐建议（代码知识库类，同 Headroom 同级） |
+| 初级 | 反向提示（仓库过小、扫描失败） |
+| 中级 | 中等规模启用建议（50 ≤ codeFileCount < 200） |
+| 高级 | 达标规模启用建议（codeFileCount ≥ 200） |
 
 ## estimatedSavingTokens 估算口径
 
-- 启用建议：`codeLineCount / 100 × 5`（达标规模）或 `× 2`（中等规模）
+- 达标（≥200）：`codeFileCount × 15 × monorepoFactor`（基于 CodeGraph benchmark：600 文件省 73% token，每文件约 6-15 token）
+  - `monorepoFactor = isMonorepo ? 1.5 : 1.0`
+- 中等（50-200）：`codeFileCount × 8 × monorepoFactor`
 - 反向/无法评估：固定 0
-- 估算依据：知识图谱替代回读，每百行代码约省 2-5 token（经验值，相对比较用）
+- 估算依据：知识图谱替代回读，收益来自"减少探索式代码搜索"的 token，非替代全量回读
 
 ## 职责边界
 

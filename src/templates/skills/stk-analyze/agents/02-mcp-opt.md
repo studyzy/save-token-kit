@@ -19,7 +19,7 @@
 | `status === "disabled"` 且 `toolsCount === 0` | 死配置 | `action`: "移除 mcp: <name>"，`operationType`: "disable-mcp"，`reason`: "已禁用且无工具，配置残留"，`estimatedSavingTokens`: 0（已无加载开销），`risk`: "low" |
 | `status === "disabled"` 且 `toolsCount > 0` | 禁用但仍有工具定义 | `action`: "移除 mcp: <name>（已禁用，工具定义仍占 token）"，`operationType`: "disable-mcp"，`reason`: "status=disabled 但 toolsCount=<N>，工具定义仍入上下文"，`estimatedSavingTokens`: 取该 MCP `estimatedTokens` |
 | `hasCliAlternative === true` 且 `status === "enabled"` 且 `purpose` 非 `office` | CLI 替代 | `action`: "用 CLI 替代 mcp: <name> → `<cliAlternative>`"，`operationType`: "replace-mcp-with-cli"，`reason`: "<cliAlternative> 可覆盖常见用法，工具定义 <estimatedTokens> token 可移除"，`estimatedSavingTokens`: 取 `estimatedTokens` |
-| `status === "enabled"` 且 `estimatedTokens` > 1500 且 `toolsCount` > 8 且 `deferLoading !== true` | 大型 MCP 未 defer | `action`: "为 <name> 设置 defer_loading: true"，`operationType`: "defer-mcp"，`reason`: "toolsCount=<N> estimatedTokens=<T>，低频使用可延迟加载"，`estimatedSavingTokens`: 取 `estimatedTokens` × 0.6（defer 后仍保留引用条目） |
+| `status === "enabled"` 且 `estimatedTokens` > 1500 且 `toolsCount` > 15 且 `deferLoading !== true` | 大型 MCP 未 defer | `action`: "为 <name> 设置 defer_loading: true"，`operationType`: "defer-mcp"，`reason`: "toolsCount=<N> estimatedTokens=<T>，defer 后仅保留 name+description（约省 40-60% token），且工具不参与 KV Cache key 计算，减少缓存失效"，`estimatedSavingTokens`: 取 `estimatedTokens` × 0.6（defer 后仍保留引用条目） |
 | `status === "enabled"` 且 `toolsCount === 0` | 异常空 MCP | `action`: "检查 mcp: <name>（启用但无工具加载）"，`operationType`: "other"，`reason`: "可能配置错误或 server 未正常启动"，`estimatedSavingTokens`: 0，`risk`: "medium" |
 
 **传输方式注意**：
@@ -30,9 +30,10 @@
 ## 不输出的情况
 
 - `mcpList` 为空或缺失 → `skipped: true`
-- MCP 已 enabled 且 `hasCliAlternative === false` 且体量小（`estimatedTokens` ≤ 1500 或 `toolsCount` ≤ 8） → 不产出
+- MCP 已 enabled 且 `hasCliAlternative === false` 且体量小（`estimatedTokens` ≤ 1500 或 `toolsCount` ≤ 15） → 不产出
 - `status === "enabled"` 且已 `deferLoading === true` → 不产出 defer 建议
 - `purpose === "office"` 且 MCP 为 office 类（playwright / browser 等） → 不建议 CLI 替代
+- `toolsCount === 0` 且 `estimatedTokens === 0` → 空壳配置，不产出
 
 ## level 判定
 
@@ -47,7 +48,8 @@
 - 移除（disable-mcp）：取该 MCP 的 `estimatedTokens`（完全移除工具定义）
 - CLI 替代（replace-mcp-with-cli）：取 `estimatedTokens`（CLI 不入工具列表）
 - defer（defer-mcp）：取 `estimatedTokens` × 0.6（defer 后仍保留 server 引用与少量元数据）
-- 无 `estimatedTokens` 字段：按 `toolsCount × 80`（每工具约 80 token 估算）兜底
+- 无 `estimatedTokens` 字段：按 `toolsCount × 150`（实测 MCP 工具中位数约 136 token/工具，取 150 兜底）兜底
+- defer 额外收益说明：defer_loading 的工具不参与 KV Cache key 计算，减少缓存失效——这是常被忽视的重要收益
 
 ## 职责边界
 

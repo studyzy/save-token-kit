@@ -6,12 +6,21 @@
 
 ## 机制依据
 
-Hook 在指定事件（如 `user-prompt-submit` / `tool-call`）触发时执行 shell 命令，其 stdout 会被注入为 `<system-reminder>` 进入对话上下文。Hook 问题主要有四类：
+Hook 在指定事件触发时执行 shell 命令，其 stdout 会被注入为 `<system-reminder>` 进入对话上下文。CodeBuddy 支持 27+ 种事件类型，覆盖：
 
-1. **注入体量过大**：每次对话/工具调用注入大块文本，持续占用上下文
+- **工具生命周期**：`PreToolUse`（工具调用前拦截，RTK/caveman 等工具的核心机制）、`PostToolUse`（工具调用后处理）、`PostToolUseFailure`
+- **会话与子代理**：`SessionStart`、`SessionEnd`、`Stop`、`SubagentStart`、`SubagentStop`
+- **用户交互**：`UserPromptSubmit`、`Notification`、`PermissionRequest`
+- **其他**：`PreCompact`、`PostCompact`、`FileChanged`、`CwdChanged`、`TaskCreated`、`TaskCompleted` 等
+
+Hook 默认 60 秒超时自动终止。Hook 问题主要有六类：
+
+1. **注入体量过大**：每次事件注入大块文本，持续占用上下文
 2. **失败风险**：hook 命令失败会阻塞用户流程或产生噪声错误
 3. **超时配置**：无 timeout 或 timeout 过长会拖慢每次触发
 4. **链过长/重复**：同一事件挂多个 hook，重复执行相似工作
+5. **安全风险**：含危险操作（rm -rf / force push 等）的 hook 自动执行
+6. **信息冗余**：Hook 注入内容与已有 CODEBUDDY.md/rules/skill 描述重复
 
 ## 输入
 
@@ -27,7 +36,9 @@ Hook 在指定事件（如 `user-prompt-submit` / `tool-call`）触发时执行 
 | --- | --- | --- |
 | Hook `command` 含 `echo` / `cat` / `printf` 大段文本输出，或 matcher 为通配（每次触发） | 注入体量大 | `action`: "精简 hook: <matcher>（减少注入文本）"，`operationType`: "other"，`reason`: "每次 <event> 注入大块文本，持续占用上下文"，`estimatedSavingTokens`: 按 `command` 输出预估字符数 / 4 |
 | Hook `command` 含 `rtk` / `caveman` / `ponytail` 等已启用工具的提示注入（与已装工具功能重复） | 功能重复 | `action`: "移除 hook: <matcher>（已被工具 <name> 覆盖）"，`operationType`: "other"，`reason`: "hook 注入的提示与已启用工具 <name> 重复"，`risk`: "low" |
-| `timeout === null` 且 `command` 含网络调用（curl/wget）或可能长时间运行（find -exec / xargs 大范围） | 无超时风险 | `action`: "为 hook <matcher> 设置 timeout"，`operationType`: "other"，`reason`: "timeout=null 且 command 可能长时间运行，会拖慢 <event>"，`risk`: "medium" |
+| `timeout === null` 或 `timeout > 30000`，且 `command` 含网络调用（curl/wget）或可能长时间运行（find -exec / xargs 大范围） | 超时风险 | `action`: "为 hook <matcher> 设置合理 timeout（建议 ≤ 30000ms）"，`operationType`: "other"，`reason`: "timeout=<value> 且 command 可能长时间运行，会拖慢 <event>"，`risk`: "medium" |
+| Hook `matcher` 为 `*` 或空字符串，且 `event` 为 `PreToolUse`/`PostToolUse`/`tool-call` | matcher 可收窄 | `action`: "收窄 hook <matcher> 触发条件，限定到具体工具名"，`operationType`: "other"，`reason`: "matcher=* 导致所有工具调用均触发，建议限定到具体工具名"，`risk`: "low" |
+| Hook `command` 含明显危险操作（`rm -rf` / `git push --force` / `git push -f` / `sudo` / `curl \| sh` / `curl \| bash` / `DROP` / `DELETE` / `> /dev/` / `dd if=`）且无确认机制 | 高风险 hook | `action`: "审查 hook <matcher> 危险操作"，`operationType`: "other"，`reason`: "command 含 <危险操作>，hook 自动执行可能造成不可逆损失"，`risk`: "high" |
 | 同一 `event` 挂载 ≥ 3 个 hook | 链过长 | `action`: "合并同事件 hook（<event> 挂载 N 个）"，`operationType`: "other"，`reason`: "同事件 hook 过多，每次触发串行执行 N 次"，`risk`: "medium" |
 | Hook `command` 含明显危险操作（`rm -rf` / `git reset --hard` / `--force`）且无确认机制 | 高风险 hook | `action`: "审查 hook <matcher> 危险操作"，`operationType`: "other"，`reason`: "command 含 <危险操作>，hook 自动执行可能造成不可逆损失"，`risk`: "high" |
 | Hook `source === 'settings'` 且 `matcher` 极宽（如 `*` / 空字符串）且注入体量大 | 作用域过宽 | `action`: "收窄 hook <matcher> 作用域"，`operationType`: "other"，`reason`: "matcher 过宽导致每次都触发，建议限定具体 matcher" |
