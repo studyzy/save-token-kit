@@ -51,8 +51,8 @@ argument-hint: ''
 ## tasks.md 与 tasks.json 的关系
 
 - `tasks.md`：人读待办清单，来自 `/stk-analyze`（一个 SKILL/工具一个 Task）。
-- `tasks.json`：机器契约，来自 `/stk-optimize` 执行后落盘，含 `status` 与 `estimatedSavingTokens`。
-- 本报告归因以 `tasks.json` 为准。若用户仅有 `tasks.md` 无 `tasks.json`，提示先运行 `/stk-optimize` 生成执行结果再报告。
+- `tasks.json`：机器契约，由 `/stk-optimize` 执行完毕后落盘，含每条任务的 `status`、`estimatedSavingTokens`、`appliedChange` 等执行结果。
+- 本报告归因以 `tasks.json` 为准。若 `tasks.json` 不存在，提示用户先运行 `/stk-optimize` 生成执行结果；仍可仅基于前后诊断报告生成对比（`taskResults` 为空）。
 
 ## 边界
 
