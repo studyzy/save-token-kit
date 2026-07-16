@@ -13,7 +13,6 @@ argument-hint: ''
 对比源为 proxy 透明代理采集的诊断报告（由 `stk diagnose` 拦截真实请求产出）：
 
 - 优化前基线 `save-token/diagnosis-report.md` 应已存在（`stk diagnose` 首次采集）。
-- `save-token/tasks.json`（`/stk-optimize` 执行结果）可选；缺失时仍生成报告，仅做前后诊断对比。
 
 > 注：`stk diagnose` 默认同时写 `.json`+`.md`，但优化后用 `--report-path` 时 JSON 会覆盖写回 `diagnosis-report.json` 冲掉基线。故对比统一以两份 Markdown（`diagnosis-report.md` 前 / `diagnosis-report2.md` 后）为准。
 
@@ -23,16 +22,15 @@ argument-hint: ''
 2. 读取文件：
    - `./save-token/diagnosis-report.md`（优化前）
    - `./save-token/diagnosis-report2.md`（优化后，上一步产出）
-   - `./save-token/tasks.json`（任务执行结果，可选）
 3. 从两份 Markdown 解析总 Token 与分类明细（System Prompt / Tools / Skills / Memory / Messages / Rules / Hooks），计算 before / after 差值与百分比。
-3. 将任务执行效果与 Token 变化按 `suggestionId` 归因（仅当 `tasks.json` 存在）：
-   - `actualSavingTokens`：completed 取可归属分类 delta（无法精确归属按占比估算并标 `deviation`）；partial 按实际生效；failed/skipped 记 0。
-   - 预估 ≠ 实际时 `deviation` 必非空；failed 在 `error` 记原因。
+3. 任务效果归因（基于 `tasks.md` 中的复选框状态）：
+   - 读取 `tasks.md`，按已完成（`- [x]`）与未完成（`- [ ]`）判断每条任务状态
+   - `actualSavingTokens`：已完成取可归属分类 delta（无法精确归属按占比估算并标 `deviation`）；未完成/跳过记 0。
+   - 预估 ≠ 实际时 `deviation` 必非空。
    - 总体节省摘要（总节省 Token 数、节省比例、各状态计数）。
 4. **必须**以 JSON 落盘 `./save-token/save-token-report.json`（结构见 `src/types/index.ts` 的 `SaveTokenReport` 契约）。
 5. 可另写 `./save-token/save-token-report.md` 作展示（可选），并在对话中展示中文摘要（总节省百分比 + 分类变化表 + 任务效果表）。
 
 ## 错误处理
 
-- Markdown/JSON 解析失败 → 报告具体文件与位置，**不崩溃**。
-- `tasks.json` 不存在 → 仅对比前后诊断数据，不展示任务级效果（`taskResults` 为空）。
+- Markdown 解析失败 → 报告具体文件与位置，**不崩溃**。

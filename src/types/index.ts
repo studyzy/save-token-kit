@@ -3,7 +3,6 @@
  * Contracts mirror the data-model.md spec:
  *   - DiagnosisReport    (diagnosis-report.json, from `stk diagnose`)
  *   - AnalysisFile       (analysis.json, from `/stk-analyze`)
- *   - TasksFile          (tasks.json, from `/stk-optimize`)
  *   - SaveTokenReport    (save-token-report.json, from `/stk-report`)
  *   - ProxyDiagnosisData (intermediate parsed capture)
  *   - RepoScan           (repo-scan.json, from `/stk-analyze` repo scan)
@@ -326,48 +325,10 @@ export interface AnalysisFile {
 }
 
 // ---------------------------------------------------------------------------
-// 3. OptimizationTask (tasks.json, from /stk-optimize)
+// 3. SaveTokenReport (save-token-report.json, from /stk-report)
 // ---------------------------------------------------------------------------
 
 export type TaskStatus = 'completed' | 'failed' | 'skipped' | 'partial'
-
-export interface OptimizationTask {
-  /** Related suggestion ID (matches AnalysisSuggestion.id) */
-  suggestionId: string
-  /** Task description (Chinese) */
-  description: string
-  /** Operation type (same as AnalysisSuggestion.operationType) */
-  operationType: string
-  /** Target identifier */
-  target?: string
-  /** Execution status */
-  status: TaskStatus
-  /** Estimated saving tokens (carried from suggestion) */
-  estimatedSavingTokens: number
-  /** Actual saving tokens (filled by /stk-report; empty during optimize) */
-  actualSavingTokens?: number
-  /** Risk level */
-  risk: RiskLevel
-  /** Whether reversible (hint only) */
-  reversible: boolean
-  /** Error message on failure/partial */
-  error?: string
-  /** Summary of applied change (e.g. "disabled skill: foo") */
-  appliedChange?: string
-}
-
-export interface TasksFile {
-  /** Generation timestamp (ISO 8601) */
-  generatedAt: string
-  /** Task list */
-  tasks: OptimizationTask[]
-  /** Total estimated saving tokens */
-  totalEstimatedSavingTokens: number
-}
-
-// ---------------------------------------------------------------------------
-// 4. SaveTokenReport (save-token-report.json, from /stk-report)
-// ---------------------------------------------------------------------------
 
 export interface TokenChange {
   /** Category (same as ContextItem.type) */
@@ -429,7 +390,7 @@ export interface SaveTokenReport {
   afterTotalTokens: number
   /** Token changes per category */
   changes: TokenChange[]
-  /** Task execution results (aligned with tasks.json) */
+  /** Task execution results */
   taskResults: TaskResult[]
   /** Overall savings summary */
   summary: SavingsSummary

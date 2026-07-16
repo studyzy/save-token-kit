@@ -59,7 +59,6 @@ stk diagnose >> ./save-token/diagnosis-report.md   # 保存首次报告
 | 文件                     | 阶段          | 说明                 |
 | ------------------------ | ------------- | -------------------- |
 | `analysis.json`          | /stk-analyze  | 优化建议（机器可读） |
-| `tasks.json`             | /stk-optimize | 优化任务执行结果     |
 | `save-token-report.json` | /stk-report   | 前后 Token 对比报告  |
 
 优化后重新诊断：`stk diagnose >> ./save-token/diagnosis-report2.md`。
