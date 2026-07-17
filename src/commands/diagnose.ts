@@ -141,7 +141,7 @@ export async function detectToolsViaRegistry(
   if (proxyParsed) {
     const mcpEnabled =
       fs.mcpList.some((m) => m.name === 'headroom' && m.status === 'enabled') ||
-      (proxyParsed.mcpReferences?.some((r: string) => r === 'mcp__headroom') ?? false)
+      (proxyParsed.mcpServers?.some((m: { name: string }) => m.name === 'headroom') ?? false)
     if (mcpEnabled) {
       headroomTool.setMcpEnabled(true)
       const hIdx = detections.findIndex((d) => d.name === 'headroom')

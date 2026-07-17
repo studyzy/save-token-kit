@@ -2,10 +2,9 @@ import { estimateTokensOf, truncateIfLarge } from '../collectors/token-estimator
 import type {
   MessageBreakdown,
   ProxyDiagnosisData,
-  ToolDef,
-  DetectedSkill,
-  DetectedAgent,
-  McpServerDetection,
+  SkillEntry,
+  AgentEntry,
+  McpEntry,
 } from '../types/index.js'
 
 /**
@@ -92,14 +91,27 @@ function extractSkillsFromText(text: string, skillReferences: string[]): void {
 }
 
 /**
- * Extract MCP server references from text by finding mcp__XXX patterns.
+ * Extract MCP server references from text by finding mcp__XXX patterns,
+ * and merge them into mcpServers.
  */
-function extractMcpFromText(text: string, mcpReferences: string[]): void {
-  const mcpMatches = text.matchAll(/mcp__(\w+)/g)
+function extractMcpFromText(
+  text: string,
+  mcpServers: Record<string, { serverName: string; toolCount: number; estimatedTokens: number; tools: string[]; loadingMode: 'direct' | 'deferred' }>,
+): void {
+  const mcpMatches = text.matchAll(/mcp__([a-zA-Z0-9_-]+)/g)
   for (const match of mcpMatches) {
-    const name = match[1]
-    if (name && !mcpReferences.includes(name)) {
-      mcpReferences.push(name)
+    const fullName = match[0]
+    const server = match[1]?.split('__')[0]
+    if (!server) continue
+    const entry = (mcpServers[server] ??= {
+      serverName: server,
+      toolCount: 0,
+      estimatedTokens: 0,
+      tools: [],
+      loadingMode: 'deferred',
+    })
+    if (!entry.tools.includes(fullName)) {
+      entry.tools.push(fullName)
     }
   }
 }
@@ -111,7 +123,7 @@ function extractMcpFromText(text: string, mcpReferences: string[]): void {
  */
 function extractAgentsFromText(
   text: string,
-  agents: DetectedAgent[],
+  agents: AgentEntry[],
   seen: Set<string>,
 ): void {
   const pat =
@@ -124,7 +136,6 @@ function extractAgentsFromText(
     const description = m[2].trim()
     agents.push({
       name,
-      description,
       estimatedTokens: Math.ceil((name.length + description.length) / 4),
       source: m[0].includes('@') ? 'plugin' : 'project',
     })
@@ -258,9 +269,9 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
   let rulesTokens = 0
   let memoryTokens = 0
   const skillReferences: string[] = []
-  const mcpReferences: string[] = []
-  const agents: DetectedAgent[] = []
+  const agents: AgentEntry[] = []
   const agentSeen = new Set<string>()
+  const mcpServers: Record<string, { serverName: string; toolCount: number; estimatedTokens: number; tools: string[]; loadingMode: 'direct' | 'deferred' }> = {}
 
   for (const m of messages) {
     const role = typeof m?.role === 'string' ? m.role : 'unknown'
@@ -289,7 +300,7 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
       }
       // Skills + MCP references appear in <available_skills>/mcp__ markers
       extractSkillsFromText(content, skillReferences)
-      extractMcpFromText(content, mcpReferences)
+      extractMcpFromText(content, mcpServers)
     } else if (Array.isArray(content)) {
       for (const block of content) {
         const text = typeof block?.text === 'string' ? block.text : JSON.stringify(block)
@@ -312,16 +323,15 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
           rulesTokens += est
         }
         extractSkillsFromText(text, skillReferences)
-        extractMcpFromText(text, mcpReferences)
+        extractMcpFromText(text, mcpServers)
       }
     }
   }
 
   // --- Tools (top-level definitions) ---
-  const builtin: ToolDef[] = []
-  const mcp: ToolDef[] = []
-  const deferred: ToolDef[] = []
-  const mcpServers: Record<string, McpServerDetection> = {}
+  const builtin: { name: string; estimatedTokens: number }[] = []
+  const mcp: { name: string; estimatedTokens: number }[] = []
+  const deferred: { name: string; estimatedTokens: number }[] = []
 
   for (const t of tools) {
     const name = extractToolName(t)
@@ -338,9 +348,12 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
         serverName: server,
         toolCount: 0,
         estimatedTokens: 0,
+        tools: [],
+        loadingMode: 'direct',
       })
       entry.toolCount += 1
       entry.estimatedTokens += est
+      entry.tools.push(name)
     } else if (category === 'deferred') {
       deferred.push({ name, estimatedTokens: est })
     } else {
@@ -363,12 +376,17 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
       ? dt.name.slice('mcp__'.length).split('__')
       : dt.name.split('__')
     const server = parts[0] ?? dt.name
-    const entry = (mcpServers[server] ??= { serverName: server, toolCount: 0, estimatedTokens: 0 })
+    const entry = (mcpServers[server] ??= { serverName: server, toolCount: 0, estimatedTokens: 0, tools: [], loadingMode: 'deferred' })
     entry.toolCount += 1
     entry.estimatedTokens += dt.estimatedTokens
+    entry.tools.push(dt.name)
   }
   for (const ref of deferredMcp.references) {
-    if (!mcpReferences.includes(ref)) mcpReferences.push(ref)
+    const server = ref.startsWith('mcp__') ? ref.slice('mcp__'.length).split('__')[0] : ref
+    const entry = (mcpServers[server] ??= { serverName: server, toolCount: 0, estimatedTokens: 0, tools: [], loadingMode: 'deferred' })
+    if (!entry.tools.includes(ref)) {
+      entry.tools.push(ref)
+    }
   }
 
   // --- Plugins active in the request body ---
@@ -376,10 +394,12 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
 
   // --- Skills (from Skill tool description) ---
   const skillTokens = extractSkillTokens(tools)
-  const skills: DetectedSkill[] = Object.entries(skillTokens).map(([name, info]) => ({
+  const skills: SkillEntry[] = Object.entries(skillTokens).map(([name, info]) => ({
     name,
-    source: 'skill',
+    source: 'skill' as const,
     estimatedTokens: info.estimatedTokens,
+    sourcePath: info.location,
+    description: info.description,
   }))
 
   const totalEstimatedTokens =
@@ -391,12 +411,18 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
     messages: { roleCounts, roleTokens, breakdown },
     tools: { builtin, mcp, deferred },
     skills,
-    mcpServers: Object.values(mcpServers),
+    mcpServers: Object.values(mcpServers).map((s) => ({
+      name: s.serverName,
+      status: 'enabled' as const,
+      toolsCount: s.toolCount,
+      estimatedTokens: s.estimatedTokens,
+      tools: s.tools,
+      loadingMode: s.loadingMode,
+    })),
     totalEstimatedTokens,
     // Extended fields for rich report
     skillTokens,
     skillReferences,
-    mcpReferences,
     agents,
     detectedPlugins,
     rulesTokens,
@@ -422,7 +448,6 @@ export function aggregateCaptures(fragments: ProxyDiagnosisData[]): ProxyDiagnos
       model: 'unknown',
       skillTokens: {},
       skillReferences: [],
-      mcpReferences: [],
       detectedPlugins: [],
       toolDescriptions: {},
     }

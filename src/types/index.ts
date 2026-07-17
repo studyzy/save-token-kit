@@ -55,8 +55,12 @@ export interface McpEntry {
   url?: string
   /** Number of tools defined by this MCP server */
   toolsCount: number
-  /** Deferred loading enabled */
+  /** Function names under this server (e.g. "mcp__context-mode__ctx_search") */
+  tools?: string[]
+  /** Deferred loading enabled (config-level, from MCP settings) */
   deferLoading?: boolean
+  /** Runtime loading mode: 'direct' = tools in request body, 'deferred' = only in available_deferred_tools */
+  loadingMode?: 'direct' | 'deferred'
   /** Estimated tokens of tool definitions */
   estimatedTokens: number
   /** Whether a CLI alternative exists */
@@ -231,13 +235,11 @@ export const MCP_CLI_ALTERNATIVES: Record<string, string> = {
 export interface ProxyDetails {
   model: string
   /** Tool definitions parsed from the request (builtin + mcp + deferred) */
-  toolDefinitions: ToolDef[]
+  toolDefinitions: { name: string; estimatedTokens: number }[]
   /** Per-message role/type/token breakdown */
   messageBreakdown: MessageBreakdown[]
   /** Skill names referenced in <available_skills> blocks of the request */
   skillReferences: string[]
-  /** MCP server references discovered in the request body */
-  mcpReferences: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -420,30 +422,6 @@ export interface MessageBreakdown {
   snippet: string
 }
 
-export interface ToolDef {
-  name: string
-  estimatedTokens: number
-}
-
-export interface DetectedSkill {
-  name: string
-  source: string
-  estimatedTokens: number
-}
-
-export interface DetectedAgent {
-  name: string
-  description: string
-  estimatedTokens: number
-  source?: string
-}
-
-export interface McpServerDetection {
-  serverName: string
-  toolCount: number
-  estimatedTokens: number
-}
-
 export interface ProxyDiagnosisData {
   /** Message breakdown */
   messages: {
@@ -457,18 +435,18 @@ export interface ProxyDiagnosisData {
   /** Tool definitions breakdown */
   tools: {
     /** Built-in tools */
-    builtin: ToolDef[]
+    builtin: { name: string; estimatedTokens: number }[]
     /** MCP tools */
-    mcp: ToolDef[]
+    mcp: { name: string; estimatedTokens: number }[]
     /** Deferred tools */
-    deferred: ToolDef[]
+    deferred: { name: string; estimatedTokens: number }[]
   }
   /** Detected skills */
-  skills: DetectedSkill[]
+  skills: SkillEntry[]
   /** Detected subagents (from Agent tool description list) */
-  agents: DetectedAgent[]
+  agents: AgentEntry[]
   /** Detected MCP servers (from mcp__ prefix) */
-  mcpServers: McpServerDetection[]
+  mcpServers: McpEntry[]
   /** Total estimated tokens */
   totalEstimatedTokens: number
   /** Model name from request */
@@ -477,8 +455,6 @@ export interface ProxyDiagnosisData {
   skillTokens: Record<string, { description: string; estimatedTokens: number; location?: string }>
   /** Skill names detected in system prompt text */
   skillReferences: string[]
-  /** MCP server names detected in system prompt text */
-  mcpReferences: string[]
   /** Plugins detected via message content markers */
   detectedPlugins: string[]
   /** Estimated tokens consumed by the system rules block (CODEBUDDY.md) */

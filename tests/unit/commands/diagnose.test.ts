@@ -35,7 +35,6 @@ function mockFs(mcpEntries: Array<{ name: string; status: string }> = []) {
 const proxyParsed = {
   systemPrompt: '',
   availableSkills: [],
-  mcpReferences: [],
   deferredTools: [],
   detectedPlugins: [],
   toolBreakdown: { builtin: { count: 0, tokens: 0 }, mcp: { count: 0, tokens: 0 }, deferred: { count: 0, tokens: 0 } },

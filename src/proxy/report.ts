@@ -3,7 +3,6 @@ import type {
   DiagnosisReport,
   ContextItem,
   ToolBreakdown,
-  ToolDef,
   ToolDetection,
 } from '../types/index.js'
 import type { FsCollectResult } from '../collectors/fs-collector.js'
@@ -87,43 +86,34 @@ export function buildDiagnosisReport(
     },
   }
 
-  // Build skill list from skillTokens (rich, from Skill tool desc)
-  const skillList = Object.entries(parsed.skillTokens).map(([name, info]) => ({
-    name,
-    source: 'skill',
-    estimatedTokens: info.estimatedTokens,
-    sourcePath: info.location,
-    description: info.description,
-  }))
+  // Build skill list directly from parsed (already SkillEntry[])
+  const skillList = parsed.skills
 
-  // MCP list: concrete servers parsed from tool defs + deferred server references.
-  const mcpMap = new Map<string, { toolsCount: number; estimatedTokens: number }>()
-  for (const s of parsed.mcpServers) {
-    mcpMap.set(s.serverName, { toolsCount: s.toolCount, estimatedTokens: s.estimatedTokens })
-  }
-  for (const ref of parsed.mcpReferences) {
-    const server = ref.startsWith('mcp__') ? ref.slice('mcp__'.length).split('__')[0] : ref
-    if (!mcpMap.has(server)) {
-      mcpMap.set(server, { toolsCount: 0, estimatedTokens: 0 })
+  // MCP list: already built in parser (McpEntry[] with tools included).
+  // Fix toolsCount and estimatedTokens from actual tool data.
+  const mcpList = parsed.mcpServers.map((mcp) => {
+    const toolNames = mcp.tools ?? []
+    // tokens from tool definitions matching this server prefix
+    const serverPrefix = `mcp__${mcp.name}`
+    const defTokens = allTools
+      .filter((t) => t.name.startsWith(serverPrefix))
+      .reduce((s, t) => s + t.estimatedTokens, 0)
+    // If no direct tool definitions, estimate from tool names (deferred loading)
+    const estTokens = defTokens || toolNames.reduce((s, n) => s + Math.ceil(n.length / 4), 0)
+    return {
+      ...mcp,
+      toolsCount: toolNames.length,
+      estimatedTokens: estTokens || mcp.estimatedTokens,
     }
-  }
+  })
 
   return {
     scanTimestamp: new Date().toISOString(),
     codebuddyVersion: codebuddyVersion ?? process.env.CODEBUDDY_VERSION ?? 'unknown',
     contextOverview: { totalEstimatedTokens: total, breakdown: categories },
-    mcpList: [...mcpMap.entries()].map(([name, info]) => ({
-      name,
-      status: 'enabled' as const,
-      toolsCount: info.toolsCount,
-      estimatedTokens: info.estimatedTokens,
-    })),
+    mcpList,
     skillList,
-    agentList: parsed.agents.map((a) => ({
-      name: a.name,
-      estimatedTokens: a.estimatedTokens,
-      source: a.source,
-    })),
+    agentList: parsed.agents,
     toolBreakdown,
     pluginList: fs?.pluginList ?? [],
     hookList: fs?.hookList ?? [],
@@ -132,15 +122,11 @@ export function buildDiagnosisReport(
     toolDetection: (toolDetection ?? []).filter((t) => t.installed),
     headlessAvailable: false,
     dataSource: 'proxy',
-    // Extended fields for rich terminal output
-    toolDefinitions: allTools,
-    model: parsed.model,
     proxyDetails: {
       model: parsed.model,
       toolDefinitions: allTools,
       messageBreakdown: parsed.messages.breakdown,
       skillReferences: parsed.skillReferences,
-      mcpReferences: parsed.mcpReferences,
     },
   }
 }
@@ -167,10 +153,7 @@ function emptyReport(): DiagnosisReport {
 
 /** Render a DiagnosisReport as terminal-friendly output matching save-token style. */
 export function renderMarkdown(
-  report: DiagnosisReport & {
-    toolDefinitions?: ToolDef[]
-    model?: string
-  },
+  report: DiagnosisReport,
 ): string {
   const lines: string[] = []
   lines.push('CodeBuddy Token 诊断报告')
@@ -178,7 +161,7 @@ export function renderMarkdown(
   lines.push(`扫描时间: ${report.scanTimestamp}`)
   lines.push(`CodeBuddy 版本: ${report.codebuddyVersion}`)
   lines.push(`数据来源: Proxy 拦截 (最精确)`)
-  if (report.model) lines.push(`模型: ${report.model}`)
+  if (report.proxyDetails?.model) lines.push(`模型: ${report.proxyDetails.model}`)
   lines.push('')
   lines.push('上下文总览（估算）')
   lines.push('-'.repeat(40))
@@ -197,11 +180,11 @@ export function renderMarkdown(
   lines.push('')
 
   // Tool definitions breakdown
-  const toolDefs = report.toolDefinitions
+  const toolDefs = report.proxyDetails?.toolDefinitions
   if (toolDefs && toolDefs.length > 0) {
     lines.push(`工具定义分解 (${toolDefs.length} 个工具)`)
     lines.push('-'.repeat(40))
-    const categories: Record<string, ToolDef[]> = {}
+    const categories: Record<string, { name: string; estimatedTokens: number }[]> = {}
     for (const t of toolDefs) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const cat = (t as any).category ?? 'builtin'
@@ -227,8 +210,9 @@ export function renderMarkdown(
     lines.push('  (无)')
   } else {
     for (const mcp of report.mcpList) {
+      const mode = mcp.loadingMode === 'deferred' ? ' [延迟加载]' : ''
       lines.push(
-        `  ${mcp.name.padEnd(15)} [enabled] ${mcp.toolsCount} 个工具 ~${mcp.estimatedTokens} tok`,
+        `  ${mcp.name.padEnd(15)} [enabled${mode}] ${mcp.toolsCount} 个工具 ~${mcp.estimatedTokens} tok`,
       )
     }
   }
