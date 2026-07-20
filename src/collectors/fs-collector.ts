@@ -289,11 +289,12 @@ function scanCommandsAsSkills(dir: string, source: SkillEntry['source']): SkillE
     } else if (entry.endsWith('.md')) {
       const content = readFile(fullPath)
       const stats = getStats(fullPath)
-      const { description } = parseSkillFrontmatter(content)
+      const { name: frontName, description } = parseSkillFrontmatter(content)
       const descTokens = description
         ? Math.ceil(description.length / 4)
         : Math.ceil(content.length / 4)
-      const name = entry.replace(/\.md$/, '')
+      const fileName = entry.replace(/\.md$/, '')
+      const name = frontName ?? fileName
       entries.push({
         name,
         source,
@@ -309,6 +310,7 @@ function scanCommandsAsSkills(dir: string, source: SkillEntry['source']): SkillE
 }
 
 function parseSkillFrontmatter(content: string): {
+  name?: string
   description: string
   model?: string
   context?: string
@@ -316,10 +318,12 @@ function parseSkillFrontmatter(content: string): {
   const match = content.match(/^---\n([\s\S]*?)\n---/)
   if (!match) return { description: '' }
   const frontmatter = match[1] ?? ''
+  const name = frontmatter.match(/^name:\s*(.+)$/m)?.[1]?.trim()
   const desc = frontmatter.match(/^description:\s*(.+)$/m)?.[1]?.trim()
   const model = frontmatter.match(/^model:\s*(.+)$/m)?.[1]?.trim()
   const context = frontmatter.match(/^context:\s*(.+)$/m)?.[1]?.trim()
   return {
+    name,
     description: desc ?? '',
     model,
     context,
