@@ -302,7 +302,6 @@ function scanCommandsAsSkills(dir: string, source: SkillEntry['source']): SkillE
         description,
         fileSizeBytes: stats.size,
         estimatedTokens: descTokens,
-        loaded: null,
       })
     }
   }
