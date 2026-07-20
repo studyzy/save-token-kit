@@ -265,8 +265,14 @@ export type OperationType =
   | 'install-tool'
   | 'other'
   // Extensions for stk-analyze rebuild (002): parallel sub-agent optimization
-  | 'defer-tools' // Explicitly declare minimal necessary tools for a Plugin/Hook
+  | 'agent-opt' // Declare Defer()/NoDefer() tool list for a subagent
   | 'knowledge-base' // Enable a code knowledge-graph tool (Graphify/Codebase-Memory MCP/CodeGraph/GitNexus)
+  | 'plugin-opt' // Plugin scope/enablement optimization
+  | 'disable-plugin' // Disable a globally-enabled plugin that doesn't match user profile
+  | 'migrate-plugin' // Move a plugin from user-level to project-level scope
+  | 'migrate-skill' // Move a skill from user-level to project-level scope
+  | 'disable-model-invocation' // Restrict a skill to slash-command only (disable-model-invocation: true)
+  | 'skill-model-downgrade' // Add `context: fork` + `model: lite` to a skill for cheaper execution
 
 export type RiskLevel = 'low' | 'medium' | 'high'
 

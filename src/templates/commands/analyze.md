@@ -39,7 +39,7 @@ argument-hint: ''
 1. 读取诊断数据（`.json` 取精确数字）。
 2. 扫描仓库代码/文档，写入 `./save-token/repo-scan.json`（详见 SKILL 阶段 2）。
 3. 检查数据内容，根据 SKILL FR-4 启动条件表决定启动哪些子 Agent（对象为空则跳过对应 Agent）。
-4. 委托 `stk-analyze` SKILL 执行分析：在单条消息中**并行**启动满足条件的子 Agent，覆盖 **第三方工具启用(tool-enable)**、**MCP 优化(mcp-opt)**、**模型优化(model-opt)**、**工具明确化(defer-tools)**、**Skill 精简(skill-trim)**、**知识图谱推荐(knowledge-base)**、**仓库专项(repo-scan)**、**Hook 审查(hook-audit)** 8 个维度。每个子 Agent 输出 `./save-token/suggestions-<agent-name>.json`。
+4. 委托 `stk-analyze` SKILL 执行分析：在单条消息中**并行**启动满足条件的子 Agent，覆盖 **第三方工具启用(tool-enable)**、**MCP 优化(mcp-opt)**、**插件优化(plugin-opt)**、**子代理工具优化(agent-opt)**、**Skill 优化(skill-opt)**、**知识图谱推荐(knowledge-base)**、**仓库专项(repo-scan)**、**Rules 优化(rules-opt)**、**CODEBUDDY.md 审查(codebuddy-md)**、**Hook 审查(hook-audit)** 10 个维度。每个子 Agent 输出 `./save-token/suggestions-<agent-name>.json`。
 5. 汇总子 Agent 结果，按 `category` 分组，写入 `./save-token/tasks.md`：Markdown 待办清单，一个 SKILL 一个 Task、一个工具一个 Task，绝不合并。格式见 `stk-analyze` SKILL 的「tasks.md 输出格式」。
 6. 输出分组摘要 + 总计节省 Token（绝对值 + 百分比）+ 场景标注 + 跳过/失败 Agent 列表 + 文件路径。
 

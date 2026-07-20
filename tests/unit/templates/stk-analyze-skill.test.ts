@@ -31,15 +31,17 @@ describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
     })
   })
 
-  describe('T010/T029: eight sub-agents with existence-based start conditions', () => {
+  describe('T010/T029: ten sub-agents with existence-based start conditions', () => {
     const agents = [
       'tool-enable',
       'mcp-opt',
-      'model-opt',
-      'defer-tools',
-      'skill-trim',
+      'plugin-opt',
+      'agent-opt',
+      'skill-opt',
       'knowledge-base',
       'repo-scan',
+      'rules-opt',
+      'codebuddy-md',
       'hook-audit',
     ]
     it('defines all 8 sub-agents', () => {
