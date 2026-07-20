@@ -173,10 +173,19 @@ export async function detectToolsViaRegistry(
         detections[cIdx] = await codebaseMemoryTool.markInstalledFromMcp(detections[cIdx])
     }
 
-    // Context Mode enabled detection via MCP
-    const contextModeMcp = fs.mcpList.find((m) => m.name === 'context-mode')
-    if (contextModeMcp) {
-      contextModeTool.setMcpEnabled(contextModeMcp.status !== 'disabled')
+    // Context Mode enabled detection via MCP.
+    // context-mode is enabled through the CodeBuddy plugin mechanism, so it
+    // may not appear in the on-disk .mcp.json — fall back to the proxy-parsed
+    // MCP list (both the `context-mode` and `plugin_context-mode_context-mode`
+    // namespace forms count as enabled).
+    const contextModeEnabled =
+      fs.mcpList.some((m) => m.name === 'context-mode' && m.status === 'enabled') ||
+      (proxyParsed.mcpServers?.some(
+        (m: { name: string }) =>
+          m.name === 'context-mode' || m.name === 'plugin_context-mode_context-mode',
+      ) ?? false)
+    if (contextModeEnabled) {
+      contextModeTool.setMcpEnabled(true)
       const cmIdx = detections.findIndex((d) => d.name === 'context-mode')
       if (cmIdx !== -1) detections[cmIdx] = await contextModeTool.buildDetection()
     }

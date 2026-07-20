@@ -91,4 +91,48 @@ describe('detectToolsViaRegistry - context-mode MCP detection', () => {
     expect(cm!.name).toBe('context-mode')
     expect(cm!.recommendedSaving).toBe(contextModeTool.savingEstimate)
   })
+
+  // --- proxyParsed.mcpServers 回退路径 ---
+  // context-mode 作为 CodeBuddy Plugin 启用时，不会在磁盘 .mcp.json 中出现，
+  // 但会出现在拦截的请求体 mcpServers 列表中（name 为 'context-mode' 或
+  // 'plugin_context-mode_context-mode'）。
+
+  it('detects context-mode via proxyParsed.mcpServers with name "context-mode"', async () => {
+    const fs = mockFs([]) // 磁盘无 context-mode MCP 记录
+    const pp = {
+      ...proxyParsed,
+      mcpServers: [{ name: 'context-mode' }],
+    }
+    const detections = await detectToolsViaRegistry(fs, pp)
+
+    const cm = detections.find((d: ToolDetection) => d.name === 'context-mode')
+    expect(cm).toBeDefined()
+    expect(cm!.enabled).toBe(true)
+  })
+
+  it('detects context-mode via proxyParsed.mcpServers with name "plugin_context-mode_context-mode"', async () => {
+    const fs = mockFs([])
+    const pp = {
+      ...proxyParsed,
+      mcpServers: [{ name: 'plugin_context-mode_context-mode' }],
+    }
+    const detections = await detectToolsViaRegistry(fs, pp)
+
+    const cm = detections.find((d: ToolDetection) => d.name === 'context-mode')
+    expect(cm).toBeDefined()
+    expect(cm!.enabled).toBe(true)
+  })
+
+  it('detects context-mode as disabled when neither fs.mcpList nor proxyParsed.mcpServers has it', async () => {
+    const fs = mockFs([{ name: 'other-tool', status: 'enabled' }])
+    const pp = {
+      ...proxyParsed,
+      mcpServers: [{ name: 'some-other-mcp' }],
+    }
+    const detections = await detectToolsViaRegistry(fs, pp)
+
+    const cm = detections.find((d: ToolDetection) => d.name === 'context-mode')
+    expect(cm).toBeDefined()
+    expect(cm!.enabled).toBe(false)
+  })
 })
