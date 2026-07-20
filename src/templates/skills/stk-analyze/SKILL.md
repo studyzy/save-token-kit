@@ -32,10 +32,13 @@ cat save-token/diagnosis-report.md 2>/dev/null || echo "NOT_FOUND"
 
 否则用 `AskUserQuestion` 分轮收集（不猜测，必须询问）：
 
-**第一轮（必问）— 使用场景：**
+**第一轮（必问）— 使用场景与用户角色：**
 
 - 问题 1: 主要使用目的 → 代码编写 / 文档写作 / 通用办公 / 通用
 - 问题 2: 代码与文档是否在同一仓库 → 是（同仓）/ 否（独立仓库）/ 不适用（纯文档/办公）
+- 问题 3: 用户角色画像 → 前端开发 / 后端开发 / 测试 / 产品经理 / 全栈 / 其他
+
+> 用户角色（`role`）用于精准判定 Plugin 的适用性：特定领域 Plugin（如前端 UI 套件、移动端 SDK）仅对对应角色的项目有价值，跨角色全局启用即为浪费。角色与 `purpose`/`sameRepo` 共同构成推荐依据。
 
 **第二轮（条件触发）— 代码知识图谱工具倾向性：**
 
@@ -64,6 +67,7 @@ cat save-token/diagnosis-report.md 2>/dev/null || echo "NOT_FOUND"
   "collectedAt": "<ISO8601>",
   "purpose": "code|doc|office|general",
   "sameRepo": "same|separate",
+  "role": "frontend|backend|test|pm|fullstack|other",
   "graphTool": "graphify|codebase-memory-mcp|codegraph|gitnexus|none|<自定义>"
 }
 ```
@@ -107,6 +111,15 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 
 **扫描失败处理**：`scanError` 非 null 时不阻塞问答；第二轮图谱询问降级为"无法推荐，请自行选择"；摘要标注扫描失败。
 
+**步骤 3.5: 前置仓库调研（单独调用，非并行）**
+
+扫描完成后、进入并行派发前，**单独调用一次**前置调研 Agent `00-repo-scan`（规则见 `@agents/00-repo-scan.md`），读取 `repo-scan.json` + `context.json`，产出 `save-token/repo-analysis.json`（含 `flags` 结构化结论 + `suggestions[]`）。
+
+- 此 Agent **不进入阶段 3 并行列表**，由主流程在步骤 3 后单发。
+- `flags`（如 `docsOverInjected` / `needsMonorepoSplit` / `needsIndex`）供并行子 Agent 01~10 按需读取，避免各 Agent 重复计算仓库特征。
+- `suggestions[]` 由汇总阶段（步骤 5）直接消费进 tasks.md 第 7 组"仓库专项"，不再经由并行 suggestion 文件。
+- 该 Agent 失败/超时 → 跳过仓库专项维度，汇总其余，摘要标注。
+
 ### 阶段 3: 并行子 Agent 派发
 
 **步骤 4: 按对象存在性动态启动**
@@ -123,20 +136,21 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 |---|------------------|-----------------------------------|-----------------------------------------|---------------------------|
 | 1 | `tool-enable`    | `toolDetection[]`                 | 数组非空                                | @agents/01-tool-enable.md |
 | 2 | `mcp-opt`        | `mcpList[]`                       | 数组非空                                | @agents/02-mcp-opt.md     |
-| 3 | `model-opt`      | `skillList[]` + `pluginList[]`    | 任一非空                                | @agents/03-model-opt.md   |
-| 4 | `defer-tools`    | `pluginList[]` + `hookList[]`     | 任一非空                                | @agents/04-defer-tools.md |
-| 5 | `skill-trim`     | `skillList[]`                     | 数组非空                                | @agents/05-skill-trim.md  |
+| 3 | `plugin-opt`     | `pluginList[]`                    | 数组非空                                | @agents/03-plugin-opt.md  |
+| 4 | `agent-opt`      | `agentList[]`                     | 数组非空                                | @agents/04-agent-opt.md   |
+| 5 | `skill-opt`      | `skillList[]`                     | 数组非空                                | @agents/05-skill-opt.md   |
 | 6 | `knowledge-base` | `repo-scan.json` + `context.json` | 仓库超阈值 **且** `graphTool` 非 `none` | @agents/06-knowledge-base.md |
-| 7 | `repo-scan`      | 仓库扫描结果                      | 始终（扫描成功后）                      | @agents/07-repo-scan.md   |
-| 8 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/08-rules-opt.md   |
-| 9 | `codebuddy-md`   | `CODEBUDDY.md`（项目级）          | 文件存在                                | @agents/09-codebuddy-md.md |
-| 10| `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/10-hook-audit.md  |
+| 7 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/08-rules-opt.md   |
+| 8 | `codebuddy-md`   | `CODEBUDDY.md`（项目级）          | 文件存在                                | @agents/09-codebuddy-md.md |
+| 9 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/10-hook-audit.md  |
+
+> **注**：原 `repo-scan`（表内第 7 项）已重构为**前置调研 Agent `00-repo-scan`**，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`。其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。故并行子 Agent 现为 01~06、08~10 共 9 个。
 
 ### 阶段 4: 汇总生成 tasks.md
 
 **步骤 5: 合并与落盘**
 
-读取 `save-token/suggestions-*.json` 全部文件，合并 `suggestions[]`，按 `category` 分组，写入 `save-token/tasks.md`：
+读取 `save-token/suggestions-*.json` 全部文件，并额外读取前置调研产出 `save-token/repo-analysis.json` 的 `suggestions[]`（第 7 组"仓库专项"来源，非并行 suggestion 文件），合并所有 `suggestions[]`，按 `category` 分组，写入 `save-token/tasks.md`：
 
 - 顶部注释：`<!-- scenario: <purpose 中文> / <同仓|异仓> -->`
 - **一个 SKILL 一个 Task、一个工具一个 Task、一个 MCP 一个 Task，绝不合并**
@@ -193,7 +207,7 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 
 > 同一 Agent 内部混合示例：`tool-enable` 中"启用 RTK"→ 初级，"启用 Headroom"→ 高级。各子 Agent 在输出时**逐条**按上表判定 `level`，不得整组统一标级。
 
-`operationType` 取值同 `src/types/index.ts` 的 `OperationType`，含扩展值 `defer-tools`、`knowledge-base`；既有 `defer-mcp` 语义 = 在 `.mcp.json` 中对该 MCP server 设置 `"defer_loading": true`，使其工具按需加载而非常驻上下文。
+`operationType` 取值同 `src/types/index.ts` 的 `OperationType`，含扩展值 `plugin-opt`、`agent-opt`、`knowledge-base`、`disable-plugin`、`migrate-plugin`；既有 `defer-mcp` 语义 = 在 `.mcp.json` 中对该 MCP server 设置 `"defer_loading": true`，使其工具按需加载而非常驻上下文。
 
 ## tasks.md 输出格式
 
@@ -216,17 +230,19 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 - [ ] [中级] 移除 mcp: skills-sec-audit（预估节省 ~XXX Token）
       原因：disabled 且无工具
 
-## 3. 模型优化
+## 3. 插件优化
 
-- [ ] [中级] lint-check-fix 指定 model: lite（预估节省 ~20% 成本）
-      原因：lint 检查为简单重复任务
+- [ ] [中级] 禁用 plugin: office-suite（预估节省 ~1000 Token）
+      原因：purpose=code 与办公领域不符，全局启用浪费上下文
+- [ ] [中级] 将 plugin: react-ui-kit 从 user 迁移到 project 层（预估节省 ~1000 Token）
+      原因：前端 UI 领域与当前前端项目强相关，全局常驻浪费其他项目
 
-## 4. 工具明确化
+## 4. 子代理工具优化
 
 - [ ] [中级] 为 ponytail 声明最小 tools 列表（预估节省 ~XXX Token）
       原因：plugin 未声明 tools，全量加载
 
-## 5. Skill 精简
+## 5. Skill 优化
 
 - [ ] [中级] 禁用 skill: ponytail-help（预估节省 ~48 Token）
       原因：帮助类 Skill，代码场景非高频
@@ -266,7 +282,7 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 总计：预估节省 ~XXXXX Token (XX.X%)
 ```
 
-每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.模型优化 → 4.工具明确化 → 5.Skill 精简 → 6.知识图谱推荐 → 7.仓库专项 → 8.Rules 优化 → 9.CODEBUDDY.md 审查 → 10.Hook 审查。每条一行 `- [ ]` + 原因缩进两空格，总计行末尾用 `---` 分隔。
+每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Rules 优化 → 9.CODEBUDDY.md 审查 → 10.Hook 审查。每条一行 `- [ ]` + 原因缩进两空格，总计行末尾用 `---` 分隔。
 
 ## 边界
 
