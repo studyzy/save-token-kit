@@ -137,12 +137,14 @@ export async function detectToolsViaRegistry(
     if (rtkDet) rtkDet.enabled = true
   }
 
-  // Headroom enabled detection via MCP
+  // Headroom enabled detection: requires BOTH a running `headroom`/`headroom.cli`
+  // proxy process AND the headroom MCP server to be active.
   if (proxyParsed) {
+    const headroomProxyRunning = await isHeadroomProxyRunning()
     const mcpEnabled =
       fs.mcpList.some((m) => m.name === 'headroom' && m.status === 'enabled') ||
       (proxyParsed.mcpServers?.some((m: { name: string }) => m.name === 'headroom') ?? false)
-    if (mcpEnabled) {
+    if (headroomProxyRunning && mcpEnabled) {
       headroomTool.setMcpEnabled(true)
       const hIdx = detections.findIndex((d) => d.name === 'headroom')
       if (hIdx !== -1) detections[hIdx] = await headroomTool.buildDetection()
@@ -192,4 +194,22 @@ export async function detectToolsViaRegistry(
   }
 
   return detections
+}
+
+/**
+ * Headroom is considered enabled when a `headroom` or `headroom.cli` process is
+ * running with the `proxy` subcommand.
+ */
+async function isHeadroomProxyRunning(): Promise<boolean> {
+  try {
+    // `pgrep -af` may omit the command line on macOS, so list full command
+    // lines via `ps` and match both the binary name and the `proxy` subcommand.
+    const res = await exec('ps', ['-eo', 'pid=,args='])
+    if (res.exitCode !== 0) return false
+    return res.stdout
+      .split('\n')
+      .some((line) => /(?:^|\s)(?:python[0-9.\s-]*\s+-m\s+)?headroom(?:\.cli)?(\s|$)/.test(line) && /\bproxy\b/.test(line))
+  } catch {
+    return false
+  }
 }

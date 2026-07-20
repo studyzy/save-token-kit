@@ -78,7 +78,7 @@
 
 | level | 命中条件 |
 | --- | --- |
-| 中级 | 全部 Plugin 优化建议（Plugin 配置优化类，默认中级） |
+| 初级 | 全部 Plugin 优化建议（Plugin 配置优化类，禁用/迁移为低风险、可恢复的用户侧配置变更） |
 
 ## estimatedSavingTokens 估算口径
 
@@ -113,7 +113,7 @@
       "risk": "low",
       "reversible": true,
       "scenario": "code",
-      "level": "中级",
+      "level": "初级",
       "evidence": "enabled=true, purpose=code, domain=office mismatch"
     },
     {
@@ -126,7 +126,7 @@
       "risk": "low",
       "reversible": true,
       "scenario": "code",
-      "level": "中级",
+      "level": "初级",
       "evidence": "installedPath=~/.codebuddy/, domain=frontend, sameRepo=same"
     }
   ]

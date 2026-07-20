@@ -32,12 +32,14 @@
 
 ### 形式一：禁用/移除（disable-skill）
 
+> **收紧原则**：默认**不建议删除**任何 Skill。仅当该 Skill 与用户的 `role` / `purpose` / 当前项目画像**完全不相关**（如 `pm` 角色的 `doc` 项目下出现后端/移动/AI 领域专用 Skill，无任何场景匹配）时，才建议禁用。所有"可能相关""低频但非无关""领域沾边"的 Skill，**一律不删**，改走形式三（斜杠调用）以保留能力并节省常驻 Context。
+
 | 条件 | 判定 | 输出 |
 | --- | --- | --- |
-| `usageFrequency === 'low'` 且 `name` 属于文档类/帮助类 Skill（见下方分类表） | 低频文档类，建议禁用 | `action`: "禁用 skill: <name>"，`operationType`: "disable-skill"，`reason`: "低频且为文档/帮助类，<estimatedTokens> token 可移除" |
+| Skill 与 `role` / `purpose` / 项目画像**完全不相关**（结合 `context.json` 与 Skill 描述语义判定，无任何使用场景） | 完全无关，建议禁用 | `action`: "禁用 skill: <name>"，`operationType`: "disable-skill"，`reason`: "与用户角色=<role> 及当前项目画像完全不相关，<estimatedTokens> token 可移除" |
 | `name` 与 `toolDetection[]` 中已启用的工具功能重复（见下方重复判定表） | 功能重复，建议禁用 | `action`: "禁用 skill: <name>（已被工具 <tool> 覆盖）"，`operationType`: "disable-skill"，`reason`: "与已启用工具 <tool> 功能重叠" |
-| `usageFrequency === 'low'` 且 `estimatedTokens` > 800 | 低频大文件，建议禁用 | `action`: "禁用 skill: <name>（低频大文件）"，`operationType`: "disable-skill"，`reason`: "usageFrequency=low 且 estimatedTokens=<N> > 800" |
-| `source === 'plugin'` 或 `source === 'plugin-marketplace'` 且 `usageFrequency === 'low'` | 插件级低频 skill | `action`: "禁用 skill: <name>（插件低频）"，`operationType`: "disable-skill" |
+
+> 删除"低频文档类直接禁用""低频大文件直接禁用""插件低频直接禁用"三条旧规则——这些 Skill 一律优先改形式三（斜杠调用）而非删除（除非同时满足"完全不相关"）。
 
 ### 形式二：user→project 迁移（migrate-skill）
 
@@ -50,10 +52,13 @@
 
 ### 形式三：改为斜杠调用（disable-model-invocation）
 
+> **主推方式**：对所有"不删、但常驻注入浪费 Context"的 Skill，优先建议改为斜杠调用（在该 Skill 上设置 `disable-model-invocation: true`，使其不再被模型自动调用，仅用户主动 `/<name>` 触发）。保留能力同时省去常驻 Context token。凡不满足形式一"完全不相关"删除条件的 Skill，均应以本形式处理而非删除。
+
 | 条件 | 判定 | 输出 |
 | --- | --- | --- |
 | Skill 适合用户主动调用而非 AI 自动触发（如统计/查询/展示类，名含 `stats` / `gain` / `history` / `show` / `view` / `report`）且 `usageFrequency !== 'high'` | 斜杠优先 | `action`: "为 skill <name> 添加 `disable-model-invocation: true`"，`operationType`: "disable-model-invocation"，`reason`: "该 skill 更适合用户显式 /name 调用，AI 自动触发收益低且常驻描述" |
 | Skill 内容属"帮助/说明"性质（`name` 含 `help` / `guide` / `faq` / `doc`）且 `usageFrequency === 'low'` | 说明类斜杠优先 | `action`: "为 skill <name> 添加 `disable-model-invocation: true`"，`operationType`: "disable-model-invocation"，`reason`: "帮助类 skill 用户按需 /name 查阅即可，无需 AI 自动注入" |
+| 与 `role` / `purpose` 弱相关、非完全无关（不满足形式一删除条件） | 弱相关斜杠优先 | `action`: "为 skill <name> 添加 `disable-model-invocation: true`"，`operationType`: "disable-model-invocation"，`reason`: "与画像弱相关，保留能力但改为按需 /name 触发，省常驻 <estimatedTokens> token" |
 
 > `disable-model-invocation: true` 后 Skill 描述不再自动注入上下文，仅用户 `/name` 时加载——这是降低常驻占用且保留能力的折中。
 
@@ -105,7 +110,7 @@
 - Skill 为高频工具类（`usageFrequency !== 'low'` 且名含工具类关键词）→ 不产出禁用/迁移
 - Skill `source === 'bundled'`（内置不可禁用/迁移） → 不产出禁用/迁移；形式三/四对 bundled 仍需满足各自非高频/逻辑简单条件才产出
 - Skill `source === 'project'` 且 name 匹配 `stk-*` / `st-*` → 不产出（当前项目自身 skill）
-- `usageFrequency === 'medium'` 且 `estimatedTokens` ≤ 800 → 不产出禁用
+- 仅"与 `role`/`purpose`/项目画像完全不相关"才产出禁用；弱相关/低频但非完全无关 → 不产出禁用（改走形式三斜杠调用）
 - `loaded === false` 且 `usageFrequency === 'low'` → 仍产出（未加载但可能被触发）
 - 重复判定表中无对应条目 → 不产出"功能重复"建议
 - 形式二要求 `source` 可迁移（user/bundled），plugin-marketplace 不产出迁移

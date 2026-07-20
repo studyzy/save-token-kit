@@ -145,7 +145,7 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 | 9 | `codebuddy-md`   | `CODEBUDDY.md`（项目级）          | 文件存在                                | @agents/09-codebuddy-md.md |
 | 10 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/10-hook-audit.md  |
 
-> **注**：原 `repo-scan`（表内第 7 项）已重构为**前置调研 Agent `00-repo-scan`**，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`。其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。故并行子 Agent 现为 01~06、07-command-opt、08~10 共 10 个（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入，不再扫描磁盘或筛选 `skillList`）。
+> **注**：`00-repo-scan` 为前置调研 Agent，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`，其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。并行子 Agent 为 01~06、07-command-opt、08~10 共 10 个（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入）。各子 Agent 统一以表中**新名**（如 `plugin-opt`/`agent-opt`/`skill-opt`/`command-opt`）标识，禁止输出旧名别名。
 
 ### 阶段 4: 汇总生成 tasks.md
 
@@ -162,6 +162,26 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 **步骤 6: 输出摘要**
 
 控制台打印：总计预估节省 Token 与百分比、`tasks.md` 路径、场景标注、已跳过子 Agent 列表、失败子 Agent 列表。
+
+**⚠️ 必须提醒用户**：`save-token/tasks.md` 中的每条建议均需用户**仔细核对**。若某条不想执行，用户可直接在 `tasks.md` 中删除该行（或在执行 `stk-optimize` 前手动移除）。所有优化均为用户侧配置变更，工具不自动执行——确认无误后再调用 `stk-optimize` 执行选中的任务。
+
+**步骤 7: 收尾清理中间产物**
+
+`tasks.md` 落盘且摘要打印完成后，删除所有子 Agent 产出的中间 JSON，只保留最终 `tasks.md`（以及阶段 1/2 的诊断与扫描产物）：
+
+```bash
+rm -f save-token/suggestions-*.json
+```
+
+- 删除对象：阶段 3 并行子 Agent 01~10 的 `save-token/suggestions-<agent-name>.json`。
+- **保留**：`tasks.md`、`diagnosis-report.md` / `diagnosis-report.json`、`repo-scan.json`、`repo-analysis.json`、`context.json`、`proxy-raw-body.json`。
+- 前置调研 `repo-analysis.json` 同为中间产物，但其 `suggestions[]` 已并入 `tasks.md` 第 7 组，故一并删除：
+
+```bash
+rm -f save-token/repo-analysis.json
+```
+
+- 仅删除本次实际生成过的文件；未启动的子 Agent 无对应文件，`rm -f` 安全跳过。
 
 ## 统一 Schema
 
@@ -202,9 +222,9 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 
 | 等级 | 命中条件（按 `target` / 对象名匹配） |
 | ---- | ------------------------------------- |
-| 初级 | `target` 或工具名为 `rtk`、`caveman`、`caveman-*`、`ponytail`、`ponytail-*`、`karpathy-skills` 之一（省 Token 工具类，安装即用、零配置） |
+| 初级 | `target` 或工具名为 `rtk`、`caveman`、`caveman-*`、`ponytail`、`ponytail-*`、`karpathy-skills` 之一（省 Token 工具类，安装即用、零配置）；或属于 Plugin 优化（子 Agent `plugin-opt` 产出，如 `disable-plugin` / `migrate-plugin` 类） |
 | 高级 | `target` 为 `headroom`，或属于代码知识库类（子 Agent `knowledge-base` 产出，如 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` 等） |
-| 中级 | 其余所有：SKILL 优化、Agent/Plugin 优化、MCP 优化、Rules 优化、Hook 审查、仓库专项等 |
+| 中级 | 其余所有：SKILL 优化、Agent 优化、MCP 优化、Rules 优化、Hook 审查、仓库专项等 |
 
 > 同一 Agent 内部混合示例：`tool-enable` 中"启用 RTK"→ 初级，"启用 Headroom"→ 高级。各子 Agent 在输出时**逐条**按上表判定 `level`，不得整组统一标级。
 
@@ -233,9 +253,9 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 
 ## 3. 插件优化
 
-- [ ] [中级] 禁用 plugin: office-suite（预估节省 ~1000 Token）
+- [ ] [初级] 禁用 plugin: office-suite（预估节省 ~1000 Token）
       原因：purpose=code 与办公领域不符，全局启用浪费上下文
-- [ ] [中级] 将 plugin: react-ui-kit 从 user 迁移到 project 层（预估节省 ~1000 Token）
+- [ ] [初级] 将 plugin: react-ui-kit 从 user 迁移到 project 层（预估节省 ~1000 Token）
       原因：前端 UI 领域与当前前端项目强相关，全局常驻浪费其他项目
 
 ## 4. 子代理工具优化
@@ -268,7 +288,7 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 ## 9. CODEBUDDY.md 审查
 
 - [ ] [初级] 精简 CODEBUDDY.md 至 ≤200 行（预估节省 ~XXX Token）
-      原因：lines=73 含可推断数据流/架构描述，主文件每次会话全量注入，应下沉为 @引用 或 skill
+      原因：lines=73 含可推断数据流/架构描述，主文件每次会话全量注入，应下沉为 @docs/xxx.md 或 rules
 - [ ] [初级] 为 CODEBUDDY.md 增加关键文件/目录索引
       原因：缺 Resource Map，AI 需自行探索文件系统
 
@@ -287,7 +307,8 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 
 ## 边界
 
-- 不做任何文件修改，仅产出 `suggestions-*.json` 与 `tasks.md`。
+- 不做任何用户侧配置文件修改，仅产出 `suggestions-*.json` 与 `tasks.md` 等中间/最终产物。
+- 汇总生成 `tasks.md` 后执行收尾清理（步骤 7）：删除 `suggestions-*.json` 与 `repo-analysis.json`，仅保留 `tasks.md` 及诊断/扫描产物。
 - 无法估算节省时 `estimatedSavingTokens` 填 0 并在 `detail` 描述效果。
 - 子 Agent 超时/失败 → 跳过该维度，汇总其余，摘要标注。
 - tasks.md 一个条目对应一个具体操作，绝不合并。
