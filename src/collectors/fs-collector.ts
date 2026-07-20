@@ -1,4 +1,5 @@
 import type {
+  CommandEntry,
   ConfigFileSummary,
   HookEntry,
   McpEntry,
@@ -22,7 +23,7 @@ export interface FsCollectResult {
   mcpList: McpEntry[]
   skillList: SkillEntry[]
   /** Slash commands discovered on the filesystem */
-  commandList: SkillEntry[]
+  commandList: CommandEntry[]
   pluginList: PluginEntry[]
   hookList: HookEntry[]
   ruleList: RuleEntry[]
@@ -278,8 +279,8 @@ function scanMarketplaceSkills(marketplacesDir: string, settings: SettingsFile):
  * Scan commands/ directory as skills (CodeBuddy shows commands alongside skills
  * in /context under "Skills and slash commands").
  */
-function scanCommandsAsSkills(dir: string, source: SkillEntry['source']): SkillEntry[] {
-  const entries: SkillEntry[] = []
+function scanCommandsAsSkills(dir: string, source: SkillEntry['source']): CommandEntry[] {
+  const entries: CommandEntry[] = []
   if (!exists(dir) || !isDirectory(dir)) return entries
   for (const entry of readDir(dir)) {
     const fullPath = `${dir}/${entry}`
@@ -288,11 +289,7 @@ function scanCommandsAsSkills(dir: string, source: SkillEntry['source']): SkillE
       entries.push(...nested)
     } else if (entry.endsWith('.md')) {
       const content = readFile(fullPath)
-      const stats = getStats(fullPath)
       const { name: frontName, description } = parseSkillFrontmatter(content)
-      const descTokens = description
-        ? Math.ceil(description.length / 4)
-        : Math.ceil(content.length / 4)
       const fileName = entry.replace(/\.md$/, '')
       const name = frontName ?? fileName
       entries.push({
@@ -300,8 +297,6 @@ function scanCommandsAsSkills(dir: string, source: SkillEntry['source']): SkillE
         source,
         sourcePath: fullPath,
         description,
-        fileSizeBytes: stats.size,
-        estimatedTokens: descTokens,
       })
     }
   }

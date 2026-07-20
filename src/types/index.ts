@@ -103,6 +103,17 @@ export interface SkillEntry {
   description?: string
 }
 
+export interface CommandEntry {
+  /** Command name (from frontmatter, falling back to file name) */
+  name: string
+  /** Source location */
+  source?: SkillSource
+  /** Source path on disk */
+  sourcePath?: string
+  /** Skill description (from frontmatter) */
+  description?: string
+}
+
 export interface AgentEntry {
   /** Agent (subagent) name */
   name: string
@@ -201,7 +212,7 @@ export interface DiagnosisReport {
   /** Skill list */
   skillList: SkillEntry[]
   /** Slash command list (from ~/.codebuddy/commands and ./.codebuddy/commands) */
-  commandList?: SkillEntry[]
+  commandList?: CommandEntry[]
   /** Subagent (Agent) list */
   agentList: AgentEntry[]
   /** Tool definitions with per-tool token breakdown (builtin + mcp + deferred merged) */

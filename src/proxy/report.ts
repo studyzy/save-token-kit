@@ -223,9 +223,7 @@ export function renderMarkdown(
     lines.push('  (无)')
   } else {
     for (const cmd of commands) {
-      lines.push(
-        `  [${cmd.source ?? 'command'}] ${cmd.name.padEnd(20)} ~${cmd.estimatedTokens} tok`,
-      )
+      lines.push(`  [${cmd.source ?? 'command'}] ${cmd.name}`)
       if (cmd.sourcePath) {
         lines.push(`      ↳ ${cmd.sourcePath}`)
       }
