@@ -110,6 +110,8 @@ export interface AgentEntry {
   estimatedTokens: number
   /** Source marker, e.g. "project" or "plugin@marketplace" */
   source?: string
+  /** Agent description text */
+  description?: string
 }
 
 export interface RuleEntry {

@@ -100,28 +100,80 @@ function extractMcpFromText(
 
 /**
  * Extract subagent (Agent) definitions from text by matching the
- * "- name: description (source)(Tools: ...)" list pattern emitted in the
- * system prompt. Excludes the inherited default "general-purpose" agent.
+ * "- name: description [(source)][(Tools: ...)]" list pattern emitted in the
+ * system prompt. Excludes the inherited default "general-purpose" agent and
+ * explanatory lines (e.g. "Trust but verify" usage notes).
  */
 function extractAgentsFromText(
   text: string,
   agents: AgentEntry[],
   seen: Set<string>,
 ): void {
-  const pat =
-    /- ([a-zA-Z0-9_\-]+): ([^\n]*)\((?:[^()]*@[^()]*|project)\)\(Tools:[^)]*\)/g
+  // Match agent lines: "- name: rest" where name is a valid agent identifier
+  const pat = /^- ([a-zA-Z][a-zA-Z0-9_-]*): (.+)$/gm
   let m: RegExpExecArray | null
   while ((m = pat.exec(text)) !== null) {
     const name = m[1]
+    const rest = m[2].trim()
+
+    // Skip general-purpose (built-in, always present)
     if (name === 'general-purpose' || seen.has(name)) continue
+
+    // Skip explanatory/parameter lines (not real agent entries)
+    if (isAgentUsageNote(name, rest)) continue
+
     seen.add(name)
-    const description = m[2].trim()
+
+    // Strip trailing (Tools: ...) suffix first, then parse source
+    let descText = rest
+    descText = descText.replace(/\s*\(Tools:\s*[^)]*\)\s*$/, '').trim()
+
+    // Parse source from trailing (source) or (plugin@...) suffix
+    let source: string | undefined
+    const sourceMatch = descText.match(/\((project|bundled|user|[^)]*@[^)]*)\)\s*$/)
+    if (sourceMatch) {
+      if (sourceMatch[1].includes('@')) {
+        source = 'plugin'
+      } else {
+        source = sourceMatch[1]
+      }
+      descText = descText.slice(0, sourceMatch.index).trim()
+    }
+
     agents.push({
       name,
-      estimatedTokens: Math.ceil((name.length + description.length) / 4),
-      source: m[0].includes('@') ? 'plugin' : 'project',
+      estimatedTokens: Math.ceil((name.length + descText.length) / 4),
+      source,
+      description: descText,
     })
   }
+}
+
+/**
+ * Check if a line that looks like "- name: text" is actually an
+ * Agent tool usage note rather than a real agent definition.
+ */
+function isAgentUsageNote(name: string, rest: string): boolean {
+  const notes = [
+    'Trust but verify',
+    'Foreground vs background',
+    'Lookups',
+  ]
+  if (notes.includes(name)) return true
+  // Parameter description lines like "- name: Name for the spawned agent..."
+  // These have names that look like parameter names (lowercase with underscores)
+  if (/^[a-z]+(_[a-z]+)*$/.test(name)) {
+    const paramPrefixes = [
+      'Name for the',
+      'The type of',
+      'Team name for',
+      'Permission mode',
+      'Maximum number of',
+      'Model variant',
+    ]
+    if (paramPrefixes.some((p) => rest.startsWith(p))) return true
+  }
+  return false
 }
 
 /**

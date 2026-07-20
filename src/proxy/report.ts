@@ -221,9 +221,11 @@ export function renderMarkdown(
     lines.push('  (无)')
   } else {
     for (const a of agents) {
-      lines.push(
-        `  [${a.source ?? 'project'}] ${a.name.padEnd(22)} ~${a.estimatedTokens} tok`,
-      )
+      const src = a.source ?? 'bundled'
+      lines.push(`  [${src}] ${a.name.padEnd(22)} ~${a.estimatedTokens} tok`)
+      if (a.description) {
+        lines.push(`      ${a.description}`)
+      }
     }
   }
   lines.push('')
