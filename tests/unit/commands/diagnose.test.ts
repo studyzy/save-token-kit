@@ -37,7 +37,8 @@ const proxyParsed = {
   availableSkills: [],
   deferredTools: [],
   detectedPlugins: [],
-  toolBreakdown: { builtin: { count: 0, tokens: 0 }, mcp: { count: 0, tokens: 0 }, deferred: { count: 0, tokens: 0 } },
+  builtinTools: [],
+  mcpServers: [],
 }
 
 describe('detectToolsViaRegistry - context-mode MCP detection', () => {

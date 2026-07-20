@@ -176,6 +176,15 @@ export interface ToolBreakdown {
   deferred: ToolCategoryStats
 }
 
+export interface ToolDef {
+  /** Tool function name */
+  name: string
+  /** Estimated token count for this tool definition */
+  estimatedTokens: number
+  /** Classification category */
+  category: 'builtin' | 'mcp' | 'deferred'
+}
+
 export interface DiagnosisReport {
   /** Scan timestamp (ISO 8601) */
   scanTimestamp: string
@@ -189,8 +198,8 @@ export interface DiagnosisReport {
   skillList: SkillEntry[]
   /** Subagent (Agent) list */
   agentList: AgentEntry[]
-  /** Tool definition breakdown by category */
-  toolBreakdown: ToolBreakdown
+  /** Tool definitions with per-tool token breakdown (builtin + mcp + deferred merged) */
+  builtinTools: ToolDef[]
   /** Plugin list discovered on the filesystem */
   pluginList?: PluginEntry[]
   /** Hook list from settings */
@@ -234,12 +243,8 @@ export const MCP_CLI_ALTERNATIVES: Record<string, string> = {
 /** Extra details captured from the intercepted proxy request body. */
 export interface ProxyDetails {
   model: string
-  /** Tool definitions parsed from the request (builtin + mcp + deferred) */
-  toolDefinitions: { name: string; estimatedTokens: number }[]
   /** Per-message role/type/token breakdown */
   messageBreakdown: MessageBreakdown[]
-  /** Skill names referenced in <available_skills> blocks of the request */
-  skillReferences: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -453,8 +458,6 @@ export interface ProxyDiagnosisData {
   model: string
   /** Per-skill token breakdown from Skill tool description */
   skillTokens: Record<string, { description: string; estimatedTokens: number; location?: string }>
-  /** Skill names detected in system prompt text */
-  skillReferences: string[]
   /** Plugins detected via message content markers */
   detectedPlugins: string[]
   /** Estimated tokens consumed by the system rules block (CODEBUDDY.md) */

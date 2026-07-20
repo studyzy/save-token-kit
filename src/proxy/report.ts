@@ -2,7 +2,7 @@ import { parseRequestBody } from './parser.js'
 import type {
   DiagnosisReport,
   ContextItem,
-  ToolBreakdown,
+  ToolDef,
   ToolDetection,
 } from '../types/index.js'
 import type { FsCollectResult } from '../collectors/fs-collector.js'
@@ -64,27 +64,11 @@ export function buildDiagnosisReport(
     c.percentage = Math.round((c.estimatedTokens / total) * 1000) / 10
   }
 
-  const allTools = [...parsed.tools.builtin, ...parsed.tools.mcp, ...parsed.tools.deferred]
-  const mcpTokens = parsed.tools.mcp.reduce((s, t) => s + t.estimatedTokens, 0)
-  const deferredTokens = parsed.tools.deferred.reduce((s, t) => s + t.estimatedTokens, 0)
-
-  const toolBreakdown: ToolBreakdown = {
-    builtin: {
-      count: parsed.tools.builtin.length,
-      estimatedTokens: builtinTokens,
-      names: parsed.tools.builtin.map((t) => t.name),
-    },
-    mcp: {
-      count: parsed.tools.mcp.length,
-      estimatedTokens: mcpTokens,
-      names: parsed.tools.mcp.map((t) => t.name),
-    },
-    deferred: {
-      count: parsed.tools.deferred.length,
-      estimatedTokens: deferredTokens,
-      names: parsed.tools.deferred.map((t) => t.name),
-    },
-  }
+  const allTools: ToolDef[] = [
+    ...parsed.tools.builtin.map((t) => ({ ...t, category: 'builtin' as const })),
+    ...parsed.tools.mcp.map((t) => ({ ...t, category: 'mcp' as const })),
+    ...parsed.tools.deferred.map((t) => ({ ...t, category: 'deferred' as const })),
+  ]
 
   // Build skill list directly from parsed (already SkillEntry[])
   const skillList = parsed.skills
@@ -114,7 +98,7 @@ export function buildDiagnosisReport(
     mcpList,
     skillList,
     agentList: parsed.agents,
-    toolBreakdown,
+    builtinTools: allTools,
     pluginList: fs?.pluginList ?? [],
     hookList: fs?.hookList ?? [],
     ruleList: fs?.ruleList ?? [],
@@ -124,9 +108,7 @@ export function buildDiagnosisReport(
     dataSource: 'proxy',
     proxyDetails: {
       model: parsed.model,
-      toolDefinitions: allTools,
       messageBreakdown: parsed.messages.breakdown,
-      skillReferences: parsed.skillReferences,
     },
   }
 }
@@ -143,11 +125,7 @@ function emptyReport(): DiagnosisReport {
     mcpList: [],
     skillList: [],
     agentList: [],
-    toolBreakdown: {
-      builtin: { count: 0, estimatedTokens: 0, names: [] },
-      mcp: { count: 0, estimatedTokens: 0, names: [] },
-      deferred: { count: 0, estimatedTokens: 0, names: [] },
-    },
+    builtinTools: [],
   }
 }
 
@@ -180,15 +158,13 @@ export function renderMarkdown(
   lines.push('')
 
   // Tool definitions breakdown
-  const toolDefs = report.proxyDetails?.toolDefinitions
+  const toolDefs = report.builtinTools
   if (toolDefs && toolDefs.length > 0) {
     lines.push(`工具定义分解 (${toolDefs.length} 个工具)`)
     lines.push('-'.repeat(40))
-    const categories: Record<string, { name: string; estimatedTokens: number }[]> = {}
+    const categories: Record<string, typeof toolDefs> = {}
     for (const t of toolDefs) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cat = (t as any).category ?? 'builtin'
-      ;(categories[cat] ??= []).push(t)
+      (categories[t.category] ??= []).push(t)
     }
     const catOrder = ['builtin', 'mcp', 'deferred']
     for (const cat of catOrder) {

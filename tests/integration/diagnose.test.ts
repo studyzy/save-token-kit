@@ -49,8 +49,8 @@ describe('stk diagnose pipeline', () => {
 
     const report = buildDiagnosisReport(proxy.capturedBodies)
     expect(report.contextOverview.totalEstimatedTokens).toBeGreaterThan(0)
-    expect(report.toolBreakdown.builtin.count).toBe(1)
-    expect(report.toolBreakdown.mcp.count).toBe(1)
+    expect(report.builtinTools.filter((t) => t.category === 'builtin').length).toBe(1)
+    expect(report.builtinTools.filter((t) => t.category === 'mcp').length).toBe(1)
 
     // Write outputs the way runDiagnose does.
     mkdirSync(join(tmp, 'save-token'), { recursive: true })

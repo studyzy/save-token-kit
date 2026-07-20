@@ -4,7 +4,6 @@ import type {
   ProxyDiagnosisData,
   SkillEntry,
   AgentEntry,
-  McpEntry,
 } from '../types/index.js'
 
 /**
@@ -71,23 +70,6 @@ function extractToolName(t: any): string {
   if (typeof t?.function?.name === 'string') return t.function.name
   if (typeof t?.name === 'string') return t.name
   return 'unknown'
-}
-
-/**
- * Extract skills from text by parsing <available_skills> blocks.
- */
-function extractSkillsFromText(text: string, skillReferences: string[]): void {
-  const skillMatches = text.matchAll(/<available_skills>([\s\S]*?)<\/available_skills>/g)
-  for (const match of skillMatches) {
-    const skillSection = match[1] ?? ''
-    const names = skillSection.matchAll(/- name:\s*(\S+)/g)
-    for (const nameMatch of names) {
-      const name = nameMatch[1]
-      if (name && !skillReferences.includes(name)) {
-        skillReferences.push(name)
-      }
-    }
-  }
 }
 
 /**
@@ -268,7 +250,6 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
 
   let rulesTokens = 0
   let memoryTokens = 0
-  const skillReferences: string[] = []
   const agents: AgentEntry[] = []
   const agentSeen = new Set<string>()
   const mcpServers: Record<string, { serverName: string; toolCount: number; estimatedTokens: number; tools: string[]; loadingMode: 'direct' | 'deferred' }> = {}
@@ -298,8 +279,7 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
       if (content.includes('<rules>') || content.includes('codebuddyMd')) {
         rulesTokens += est
       }
-      // Skills + MCP references appear in <available_skills>/mcp__ markers
-      extractSkillsFromText(content, skillReferences)
+      // MCP references appear in mcp__ markers
       extractMcpFromText(content, mcpServers)
     } else if (Array.isArray(content)) {
       for (const block of content) {
@@ -322,7 +302,6 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
         if (text.includes('<rules>') || text.includes('codebuddyMd')) {
           rulesTokens += est
         }
-        extractSkillsFromText(text, skillReferences)
         extractMcpFromText(text, mcpServers)
       }
     }
@@ -422,7 +401,6 @@ export function parseRequestBody(body: unknown): ProxyDiagnosisData {
     totalEstimatedTokens,
     // Extended fields for rich report
     skillTokens,
-    skillReferences,
     agents,
     detectedPlugins,
     rulesTokens,
@@ -447,7 +425,6 @@ export function aggregateCaptures(fragments: ProxyDiagnosisData[]): ProxyDiagnos
       totalEstimatedTokens: 0,
       model: 'unknown',
       skillTokens: {},
-      skillReferences: [],
       detectedPlugins: [],
       toolDescriptions: {},
     }
