@@ -112,6 +112,8 @@ export interface AgentEntry {
   source?: string
   /** Agent description text */
   description?: string
+  /** Tools available to this agent */
+  tools?: string[]
 }
 
 export interface RuleEntry {

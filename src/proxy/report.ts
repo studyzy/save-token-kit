@@ -226,6 +226,9 @@ export function renderMarkdown(
       if (a.description) {
         lines.push(`      ${a.description}`)
       }
+      if (a.tools && a.tools.length > 0) {
+        lines.push(`      Tools: ${a.tools.join(', ')}`)
+      }
     }
   }
   lines.push('')

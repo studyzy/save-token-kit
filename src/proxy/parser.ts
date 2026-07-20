@@ -99,52 +99,75 @@ function extractMcpFromText(
 }
 
 /**
- * Extract subagent (Agent) definitions from text by matching the
- * "- name: description [(source)][(Tools: ...)]" list pattern emitted in the
- * system prompt. Excludes the inherited default "general-purpose" agent and
- * explanatory lines (e.g. "Trust but verify" usage notes).
+ * Extract subagent (Agent) definitions from the Agent tool description text.
+ *
+ * Format:
+ *   - name: description...[\n more description...][ (source)][ (Tools: a,b,c)]
+ *
+ * Entries start with "- name:" and extend to the terminating "(Tools:...)" or
+ * the start of the next agent entry. Descriptions may span multiple lines.
+ * Excludes "general-purpose" and usage-note lines.
  */
 function extractAgentsFromText(
   text: string,
   agents: AgentEntry[],
   seen: Set<string>,
 ): void {
-  // Match agent lines: "- name: rest" where name is a valid agent identifier
-  const pat = /^- ([a-zA-Z][a-zA-Z0-9_-]*): (.+)$/gm
+  // Match from "- name:" to the next "(Tools:" or next "- name:" (whichever comes first).
+  // The "s" flag makes "." match newlines for multi-line descriptions.
+  const pat = /^- ([a-zA-Z][a-zA-Z0-9_-]*): (.+?)(?=\(Tools:|\n- [a-zA-Z][a-zA-Z0-9_-]*:)/gms
   let m: RegExpExecArray | null
   while ((m = pat.exec(text)) !== null) {
     const name = m[1]
-    const rest = m[2].trim()
+    const body = m[2].trim()
 
-    // Skip general-purpose (built-in, always present)
     if (name === 'general-purpose' || seen.has(name)) continue
-
-    // Skip explanatory/parameter lines (not real agent entries)
-    if (isAgentUsageNote(name, rest)) continue
+    if (isAgentUsageNote(name, body)) continue
 
     seen.add(name)
 
-    // Strip trailing (Tools: ...) suffix first, then parse source
-    let descText = rest
-    descText = descText.replace(/\s*\(Tools:\s*[^)]*\)\s*$/, '').trim()
+    // Merge multi-line description into single line
+    let description = body
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .join(' ')
 
-    // Parse source from trailing (source) or (plugin@...) suffix
+    // Parse trailing (source) — "(project)", "(bundled)", "(plugin@...)", etc.
     let source: string | undefined
-    const sourceMatch = descText.match(/\((project|bundled|user|[^)]*@[^)]*)\)\s*$/)
+    const sourceMatch = description.match(/\(([^)]*(?:@[^)]*)?)\)\s*$/)
     if (sourceMatch) {
-      if (sourceMatch[1].includes('@')) {
+      const sval = sourceMatch[1]
+      if (sval.includes('@')) {
         source = 'plugin'
+      } else if (['project', 'bundled', 'user'].includes(sval)) {
+        source = sval
       } else {
-        source = sourceMatch[1]
+        source = sval
       }
-      descText = descText.slice(0, sourceMatch.index).trim()
+      description = description.slice(0, sourceMatch.index).trim()
+    }
+
+    // Extract tools from the "(Tools: ...)" suffix in the original text.
+    // Search forward from this agent's start position.
+    const agentStart = text.indexOf(`- ${name}:`)
+    let tools: string[] = []
+    if (agentStart >= 0) {
+      const toolsMatch = text.slice(agentStart).match(/\(Tools:\s*([^)]*)\)/)
+      if (toolsMatch) {
+        const toolsStr = toolsMatch[1].trim()
+        if (toolsStr) {
+          tools = toolsStr.split(',').map((t) => t.trim())
+        }
+      }
     }
 
     agents.push({
       name,
-      estimatedTokens: Math.ceil((name.length + descText.length) / 4),
+      estimatedTokens: Math.ceil((name.length + description.length) / 4),
       source,
-      description: descText,
+      description,
+      tools,
     })
   }
 }
@@ -154,14 +177,9 @@ function extractAgentsFromText(
  * Agent tool usage note rather than a real agent definition.
  */
 function isAgentUsageNote(name: string, rest: string): boolean {
-  const notes = [
-    'Trust but verify',
-    'Foreground vs background',
-    'Lookups',
-  ]
+  const notes = ['Trust but verify', 'Foreground vs background', 'Lookups']
   if (notes.includes(name)) return true
-  // Parameter description lines like "- name: Name for the spawned agent..."
-  // These have names that look like parameter names (lowercase with underscores)
+  // Parameter description lines — names look like parameter names (snake_case)
   if (/^[a-z]+(_[a-z]+)*$/.test(name)) {
     const paramPrefixes = [
       'Name for the',
