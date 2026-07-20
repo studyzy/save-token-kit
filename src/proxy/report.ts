@@ -97,6 +97,7 @@ export function buildDiagnosisReport(
     contextOverview: { totalEstimatedTokens: total, breakdown: categories },
     mcpList,
     skillList,
+    commandList: fs?.commandList ?? [],
     agentList: parsed.agents,
     builtinTools: allTools,
     pluginList: fs?.pluginList ?? [],
@@ -124,6 +125,7 @@ function emptyReport(): DiagnosisReport {
     contextOverview: { totalEstimatedTokens: 0, breakdown: [] },
     mcpList: [],
     skillList: [],
+    commandList: [],
     agentList: [],
     builtinTools: [],
   }
@@ -208,6 +210,27 @@ export function renderMarkdown(
       }
       if (skill.description) {
         lines.push(`      ${skill.description}`)
+      }
+    }
+  }
+  lines.push('')
+
+  // --- Slash commands ---
+  const commands = report.commandList ?? []
+  lines.push(`命令 (${commands.length} 个)`)
+  lines.push('-'.repeat(40))
+  if (commands.length === 0) {
+    lines.push('  (无)')
+  } else {
+    for (const cmd of commands) {
+      lines.push(
+        `  [${cmd.source ?? 'command'}] ${cmd.name.padEnd(20)} ~${cmd.estimatedTokens} tok`,
+      )
+      if (cmd.sourcePath) {
+        lines.push(`      ↳ ${cmd.sourcePath}`)
+      }
+      if (cmd.description) {
+        lines.push(`      ${cmd.description}`)
       }
     }
   }

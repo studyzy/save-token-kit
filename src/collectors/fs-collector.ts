@@ -21,6 +21,8 @@ import { estimate, estimateMcpTokens, impactLevel } from './token-estimator.js'
 export interface FsCollectResult {
   mcpList: McpEntry[]
   skillList: SkillEntry[]
+  /** Slash commands discovered on the filesystem */
+  commandList: SkillEntry[]
   pluginList: PluginEntry[]
   hookList: HookEntry[]
   ruleList: RuleEntry[]
@@ -79,6 +81,8 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
     ...userCommands,
     ...projectCommands,
   ]
+  // Commands are also surfaced as a dedicated list (distinct from skills).
+  const commandList = [...userCommands, ...projectCommands]
 
   // Scan rules directories (both global and project-local)
   const ruleList = [...scanRules(paths.rulesDir), ...scanRules(`${process.cwd()}/.codebuddy/rules`)]
@@ -130,6 +134,7 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
   return {
     mcpList,
     skillList: allSkills,
+    commandList,
     pluginList,
     hookList,
     ruleList,

@@ -200,6 +200,8 @@ export interface DiagnosisReport {
   mcpList: McpEntry[]
   /** Skill list */
   skillList: SkillEntry[]
+  /** Slash command list (from ~/.codebuddy/commands and ./.codebuddy/commands) */
+  commandList?: SkillEntry[]
   /** Subagent (Agent) list */
   agentList: AgentEntry[]
   /** Tool definitions with per-tool token breakdown (builtin + mcp + deferred merged) */
