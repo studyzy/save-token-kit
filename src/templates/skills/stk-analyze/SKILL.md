@@ -140,11 +140,12 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 | 4 | `agent-opt`      | `agentList[]`                     | 数组非空                                | @agents/04-agent-opt.md   |
 | 5 | `skill-opt`      | `skillList[]`                     | 数组非空                                | @agents/05-skill-opt.md   |
 | 6 | `knowledge-base` | `repo-scan.json` + `context.json` | 仓库超阈值 **且** `graphTool` 非 `none` | @agents/06-knowledge-base.md |
-| 7 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/08-rules-opt.md   |
-| 8 | `codebuddy-md`   | `CODEBUDDY.md`（项目级）          | 文件存在                                | @agents/09-codebuddy-md.md |
-| 9 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/10-hook-audit.md  |
+| 7 | `command-opt`    | `commandList[]`（主 Agent 从诊断报告提取后传入） | `commandList[]` 非空 | @agents/07-command-opt.md |
+| 8 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/08-rules-opt.md   |
+| 9 | `codebuddy-md`   | `CODEBUDDY.md`（项目级）          | 文件存在                                | @agents/09-codebuddy-md.md |
+| 10 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/10-hook-audit.md  |
 
-> **注**：原 `repo-scan`（表内第 7 项）已重构为**前置调研 Agent `00-repo-scan`**，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`。其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。故并行子 Agent 现为 01~06、08~10 共 9 个。
+> **注**：原 `repo-scan`（表内第 7 项）已重构为**前置调研 Agent `00-repo-scan`**，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`。其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。故并行子 Agent 现为 01~06、07-command-opt、08~10 共 10 个（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入，不再扫描磁盘或筛选 `skillList`）。
 
 ### 阶段 4: 汇总生成 tasks.md
 
@@ -282,7 +283,7 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 总计：预估节省 ~XXXXX Token (XX.X%)
 ```
 
-每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Rules 优化 → 9.CODEBUDDY.md 审查 → 10.Hook 审查。每条一行 `- [ ]` + 原因缩进两空格，总计行末尾用 `---` 分隔。
+每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Command 优化 → 9.Rules 优化 → 10.CODEBUDDY.md 审查 → 11.Hook 审查。每条一行 `- [ ]` + 原因缩进两空格，总计行末尾用 `---` 分隔。
 
 ## 边界
 

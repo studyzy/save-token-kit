@@ -16,7 +16,7 @@
 
 | 条件 | 判定 | 输出 |
 | --- | --- | --- |
-| `installed === true` 且 `enabled === false` | 已装未启用 | `action`: "启用 <name>"，`operationType`: "install-tool"，`reason`: "已安装未启用，<说明>"，`estimatedSavingTokens`: 取 `recommendedSaving` 数字部分，无则 0 |
+| `installed === true` 且 `enabled === false` | 已装未启用 | `action`: "启用 <name>"，`operationType`: "install-tool"，`reason`: "已安装未启用，<说明>"，`estimatedSavingTokens`: 取 `recommendedSaving` 数字部分，无则回退下方估算口径默认值 |
 | `installed === false` 且 `name` 与 `context.purpose` 匹配（见下方场景匹配表） | 未装但场景匹配，推荐安装 | `action`: "安装 <name>"，`operationType`: "install-tool"，`reason`: "场景为 <purpose>，<name> 可提供 <收益>"，`estimatedSavingTokens`: 取 `recommendedSaving` 数字或 0 |
 | `installed === true` 且 `enabled === true` 且 `name` 与 `context.purpose` 明确不匹配（见下方场景匹配表） | 已启用但场景不匹配，提示可选 | `action`: "可考虑禁用 <name>（当前场景并非核心受益场景）"，`operationType`: "other"，`reason`: "当前 purpose=<purpose>，该工具主要服务于 <其他场景>，但偶尔涉及时仍有收益"，`estimatedSavingTokens`: 0，`risk`: "medium" |
 | `installed === true` 且 `enabled === true` 且场景匹配 | 已就绪 | 不产出 |
@@ -31,9 +31,8 @@
 | `headroom` | `code` / `doc` / `general` | 上下文压缩 47-92%，对长文本、日志、文档均有明显收益 |
 | `context-mode` | `code` / `general` | 沙箱化工具输出，避免污染上下文 |
 | `karpathy-skills` | `code` / `general` | 编码行为准则（Think before coding / Simplicity first 等），通过减少冗余输出间接节省 Token。**注：非 Token 优化工具，而是代码质量准则，收益为间接节省** |
-| `graphify` / `codebase-memory` / `codegraph` / `gitnexus` | `code`（仅当仓库 `codeFileCount` 较大时） | 代码知识图谱，替代回读 |
 
-> `graphTool` 在 `context.json` 中为 `none` 时，知识库类工具不产出"推荐安装"建议（交由 agent 6 处理）。
+> 知识库类工具（`graphify` / `codebase-memory` / `codegraph` / `gitnexus`）不在此 Agent 处理，交由 agent 6 `knowledge-base` 负责。
 
 ## 不输出的情况
 
@@ -46,9 +45,9 @@
 
 | level | 命中条件（`target` / 工具名） |
 | --- | --- |
-| 初级 | `rtk` / `caveman` / `caveman-*` / `ponytail` / `ponytail-*`（安装即用、零配置） |
-| 中级 | `karpathy-skills`（行为准则注入，需理解准则才能生效） / `context-mode`（需 MCP + Hook 配置） |
-| 高级 | `headroom`，或属于代码知识库类（`graphify` / `codebase-memory` / `codegraph` / `gitnexus`） |
+| 初级 | `rtk` / `caveman` / `caveman-*` / `ponytail` / `ponytail-*` / `karpathy-skills`（安装即用、零配置） |
+| 中级 | `headroom`（需上下文压缩配置） / `context-mode`（需 MCP + Hook 配置） |
+| 高级 | 无（知识库类工具交 agent 6，本 Agent 不产出高级建议） |
 
 ## estimatedSavingTokens 估算口径
 
@@ -60,7 +59,6 @@
   - `caveman`：30000（对话 token 占 40%，75% 压缩率）
   - `headroom`：60000（上下文压缩 60%）
   - `context-mode`：40000（工具输出占 40%，98% 压缩率）
-  - 知识库类：20000（替代回读）
   - `karpathy-skills`：10000（间接节省，保守估计）
 - "可考虑禁用"场景：固定 0
 
@@ -68,7 +66,7 @@
 
 - 仅处理 `toolDetection[]` 中的第三方工具
 - 不处理 MCP server（交 agent 2）、Skill（交 agent 5）、Plugin 工具列表 defer（交 agent 4）
-- 知识库类工具的"启用/安装"建议由本 agent 产出；但"是否值得装"的仓库规模判定依据来自 `repo-scan.json`，本 agent 直接采信 `context.graphTool` 的值，不重复判定
+- 知识库类工具（`graphify` / `codebase-memory` / `codegraph` / `gitnexus`）的启用/安装建议交 agent 6 `knowledge-base`，本 Agent 不产出
 
 ## 输出示例
 
@@ -98,7 +96,7 @@
       "detail": "rtk 已安装未启用，可透明改写 git/npm/grep 等 dev 命令，节省 60-90% 操作 token",
       "operationType": "install-tool",
       "target": "rtk",
-      "estimatedSavingTokens": 0,
+      "estimatedSavingTokens": 50000,
       "risk": "low",
       "reversible": true,
       "scenario": "code",
