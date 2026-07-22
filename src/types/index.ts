@@ -153,7 +153,7 @@ export interface HookEntry {
   source: 'settings' | 'local'
 }
 
-export interface ConfigFileSummary {
+export interface MemoryFileSummary {
   path: string
   exists: boolean
   sizeBytes: number
@@ -223,8 +223,8 @@ export interface DiagnosisReport {
   hookList?: HookEntry[]
   /** Rules discovered in rules/ directories */
   ruleList?: RuleEntry[]
-  /** Config file summaries (CODEBUDDY.md, project CODEBUDDY.md, rules dir) */
-  configFiles?: ConfigFileSummary[]
+  /** Memory file summaries (CODEBUDDY.md / AGENTS.md, user-level and project-level) */
+  memoryFiles?: MemoryFileSummary[]
   /** Third-party tool detection (rtk/caveman/headroom/graphify/ponytail/...) */
   toolDetection?: ToolDetection[]
   /** Whether headless probing of the agent was available */

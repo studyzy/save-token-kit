@@ -1,7 +1,9 @@
 import { parseRequestBody } from './parser.js'
+import { readFile } from '../utils/fs-operations.js'
 import type {
   DiagnosisReport,
   ContextItem,
+  MemoryFileSummary,
   ToolDef,
   ToolDetection,
 } from '../types/index.js'
@@ -22,6 +24,9 @@ export function buildDiagnosisReport(
   }
 
   const parsed = rawBodies.length > 0 ? parseRequestBody(rawBodies[0]) : null
+
+  // Full request-body text, used to verify which memory files actually reached the LLM.
+  const bodyText = parsed ? JSON.stringify(rawBodies[0]) : ''
 
   // Categorize token usage into context overview breakdown.
   const categories: ContextItem[] = []
@@ -103,7 +108,8 @@ export function buildDiagnosisReport(
     pluginList: fs?.pluginList ?? [],
     hookList: fs?.hookList ?? [],
     ruleList: fs?.ruleList ?? [],
-    configFiles: fs?.configFiles ?? [],
+    // Only keep memory files whose content actually appears in the request body.
+    memoryFiles: filterMemoryFilesInBody(fs?.memoryFiles ?? [], bodyText),
     toolDetection: (toolDetection ?? []).filter((t) => t.installed),
     headlessAvailable: false,
     dataSource: 'proxy',
@@ -116,6 +122,32 @@ export function buildDiagnosisReport(
 
 function makeItem(type: ContextItem['type'], name: string, tokens: number): ContextItem {
   return { type, name, estimatedTokens: tokens, percentage: 0 }
+}
+
+/**
+ * Keep only memory files whose content actually reached the LLM.
+ * When bodyText is empty (fs-only mode, no intercepted request), all existing
+ * files are kept as a conservative fallback.
+ */
+function filterMemoryFilesInBody(
+  files: MemoryFileSummary[],
+  bodyText: string,
+): MemoryFileSummary[] {
+  if (!bodyText) return files
+  return files.filter((m) => m.exists && memoryFileInBody(m.path, bodyText))
+}
+
+function memoryFileInBody(path: string, bodyText: string): boolean {
+  try {
+    const content = readFile(path)
+    if (!content.trim()) return false
+    // Escape the file content the same way JSON.stringify escapes the body,
+    // so whitespace and quotes match what was actually sent to the LLM.
+    const signature = JSON.stringify(content.slice(0, 500)).slice(1, -1)
+    return bodyText.includes(signature)
+  } catch {
+    return false
+  }
 }
 
 function emptyReport(): DiagnosisReport {
@@ -295,14 +327,14 @@ export function renderMarkdown(
   }
   lines.push('')
 
-  // --- Config files ---
-  const configs = (report.configFiles ?? []).filter((c) => c.exists)
-  lines.push('配置文件')
+  // --- Memory files (CODEBUDDY.md / AGENTS.md, user-level and project-level) ---
+  const memoryFiles = (report.memoryFiles ?? []).filter((c) => c.exists)
+  lines.push('记忆文件')
   lines.push('-'.repeat(40))
-  if (configs.length === 0) {
+  if (memoryFiles.length === 0) {
     lines.push('  (无)')
   } else {
-    for (const c of configs) {
+    for (const c of memoryFiles) {
       lines.push(
         `  ${c.path}  ${c.sizeBytes}B ${c.lineCount}行 ~${c.estimatedTokens}tok [${c.impactLevel === 'high' ? '高' : c.impactLevel === 'medium' ? '中' : '低'}]`,
       )

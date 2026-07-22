@@ -24,8 +24,8 @@
 | `context.graphTool` 指定具体工具（非 `none`）且 `repo-scan.codeFileCount` ≥ 200 | 仓库规模达标，强烈推荐 | `action`: "启用 <graphTool 展示名>"，`operationType`: "knowledge-base"，`evidence`: "codeFileCount=N, topLanguages=[...]"，`estimatedSavingTokens`: 按 `codeFileCount × 15` 估算（基于 CodeGraph benchmark：~600 文件省 73% token，每文件约 6-15 token） |
 | `context.graphTool` 指定具体工具且 `codeFileCount` < 50 | 仓库过小，反向提示 | `action`: "暂不启用 <graphTool>（仓库规模过小）"，`operationType`: "other"，`reason`: "codeFileCount=N < 50，知识图谱开销大于收益（Graphify 官方建议 ≥ 100 文件；CodeGraph 在 ~150 文件仅省 22%）"，`estimatedSavingTokens`: 0，`risk`: "low" |
 | `context.graphTool` 指定具体工具且 50 ≤ `codeFileCount` < 200 | 中等规模，可选启用 | `action`: "考虑启用 <graphTool>（中等规模，收益有限）"，`operationType`: "knowledge-base"，`reason`: "codeFileCount=N，收益视代码复杂度而定"，`estimatedSavingTokens`: 按 `codeFileCount × 8` 估算 |
-| `toolDetection` 中对应工具 `installed === true` 且 `enabled === false` | 已装未启用 | 由 agent 1 产出"启用"建议，本 agent **不重复产出**（见职责边界） |
-| `toolDetection` 中对应工具 `installed === true` 且 `enabled === true` | 已就绪 | 不产出 |
+| `toolDetection` 中对应工具 `installed === true` 且 `enabled === false` | 已装未启用 | **本 Agent 产出"启用"建议**（见启动前置判定：`enabled===true` 才不启动本 Agent） |
+| `toolDetection` 中对应工具 `installed === true` 且 `enabled === true` | 已就绪 | 由启动前置判定拦截，**本 Agent 不启动**，不产出 |
 | `repo-scan.scanError` 非 null | 扫描失败 | `action`: "无法评估 <graphTool>（仓库扫描失败）"，`operationType`: "other"，`estimatedSavingTokens`: 0，`risk`: "low"，`evidence`: "scanError=<msg>" |
 
 **辅助判据**：
@@ -44,9 +44,9 @@
 
 ## 不输出的情况
 
-- `context.graphTool === 'none'` 或缺失 → `skipped: true`（用户明确不需要）
-- 对应工具已装已启用 → 不产出
-- 对应工具已装未启用 → 不产出（交 agent 1）
+- `context.graphTool === 'none'` 或缺失 → 启动前置判定**不启动**，无产出
+- 对应工具已装已启用 → 启动前置判定**不启动**，不产出（已就绪，无需建议）
+- 对应工具已装未启用 → **正常启动并产出**"启用"建议（本 Agent 职责，不再交 agent 1）
 - `repo-scan.json` 缺失且 `graphTool` 非 `none` → `skipped: true`，`evidence` 注明"无仓库扫描数据"
 
 ## level 判定
@@ -68,7 +68,8 @@
 ## 职责边界
 
 - 仅处理知识图谱工具的"启用/不推荐"建议
-- 已装未启用的"启用"建议由 agent 1（tool-enable）产出，本 agent 不重复
+- 知识库**已启用**时本 Agent 不启动（由启动前置判定拦截），不产出任何建议
+- 知识库**已装未启用**的"启用"建议**由本 Agent 产出**（不再交 agent 1）
 - 仓库规模判定依据来自 `repo-scan.json`，不自行扫描
 - 不处理其他类型工具（rtk/headroom 等交 agent 1）
 

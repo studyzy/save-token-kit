@@ -20,7 +20,7 @@
 ## 输入
 
 - 项目级 `CODEBUDDY.md`（存在即启动，`repo-scan.json.hasCodebuddyMd` 已标记）
-- `configFiles`（来自 `diagnosis-report.json`，含 CODEBUDDY.md 的 `lineCount` / `sizeBytes` / `estimatedTokens`）
+- `memoryFiles`（来自 `diagnosis-report.json`，含 CODEBUDDY.md / AGENTS.md 的 `lineCount` / `sizeBytes` / `estimatedTokens`）
 - `context.json`：用户场景
 - `hasCodebuddyMd === false`：返回 `skipped: true` + 空 `suggestions`（若需"添加索引"建议，由 agent 7 仓库专项产出）
 

@@ -1,6 +1,6 @@
 import type {
   CommandEntry,
-  ConfigFileSummary,
+  MemoryFileSummary,
   HookEntry,
   McpEntry,
   PluginEntry,
@@ -18,6 +18,7 @@ import {
   readJsonSafe,
 } from '../utils/fs-operations.js'
 import { estimate, estimateMcpTokens, impactLevel } from './token-estimator.js'
+import { getHomeDir } from '../utils/platform.js'
 
 export interface FsCollectResult {
   mcpList: McpEntry[]
@@ -27,7 +28,7 @@ export interface FsCollectResult {
   pluginList: PluginEntry[]
   hookList: HookEntry[]
   ruleList: RuleEntry[]
-  configFiles: ConfigFileSummary[]
+  memoryFiles: MemoryFileSummary[]
   codebuddyMdSize: number
   historySize: number
 }
@@ -88,45 +89,17 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
   // Scan rules directories (both global and project-local)
   const ruleList = [...scanRules(paths.rulesDir), ...scanRules(`${process.cwd()}/.codebuddy/rules`)]
 
-  const configFiles: ConfigFileSummary[] = []
-  for (const file of [paths.codebuddyMd, `${process.cwd()}/CODEBUDDY.md`, paths.mcp]) {
-    configFiles.push(summarizeFile(file))
+  const memoryFiles: MemoryFileSummary[] = []
+  for (const file of [
+    paths.codebuddyMd,
+    `${process.cwd()}/CODEBUDDY.md`,
+    `${getHomeDir()}/.codebuddy/AGENTS.md`,
+    `${process.cwd()}/AGENTS.md`,
+  ]) {
+    memoryFiles.push(summarizeFile(file))
   }
 
-  // Aggregate rules config file entries (one per directory)
-  {
-    const globalRules = scanRules(paths.rulesDir)
-    if (globalRules.length > 0) {
-      const totalSize = globalRules.reduce((sum, r) => sum + r.fileSizeBytes, 0)
-      const totalTokens = globalRules.reduce((sum, r) => sum + r.estimatedTokens, 0)
-      configFiles.push({
-        path: paths.rulesDir,
-        exists: true,
-        sizeBytes: totalSize,
-        lineCount: globalRules.length,
-        estimatedTokens: totalTokens,
-        impactLevel: impactLevel(totalSize),
-      })
-    }
-  }
-  {
-    const projectRulesDir = `${process.cwd()}/.codebuddy/rules`
-    const projectRules = ruleList.filter((r) => r.path.startsWith(projectRulesDir))
-    if (projectRules.length > 0) {
-      const totalSize = projectRules.reduce((sum, r) => sum + r.fileSizeBytes, 0)
-      const totalTokens = projectRules.reduce((sum, r) => sum + r.estimatedTokens, 0)
-      configFiles.push({
-        path: projectRulesDir,
-        exists: true,
-        sizeBytes: totalSize,
-        lineCount: projectRules.length,
-        estimatedTokens: totalTokens,
-        impactLevel: impactLevel(totalSize),
-      })
-    }
-  }
-
-  const codebuddyMdSize = configFiles.find((c) => c.path === paths.codebuddyMd)?.sizeBytes ?? 0
+  const codebuddyMdSize = memoryFiles.find((c) => c.path === paths.codebuddyMd)?.sizeBytes ?? 0
   const historySize = summarizeFile(paths.historyFile).sizeBytes
 
   // Detect duplicate skills (same name from multiple sources)
@@ -139,7 +112,7 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
     pluginList,
     hookList,
     ruleList,
-    configFiles,
+    memoryFiles,
     codebuddyMdSize,
     historySize,
   }
@@ -324,7 +297,7 @@ function parseSkillFrontmatter(content: string): {
   }
 }
 
-function summarizeFile(path: string): ConfigFileSummary {
+function summarizeFile(path: string): MemoryFileSummary {
   if (!exists(path)) {
     return {
       path,

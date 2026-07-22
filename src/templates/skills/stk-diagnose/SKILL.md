@@ -25,6 +25,7 @@ argument-hint: ''
    stk diagnose --report-path=./save-token/diagnosis-report.md
    ```
 3. 读取 `./save-token/diagnosis-report.md`，在对话中展示诊断报告。
+4. 提醒用户下一步运行 `/stk-analyze`，基于本次诊断数据给出节省 Token 的优化建议。
 
 ## 注意
 

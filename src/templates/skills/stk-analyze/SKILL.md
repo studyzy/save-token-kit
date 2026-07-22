@@ -43,7 +43,15 @@ cat save-token/diagnosis-report.md 2>/dev/null || echo "NOT_FOUND"
 **第二轮（条件触发）— 代码知识图谱工具倾向性：**
 
 - **触发条件**：仓库扫描已完成（`repo-scan.json` 存在）且 `codeFileCount >= 5`
-- **询问内容**：列出已知工具，附简要描述：
+
+- **前置判定（决定是否询问）**：进入询问前，先读取 `diagnosis-report.md` / `diagnosis-report.json` 中的代码知识库对象（如 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` 等，对应 `knowledge-base` 维度字段），按以下规则判定：
+  1. **已启用** → 直接写入 `context.json` 的 `graphTool` 为该工具，**不再** `AskUserQuestion` 询问选哪个知识库。
+  2. **已安装但仅 1 个且未启用** → 默认使用该唯一已安装知识库，直接写入 `graphTool`，**不再** 询问是否使用。
+  3. **已安装但多个且均未启用 / 全部未安装 / 触发条件不满足但用户主动提及** → 才走下方 `AskUserQuestion` 询问。
+
+  > 判定依据一律取自诊断报告，不猜测；若报告字段缺失无法判定，降级为正常询问。
+
+- **询问内容（仅当前置判定不满足时触发）**：列出已知工具，附简要描述：
   - `Graphify`（本地 CLI，轻量图谱）
   - `Codebase-Memory MCP`（本地 MCP，跨语言图谱）
   - `CodeGraph`（语义+历史层）
@@ -72,7 +80,7 @@ cat save-token/diagnosis-report.md 2>/dev/null || echo "NOT_FOUND"
 }
 ```
 
-> `graphTool` 仅在第二轮触发时写入；仓库过小不询问则不写该字段（向后兼容）。
+> `graphTool` 仅在第二轮相关时写入；仓库过小不触发则不写该字段（向后兼容）。若诊断报告显示已启用或仅 1 个已安装知识库，由前置判定直接写入，不触发询问。
 
 ### 阶段 2: 仓库代码/文档采集
 
@@ -140,6 +148,13 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 | 4 | `agent-opt`      | `agentList[]`                     | 数组非空                                | @agents/04-agent-opt.md   |
 | 5 | `skill-opt`      | `skillList[]`                     | 数组非空                                | @agents/05-skill-opt.md   |
 | 6 | `knowledge-base` | `repo-scan.json` + `context.json` | 仓库超阈值 **且** `graphTool` 非 `none` | @agents/06-knowledge-base.md |
+
+> **`knowledge-base` 启动前置判定**（派发前执行，依据诊断报告）：
+> - 诊断报告显示某代码知识库 `enabled === true`（已启用）→ **不启动**该 Agent（已就绪，无需建议）。
+> - `graphTool` 指定某工具且诊断报告该工具 `installed === true` 但 `enabled === false` → **启动**，Agent 工作即产出"启用该知识库"建议。
+> - `graphTool` 指定某工具且未安装 / 用户主动选择 → 启动，按规模产出"启用"建议。
+> - `graphTool === 'none'` 或缺失 → 不启动。
+> 判定依据一律取自诊断报告，不猜测；报告字段缺失时降级为按原"仓库超阈值且 graphTool 非 none"条件启动。
 | 7 | `command-opt`    | `commandList[]`（主 Agent 从诊断报告提取后传入） | `commandList[]` 非空 | @agents/07-command-opt.md |
 | 8 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/08-rules-opt.md   |
 | 9 | `codebuddy-md`   | `CODEBUDDY.md`（项目级）          | 文件存在                                | @agents/09-codebuddy-md.md |
