@@ -255,6 +255,10 @@ export const MCP_CLI_ALTERNATIVES: Record<string, string> = {
   notion: 'notion-cli',
   linear: 'linear-cli',
   jira: 'jira-cli',
+  tapd: 'tapd-cli',
+  'mcp-server-tapd': 'tapd-cli',
+  gongfeng: 'gongfeng',
+  'gongfeng-mcp': 'gongfeng',
 }
 
 /** Extra details captured from the intercepted proxy request body. */
