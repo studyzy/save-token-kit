@@ -1,6 +1,6 @@
 ---
 name: stk-analyze
-description: '收集使用场景与仓库代码/文档，结合诊断报告并行派发多个子 Agent 提供 Token 节省方案，每个子 Agent 输出统一 Schema 的 json，最终汇总为 tasks.md'
+description: '分析用户AI使用场景，提供Token节省方案'
 ---
 
 # SKILL: stk-analyze
@@ -144,6 +144,8 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 |---|------------------|-----------------------------------|-----------------------------------------|---------------------------|
 | 1 | `tool-enable`    | `toolDetection[]`                 | 数组非空                                | @agents/01-tool-enable.md |
 | 2 | `mcp-opt`        | `mcpList[]`                       | 数组非空                                | @agents/02-mcp-opt.md     |
+
+> **MCP 优化关键约束**：TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具，**不得建议禁用**。应建议用对应 CLI（`tapd-cli` / `gongfeng` / `gh`）替代 MCP，保留功能同时移除工具定义的 Token 开销。领域匹配判定（如 purpose=code/role=backend）不适用于此类开发协作平台——它们对所有开发角色均必要。
 | 3 | `plugin-opt`     | `pluginList[]`                    | 数组非空                                | @agents/03-plugin-opt.md  |
 | 4 | `agent-opt`      | `agentList[]`                     | 数组非空                                | @agents/04-agent-opt.md   |
 | 5 | `skill-opt`      | `skillList[]`                     | 数组非空                                | @agents/05-skill-opt.md   |

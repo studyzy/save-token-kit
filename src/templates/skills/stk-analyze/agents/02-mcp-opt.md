@@ -32,13 +32,22 @@
 - `type === "stdio"`：本地进程，移除/defer 无网络影响
 - `type === "sse"` / `"http"`：远程服务，移除前确认无其他项目依赖
 
+## 关键约束：开发协作平台 MCP 禁止建议禁用
+
+TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具。**无论 purpose/role 如何，均不得建议禁用或移除**。处理方式：
+- **优先 CLI 替代**：已安装对应 CLI（`tapd-cli` / `gongfeng` / `gh`）→ 产出 `replace-mcp-with-cli` 建议
+- **CLI 未安装**：不产出禁用建议，跳过该 MCP（在 evidence 中注明"开发必备，CLI 未安装，跳过"）
+- **领域匹配判定不适用**：`purpose=code/role=backend` 等场景字段对开发协作平台无约束力
+
 ## 不输出的情况
 
 - `mcpList` 为空或缺失 → `skipped: true`
 - MCP 已 enabled 且 `hasCliAlternative === false` 且 name 不匹配 TAPD/GitHub/工蜂 且体量小（`estimatedTokens` ≤ 1500 或 `toolsCount` ≤ 15） → 不产出
-- `status === "enabled"` 且已 `deferLoading === true` → 不产出 defer 建议
 - `purpose === "office"` 且 MCP 为 office 类（playwright / browser 等） → 不建议 CLI 替代
 - `toolsCount === 0` 且 `estimatedTokens === 0` → 空壳配置，不产出
+- **TAPD/GitHub/工蜂 MCP 且对应 CLI 未安装** → 不产出（不因 CLI 未安装而降级为禁用建议）
+
+> **⚠️ 启动即必须优化**：只要 `mcpList[]` 中存在 `status === "enabled"` 的 MCP，`mcp-opt` 就必须真实运行优化逻辑，**不得因该 MCP 已 `deferLoading === true` 就整体跳过**。延迟加载仅消除"设置 defer"这一条建议，但 CLI 替代（TAPD/GitHub/工蜂 等）、异常空 MCP、禁用残留等规则与 defer 状态无关，仍须逐项判定并产出。若遍历后确无任何可优化维度，才返回 `skipped: true`。
 
 ## level 判定
 

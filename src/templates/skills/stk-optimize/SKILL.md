@@ -1,6 +1,6 @@
 ---
 name: stk-optimize
-description: '读取 save-token/tasks.md，按用户选择的优化等级（初级/初级+中级/全部）筛选并逐项执行 Token 优化任务'
+description: '执行Token优化任务'
 argument-hint: ''
 ---
 

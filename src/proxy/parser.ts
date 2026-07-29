@@ -1,3 +1,4 @@
+import { readFileSync, statSync } from 'node:fs'
 import { estimateTokensOf, truncateIfLarge } from '../collectors/token-estimator.js'
 import type {
   MessageBreakdown,
@@ -198,6 +199,49 @@ function isAgentUsageNote(name: string, rest: string): boolean {
  * Extract per-skill token breakdown from the Skill tool definition.
  * Parses the <available_skills> block in the Skill tool's description.
  */
+/**
+ * Read SKILL.md frontmatter `description` for a skill whose source path is known.
+ * `location` is either a SKILL.md file path or the skill directory; a directory is
+ * resolved to `<dir>/SKILL.md`. Returns undefined when no frontmatter description
+ * can be read (caller keeps the raw description as fallback).
+ */
+function readSkillFrontmatterDescription(location: string): string | undefined {
+  let skillMd = location
+  try {
+    const stat = statSync(location)
+    if (stat.isDirectory()) skillMd = `${location}/SKILL.md`
+  } catch {
+    return undefined
+  }
+  let content: string
+  try {
+    content = readFileSync(skillMd, 'utf8')
+  } catch {
+    return undefined
+  }
+  const fm = content.match(/^---\n([\s\S]*?)\n---/)
+  if (!fm) return undefined
+  const frontmatter = fm[1] ?? ''
+  const lines = frontmatter.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^description:\s*(.*)$/)
+    if (!m) continue
+    const inline = m[1].trim()
+    // Block scalar (folded `>` or literal `|`): collect indented continuation lines.
+    if (inline === '>' || inline === '|' || inline === '>-' || inline === '|-') {
+      const body: string[] = []
+      for (let j = i + 1; j < lines.length; j++) {
+        if (/^\s+\S/.test(lines[j])) body.push(lines[j].trim())
+        else break
+      }
+      // Folded scalars join with spaces; literal scalars keep newlines.
+      return inline.startsWith('>') ? body.join(' ') : body.join('\n')
+    }
+    return inline
+  }
+  return undefined
+}
+
 function extractSkillTokens(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tools: any[],
@@ -225,10 +269,15 @@ function extractSkillTokens(
     const nameMatch = trimmed.match(/^-?\s*([^:]+):/)
     if (!nameMatch?.[1]) continue
     const name = nameMatch[1].trim()
+    const resolvedLocation = location !== 'bundled' ? location : undefined
+    // Prefer the clean SKILL.md frontmatter description over the raw <available_skills> line.
+    const frontmatterDesc = resolvedLocation
+      ? readSkillFrontmatterDescription(resolvedLocation)
+      : undefined
     result[name] = {
-      description: trimmed,
-      estimatedTokens: Math.ceil(trimmed.length / 4),
-      location: location !== 'bundled' ? location : undefined,
+      description: frontmatterDesc ?? trimmed,
+      estimatedTokens: Math.ceil((frontmatterDesc ?? trimmed).length / 4),
+      location: resolvedLocation,
     }
   }
   return result

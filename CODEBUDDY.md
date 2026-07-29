@@ -52,18 +52,8 @@ pnpm vitest run tests/unit/proxy/parser.test.ts -t "parseRequestBody"
 
 ## 上下文节省（文档读取约定）
 
-本仓库含大量文档类 markdown（约 84 个）。为减少不必要的上下文占用：
-
-- **不要主动读取** `CHANGELOG*`、`**/changelog*`、纯文档目录（如 `docs/`、`examples/` 下的说明文档）等大体积 markdown，除非用户明确指向或任务确实需要。
-- 需要了解项目用法时，优先参考本 CODEBUDDY.md 与 `src/types/index.ts` 契约定义，而非回读全部文档。
-- skill 描述与插件说明已自动注入上下文，无需为“了解某个 skill 做什么”而额外读取其 SKILL.md。
+@.codebuddy/rules/doc-reading.md
 
 ## graphify
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+@.codebuddy/rules/graphify.md

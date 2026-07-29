@@ -1,6 +1,6 @@
 ---
 name: stk-diagnose
-description: '采集 CodeBuddy 会话的 Token 占用诊断数据，供后续分析与优化使用'
+description: '采集 CodeBuddy 会话的 Token 占用诊断数据'
 argument-hint: ''
 ---
 
