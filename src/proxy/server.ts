@@ -1,11 +1,14 @@
 import * as http from 'node:http'
 import * as https from 'node:https'
+import { mkdirSync, writeFileSync } from 'node:fs'
 
 const DEFAULT_CODEBUDDY_API = 'https://tencent.sso.copilot.tencent.com'
 
 export interface ProxyOptions {
   apiBaseUrl?: string
   port?: number
+  /** If set, write every request/response pair as JSON files under this dir. */
+  traceDir?: string
 }
 
 export interface ProxyInstance {
@@ -13,6 +16,20 @@ export interface ProxyInstance {
   server: http.Server
   capturedBodies: unknown[]
   captured: boolean
+  /** Trace directory (mirrors ProxyOptions.traceDir). */
+  traceDir?: string
+}
+
+interface TraceContext {
+  sessionDir: string
+  timestamp: string
+  meta: {
+    sessionId: string
+    timestamp: string
+    method: string
+    url: string
+    requestHeaders: Record<string, string>
+  }
 }
 
 /**
@@ -24,12 +41,14 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
   const apiBaseUrl = options?.apiBaseUrl ?? process.env.CODEBUDDY_API_BASE ?? DEFAULT_CODEBUDDY_API
   const target = new URL(apiBaseUrl)
   const port = options?.port ?? 54321
+  const traceDir = options?.traceDir
 
   const instance: ProxyInstance = {
     port: 0,
     server: null as unknown as http.Server,
     capturedBodies: [],
     captured: false,
+    traceDir,
   }
 
   return new Promise((resolve, reject) => {
@@ -56,6 +75,15 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
           }
         }
 
+        // Prepare trace context if traceDir is set and not filtered out.
+        // Skip low-value background purposes (prompt suggestions, memory
+        // selection, topic detection) to keep traces focused on real turns.
+        const skipPurposes = new Set(['prompt_suggestion', 'memory_selection', 'conversation_topic'])
+        const purpose = req.headers['x-agent-purpose']
+        const purposeStr = Array.isArray(purpose) ? (purpose[0] ?? '') : (purpose ?? '')
+        const skipTrace = purposeStr !== '' && skipPurposes.has(purposeStr)
+        const traceContext = traceDir && !skipTrace ? prepareTrace(req, rawBody, traceDir) : null
+
         // Forward to real API
         const isHttps = target.protocol === 'https:'
         const forwarder = isHttps ? https : http
@@ -69,7 +97,19 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
           },
           (forwardRes) => {
             res.writeHead(forwardRes.statusCode ?? 200, forwardRes.headers)
-            forwardRes.pipe(res)
+            if (traceContext) {
+              const respChunks: Buffer[] = []
+              forwardRes.on('data', (c: Buffer) => {
+                respChunks.push(c)
+                res.write(c)
+              })
+              forwardRes.on('end', () => {
+                res.end()
+                finalizeTrace(traceContext, forwardRes, Buffer.concat(respChunks))
+              })
+            } else {
+              forwardRes.pipe(res)
+            }
           },
         )
 
@@ -111,6 +151,99 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
     }
     tryListen(port)
   })
+}
+
+/**
+ * Write the request side of a trace pair to `<traceDir>/<sessionId>/<timestamp>-request.json`.
+ * Returns the context needed to finalize the response side later.
+ */
+function prepareTrace(
+  req: http.IncomingMessage,
+  rawBody: Buffer,
+  traceDir: string,
+): TraceContext {
+  const sessionId = extractSessionId(req.headers)
+  const timestamp = formatTimestamp(new Date())
+  const sessionDir = `${traceDir}/${sessionId}`
+  mkdirSync(sessionDir, { recursive: true })
+
+  const requestHeaders = simplifyHeaders(req.headers)
+  let parsedBody: unknown = rawBody.toString('utf-8')
+  try {
+    parsedBody = JSON.parse(parsedBody as string)
+  } catch {
+    // keep raw string
+  }
+
+  const meta = {
+    sessionId,
+    timestamp,
+    method: req.method ?? 'unknown',
+    url: req.url ?? '',
+    requestHeaders,
+  }
+  writeJsonFile(`${sessionDir}/${timestamp}-request.json`, { meta, body: parsedBody })
+
+  return { sessionDir, timestamp, meta }
+}
+
+/**
+ * Write the response side of a trace pair to `<traceDir>/<sessionId>/<timestamp>-response.json`.
+ */
+function finalizeTrace(
+  ctx: TraceContext,
+  forwardRes: http.IncomingMessage,
+  respBody: Buffer,
+): void {
+  const responseHeaders = simplifyHeaders(forwardRes.headers)
+  const bodyStr = respBody.toString('utf-8')
+  let parsedBody: unknown = bodyStr
+  try {
+    parsedBody = JSON.parse(bodyStr)
+  } catch {
+    // keep raw string
+  }
+
+  writeJsonFile(`${ctx.sessionDir}/${ctx.timestamp}-response.json`, {
+    meta: {
+      ...ctx.meta,
+      responseStatus: forwardRes.statusCode ?? 0,
+      responseHeaders,
+    },
+    body: parsedBody,
+  })
+}
+
+function extractSessionId(headers: http.IncomingHttpHeaders): string {
+  const v = headers['x-conversation-id']
+  if (Array.isArray(v) && v.length > 0) return v[0] ?? 'no-session'
+  if (typeof v === 'string' && v) return v
+  return 'no-session'
+}
+
+function simplifyHeaders(headers: http.IncomingHttpHeaders): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(headers)) {
+    if (Array.isArray(v)) out[k] = v.join(', ')
+    else if (v !== undefined) out[k] = v
+  }
+  return out
+}
+
+function formatTimestamp(d: Date): string {
+  const pad = (n: number, len = 2): string => String(n).padStart(len, '0')
+  const yyyy = d.getFullYear()
+  const mm = pad(d.getMonth() + 1)
+  const dd = pad(d.getDate())
+  const hh = pad(d.getHours())
+  const mi = pad(d.getMinutes())
+  const ss = pad(d.getSeconds())
+  const ms = pad(d.getMilliseconds(), 3)
+  return `${yyyy}${mm}${dd}${hh}${mi}${ss}${ms}`
+}
+
+function writeJsonFile(path: string, data: unknown): void {
+  writeFileSync(path, JSON.stringify(data, null, 2))
 }
 
 /**

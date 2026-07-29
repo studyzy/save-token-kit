@@ -5,6 +5,7 @@ import { runDiagnose } from './commands/diagnose.js'
 import { runInit } from './commands/init.js'
 import { runInstall } from './commands/install.js'
 import { runRollback } from './commands/rollback.js'
+import { runProxy } from './commands/proxy.js'
 
 /**
  * CLI entry point for `stk`.
@@ -48,6 +49,19 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         await runInstall(tool, options)
       },
     )
+
+  cli
+    .command('proxy', 'Start a proxy that records all CodeBuddy API requests/responses to disk')
+    .option('--port <number>', 'Proxy listen port (default: random)')
+    .option('--upstream <url>', 'Upstream API base URL (default: CODEBUDDY_API_BASE env)')
+    .option('--trace-dir <path>', 'Override trace output directory')
+    .action(async (options: { port?: string; upstream?: string; traceDir?: string }) => {
+      await runProxy({
+        port: options.port ? Number(options.port) : undefined,
+        upstream: options.upstream,
+        traceDir: options.traceDir,
+      })
+    })
 
   cli.help()
   cli.version('0.1.0')

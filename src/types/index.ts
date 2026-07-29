@@ -516,3 +516,13 @@ export const DEFAULT_PROXY_PORT = 8899
 
 /** Output directory name (relative to project root). */
 export const SAVE_TOKEN_DIR = 'save-token'
+
+/** Options for `stk proxy`: start a long-running proxy that records every request/response pair. */
+export interface ProxyCommandOptions {
+  /** Proxy listen port (default: random via startProxy). */
+  port?: number
+  /** Upstream API base URL (default: CODEBUDDY_API_BASE env or CodeBuddy default). */
+  upstream?: string
+  /** Override trace output directory. Defaults to <cwd>/save-token/trace. */
+  traceDir?: string
+}
