@@ -39,7 +39,6 @@ pnpm vitest run tests/unit/proxy/parser.test.ts -t "parseRequestBody"
 ## 代码风格
 
 - TypeScript strict，ESM，`.js` 扩展名显式导入（NodeNext）。
-- 英文代码注释 + 中文文档/用户可见文案（报告、模板、CLI 输出）。
 - 遵循 `.eslint.config.js` / `.prettierrc`。
 - 单元测试覆盖率 ≥ 60%（`pnpm cover` 验证），测试在 `tests/unit/`（proxy / collectors / commands / cli）与 `tests/integration/`（diagnose）。
 
