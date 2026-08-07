@@ -19,7 +19,16 @@ function makeFakeTool(name: string): SaveTokenTool & { lastArgs: [boolean, strin
     lastArgs: null,
     detect: () => Promise.resolve(true),
     isEnabled: () => Promise.resolve(true),
-    buildDetection: () => Promise.resolve({ name, installed: true, enabled: true, version: null, installPath: null, codebuddyIntegrated: true, recommendedSaving: '0' }),
+    buildDetection: () =>
+      Promise.resolve({
+        name,
+        installed: true,
+        enabled: true,
+        version: null,
+        installPath: null,
+        codebuddyIntegrated: true,
+        recommendedSaving: '0',
+      }),
     getConfigCommand: () => '',
     install: async (global: boolean, agent: string): Promise<InstallResult> => {
       fake.lastArgs = [global, agent]

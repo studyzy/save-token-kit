@@ -105,11 +105,7 @@ function extractSkillTokens(
  * the start of the next agent entry. Descriptions may span multiple lines.
  * Excludes "general-purpose" and usage-note lines.
  */
-function extractAgentsFromText(
-  text: string,
-  agents: AgentEntry[],
-  seen: Set<string>,
-): void {
+export function extractAgentsFromText(text: string, agents: AgentEntry[], seen: Set<string>): void {
   // Match from "- name:" to the next "(Tools:" or next "- name:" (whichever comes first).
   // The "s" flag makes "." match newlines for multi-line descriptions.
   const pat = /^- ([a-zA-Z][a-zA-Z0-9_-]*): (.+?)(?=\(Tools:|\n- [a-zA-Z][a-zA-Z0-9_-]*:)/gms

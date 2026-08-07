@@ -67,9 +67,14 @@ describe('proxy trace', () => {
       traceDir,
     })
 
-    await post(proxy.port, '/v2/messages', { messages: [{ role: 'user', content: 'hi' }] }, {
-      'x-conversation-id': 'sess-123',
-    })
+    await post(
+      proxy.port,
+      '/v2/messages',
+      { messages: [{ role: 'user', content: 'hi' }] },
+      {
+        'x-conversation-id': 'sess-123',
+      },
+    )
 
     // 给 finalizeTrace 一点刷盘时间
     await new Promise((r) => setTimeout(r, 50))

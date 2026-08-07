@@ -195,7 +195,8 @@ export async function detectToolsViaRegistry(
       (proxyParsed.mcpServers?.some(
         (m: { name: string }) =>
           m.name === 'context-mode' || m.name === 'plugin_context-mode_context-mode',
-      ) ?? false)
+      ) ??
+        false)
     if (contextModeEnabled) {
       contextModeTool.setMcpEnabled(true)
       const cmIdx = detections.findIndex((d) => d.name === 'context-mode')
@@ -218,7 +219,11 @@ async function isHeadroomProxyRunning(): Promise<boolean> {
     if (res.exitCode !== 0) return false
     return res.stdout
       .split('\n')
-      .some((line) => /(?:^|\s)(?:python[0-9.\s-]*\s+-m\s+)?headroom(?:\.cli)?(\s|$)/.test(line) && /\bproxy\b/.test(line))
+      .some(
+        (line) =>
+          /(?:^|\s)(?:python[0-9.\s-]*\s+-m\s+)?headroom(?:\.cli)?(\s|$)/.test(line) &&
+          /\bproxy\b/.test(line),
+      )
   } catch {
     return false
   }

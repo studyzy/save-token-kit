@@ -29,27 +29,24 @@ describe('karpathySkillsTool', () => {
   })
 
   it('detect true when marketplace dir present', async () => {
-    mkdirSync(
-      join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'andrej-karpathy-skills'),
-      { recursive: true },
-    )
+    mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'andrej-karpathy-skills'), {
+      recursive: true,
+    })
     expect(await karpathySkillsTool.detect()).toBe(true)
   })
 
   it('isEnabled mirrors detect', async () => {
     expect(await karpathySkillsTool.isEnabled()).toBe(false)
-    mkdirSync(
-      join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'andrej-karpathy-skills'),
-      { recursive: true },
-    )
+    mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'andrej-karpathy-skills'), {
+      recursive: true,
+    })
     expect(await karpathySkillsTool.isEnabled()).toBe(true)
   })
 
   it('buildDetection reflects state', async () => {
-    mkdirSync(
-      join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'andrej-karpathy-skills'),
-      { recursive: true },
-    )
+    mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'andrej-karpathy-skills'), {
+      recursive: true,
+    })
     const det = await karpathySkillsTool.buildDetection()
     expect(det.name).toBe('karpathy-skills')
     expect(det.installed).toBe(true)

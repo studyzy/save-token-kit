@@ -18,7 +18,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     .command('diagnose', 'Diagnose token usage by intercepting LLM requests via HTTP proxy')
     .option('--agent <name>', 'Target AI agent (default: codebuddy)', { default: 'codebuddy' })
     .option('--port <number>', 'Proxy listen port', { default: String(DEFAULT_PROXY_PORT) })
-    .option('--report-path <path>', 'Write Markdown report to <path> instead of printing to console')
+    .option(
+      '--report-path <path>',
+      'Write Markdown report to <path> instead of printing to console',
+    )
     .action(async (options: { agent: string; port: string; reportPath?: string }) => {
       await runDiagnose(options)
     })
@@ -28,26 +31,25 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     .option('--local', 'Install to project-level .codebuddy/ instead of global ~/.codebuddy/')
     .option('--force', 'Overwrite existing files without prompting')
     .option('--agent <name>', 'Target AI agent (default: codebuddy)')
-    .action(
-      async (options: { local?: boolean; force?: boolean; agent?: string }) => {
-        await runInit(options)
-      },
-    )
+    .action(async (options: { local?: boolean; force?: boolean; agent?: string }) => {
+      await runInit(options)
+    })
 
   cli.command('rollback', 'Restore configuration from backup (reserved)').action(async () => {
     await runRollback()
   })
 
   cli
-    .command('install <tool>', 'Install a third-party token-saving tool and register it with an AI agent')
+    .command(
+      'install <tool>',
+      'Install a third-party token-saving tool and register it with an AI agent',
+    )
     .option('-g, --global', 'Install to global ~/.codebuddy/ (default)')
     .option('--local', 'Install to project-level .codebuddy/ instead of global')
     .option('--agent <name>', 'Target AI agent (default: codebuddy)', { default: 'codebuddy' })
-    .action(
-      async (tool: string, options: { global?: boolean; local?: boolean; agent: string }) => {
-        await runInstall(tool, options)
-      },
-    )
+    .action(async (tool: string, options: { global?: boolean; local?: boolean; agent: string }) => {
+      await runInstall(tool, options)
+    })
 
   cli
     .command('proxy', 'Start a proxy that records all CodeBuddy API requests/responses to disk')

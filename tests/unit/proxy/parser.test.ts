@@ -179,8 +179,7 @@ Next unrelated section starts here.`,
       messages: [
         {
           role: 'system',
-          content:
-            'The following skills are available for use with the Skill tool:\n\n- foo: bar',
+          content: 'The following skills are available for use with the Skill tool:\n\n- foo: bar',
         },
       ],
       tools: [],

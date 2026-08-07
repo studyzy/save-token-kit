@@ -84,7 +84,11 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
         // Prepare trace context if traceDir is set and not filtered out.
         // Skip low-value background purposes (prompt suggestions, memory
         // selection, topic detection) to keep traces focused on real turns.
-        const skipPurposes = new Set(['prompt_suggestion', 'memory_selection', 'conversation_topic'])
+        const skipPurposes = new Set([
+          'prompt_suggestion',
+          'memory_selection',
+          'conversation_topic',
+        ])
         const purpose = req.headers['x-agent-purpose']
         const purposeStr = Array.isArray(purpose) ? (purpose[0] ?? '') : (purpose ?? '')
         const skipTrace = purposeStr !== '' && skipPurposes.has(purposeStr)
@@ -165,11 +169,7 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
  * Write the request side of a trace pair to `<traceDir>/<sessionId>/<timestamp>-request.json`.
  * Returns the context needed to finalize the response side later.
  */
-function prepareTrace(
-  req: http.IncomingMessage,
-  rawBody: Buffer,
-  traceDir: string,
-): TraceContext {
+function prepareTrace(req: http.IncomingMessage, rawBody: Buffer, traceDir: string): TraceContext {
   const sessionId = extractSessionId(req.headers)
   const timestamp = formatTimestamp(new Date())
   const sessionDir = `${traceDir}/${sessionId}`
@@ -261,8 +261,7 @@ function writeJsonFile(path: string, data: unknown): void {
  *   joinForwardPath('/anthropic', '/v1/messages') -> '/anthropic/v1/messages'
  */
 function joinForwardPath(basePathname: string, requestUrl: string): string {
-  const base =
-    basePathname === '' || basePathname === '/' ? '' : basePathname.replace(/\/+$/, '')
+  const base = basePathname === '' || basePathname === '/' ? '' : basePathname.replace(/\/+$/, '')
   const rel = requestUrl.startsWith('/') ? requestUrl : `/${requestUrl}`
   return `${base}${rel}`
 }

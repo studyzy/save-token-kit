@@ -13,8 +13,7 @@ class TokenJuiceTool extends BaseSaveTokenTool {
   readonly description = 'TokenJuice — 命令输出确定性压缩（规则驱动）'
   readonly savingEstimate = '终端命令输出压缩，减少 transcript 浪费'
   readonly type = 'cli'
-  readonly installCommand =
-    'go install github.com/vincentkoc/tokenjuice/cmd/tokenjuice@latest'
+  readonly installCommand = 'go install github.com/vincentkoc/tokenjuice/cmd/tokenjuice@latest'
   readonly verifyCommand = 'tokenjuice --help'
   getConfigCommand(): string {
     return ''

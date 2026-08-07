@@ -19,7 +19,8 @@ class GitNexusTool extends BaseSaveTokenTool {
   readonly description = 'GitNexus — 代码知识图谱 Graph RAG 替代盲搜'
   readonly savingEstimate = '图谱检索替代全仓盲搜'
   readonly type = 'cli'
-  readonly installCommand = 'git clone https://github.com/abhigyanpatwari/GitNexus ~/.codebuddy/gitnexus && cd ~/.codebuddy/gitnexus && npm install'
+  readonly installCommand =
+    'git clone https://github.com/abhigyanpatwari/GitNexus ~/.codebuddy/gitnexus && cd ~/.codebuddy/gitnexus && npm install'
   readonly verifyCommand = 'ls ~/.codebuddy/gitnexus/'
 
   /** MCP server 名称（出现在 .mcp.json 的 mcpServers 键中）。 */

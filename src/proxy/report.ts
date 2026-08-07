@@ -24,7 +24,8 @@ export function buildDiagnosisReport(
     return emptyReport()
   }
 
-  const parsed = rawBodies.length > 0 ? parseRequestBody(rawBodies[0], agentName ?? 'codebuddy') : null
+  const parsed =
+    rawBodies.length > 0 ? parseRequestBody(rawBodies[0], agentName ?? 'codebuddy') : null
 
   // Full request-body text, used to verify which memory files actually reached the LLM.
   const bodyText = parsed ? JSON.stringify(rawBodies[0]) : ''
@@ -166,9 +167,7 @@ function emptyReport(): DiagnosisReport {
 }
 
 /** Render a DiagnosisReport as terminal-friendly output matching save-token style. */
-export function renderMarkdown(
-  report: DiagnosisReport,
-): string {
+export function renderMarkdown(report: DiagnosisReport): string {
   const lines: string[] = []
   const agentLabel = report.agentName === 'claude' ? 'Claude Code' : 'CodeBuddy'
   const versionLabel = report.agentName === 'claude' ? 'Claude 版本' : 'CodeBuddy 版本'
@@ -202,7 +201,7 @@ export function renderMarkdown(
     lines.push('-'.repeat(40))
     const categories: Record<string, typeof toolDefs> = {}
     for (const t of toolDefs) {
-      (categories[t.category] ??= []).push(t)
+      ;(categories[t.category] ??= []).push(t)
     }
     const catOrder = ['builtin', 'mcp']
     for (const cat of catOrder) {

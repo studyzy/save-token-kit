@@ -90,10 +90,7 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
   const ruleList = [...scanRules(paths.rulesDir), ...scanRules(paths.projectRulesDir)]
 
   const memoryFiles: MemoryFileSummary[] = []
-  const memoryPaths = [
-    paths.codebuddyMd,
-    paths.projectCodebuddyMd,
-  ]
+  const memoryPaths = [paths.codebuddyMd, paths.projectCodebuddyMd]
   if (paths.codebuddyMd.includes('.codebuddy')) {
     memoryPaths.push(`${getHomeDir()}/.codebuddy/AGENTS.md`)
     memoryPaths.push(`${process.cwd()}/AGENTS.md`)

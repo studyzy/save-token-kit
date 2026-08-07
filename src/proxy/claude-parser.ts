@@ -1,7 +1,9 @@
 import { assembleProxyDiagnosisData, parseCore, type SkillTokensMap } from './parser-core.js'
-import type { ProxyDiagnosisData } from '../types/index.js'
+import { extractAgentsFromText } from './codebuddy-parser.js'
+import type { AgentEntry, ProxyDiagnosisData } from '../types/index.js'
 
 const CLAUDE_SKILLS_HEADER = 'The following skills are available for use with the Skill tool:'
+const CLAUDE_AGENTS_HEADER = 'Available agent types for the Agent tool:'
 
 /**
  * Extract per-skill token breakdown from the Claude-mode skills listing that
@@ -19,6 +21,21 @@ const CLAUDE_SKILLS_HEADER = 'The following skills are available for use with th
  * `superpowers:brainstorming`), so an entry's name is the part before the
  * first ": " (colon + space); entries without a ": " are bare names.
  */
+/** Concatenate a message's content (string or content blocks) into plain text. */
+function messageText(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  msg: any,
+): string {
+  return typeof msg?.content === 'string'
+    ? msg.content
+    : Array.isArray(msg?.content)
+      ? msg.content
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((b: any) => (typeof b?.text === 'string' ? b.text : ''))
+          .join('\n')
+      : ''
+}
+
 function extractClaudeSkills(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   messages: any[],
@@ -26,15 +43,7 @@ function extractClaudeSkills(
   const result: SkillTokensMap = {}
 
   for (const msg of messages) {
-    const content =
-      typeof msg?.content === 'string'
-        ? msg.content
-        : Array.isArray(msg?.content)
-          ? msg.content
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .map((b: any) => (typeof b?.text === 'string' ? b.text : ''))
-              .join('\n')
-          : ''
+    const content = messageText(msg)
     const headerIdx = content.indexOf(CLAUDE_SKILLS_HEADER)
     if (headerIdx === -1) continue
 
@@ -77,10 +86,40 @@ function saveSkill(result: SkillTokensMap, entry: { name: string; description: s
 }
 
 /**
+ * Extract subagents from the Claude-mode system-reminder listing:
+ *
+ *   Available agent types for the Agent tool:
+ *   - name: description (Tools: a, b)
+ *   - name: description
+ *
+ * The listing appears in a system-reminder message (unlike CodeBuddy, which
+ * embeds it in the Agent tool description). Reuses the same entry format
+ * parser as the CodeBuddy side.
+ */
+function extractClaudeAgents(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  messages: any[],
+): AgentEntry[] {
+  const agents: AgentEntry[] = []
+  const seen = new Set<string>()
+  for (const msg of messages) {
+    const content = messageText(msg)
+    const headerIdx = content.indexOf(CLAUDE_AGENTS_HEADER)
+    if (headerIdx === -1) continue
+    // The listing is a paragraph: it ends at the first blank line.
+    const rest = content.slice(headerIdx + CLAUDE_AGENTS_HEADER.length)
+    const end = rest.search(/\n\s*\n/)
+    const listText = end === -1 ? rest : rest.slice(0, end)
+    extractAgentsFromText(listText, agents, seen)
+  }
+  return agents
+}
+
+/**
  * Parse a single captured Claude Code POST request body into a
  * ProxyDiagnosisData fragment. Claude-specific: skills come from the system
- * message header listing; CodeBuddy Agent-tool subagents and plugin mode
- * markers do not apply.
+ * message header listing and subagents from the system-reminder listing;
+ * CodeBuddy plugin mode markers do not apply.
  */
 export function parseClaudeRequestBody(body: unknown): ProxyDiagnosisData {
   const core = parseCore(body)
@@ -88,11 +127,14 @@ export function parseClaudeRequestBody(body: unknown): ProxyDiagnosisData {
   // --- Skills from the Claude-mode system listing ---
   const skillTokens = extractClaudeSkills(core.messages)
 
+  // --- Subagents from the system-reminder agent listing ---
+  const agents = extractClaudeAgents(core.messages)
+
   return assembleProxyDiagnosisData({
     body,
     core,
     skillTokens,
-    agents: [],
+    agents,
     detectedPlugins: [],
   })
 }
