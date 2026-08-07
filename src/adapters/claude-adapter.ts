@@ -40,7 +40,7 @@ export class ClaudeAdapter implements PlatformAdapter {
       codebuddyMd: `${dir}/CLAUDE.md`,
       skillsDir: `${dir}/skills`,
       commandsDir: `${dir}/commands`,
-      rulesDir: '',
+      rulesDir: `${dir}/rules`,
       agentsDir: `${dir}/agents`,
       pluginsMarketplacesDir: '',
       historyFile: '',
@@ -49,7 +49,7 @@ export class ClaudeAdapter implements PlatformAdapter {
       projectCodebuddyMd: `${process.cwd()}/CLAUDE.md`,
       projectSkillsDir: `${process.cwd()}/.claude/skills`,
       projectCommandsDir: `${process.cwd()}/.claude/commands`,
-      projectRulesDir: '',
+      projectRulesDir: `${process.cwd()}/.claude/rules`,
     }
   }
 

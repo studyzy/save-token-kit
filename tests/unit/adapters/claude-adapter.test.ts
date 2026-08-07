@@ -32,12 +32,12 @@ describe('ClaudeAdapter', () => {
     expect(paths.agentsDir).toContain('.claude/agents')
     expect(paths.mcp).toContain('.claude/.mcp.json')
     expect(paths.settings).toContain('.claude/settings.json')
-    // Claude has no plugins or rules directories
+    // Claude has no plugins directories, but does have rules directories
     expect(paths.skillsDir).toContain('.claude/skills')
     expect(paths.projectSkillsDir).toContain('.claude/skills')
-    expect(paths.rulesDir).toBe('')
+    expect(paths.rulesDir).toContain('.claude/rules')
     expect(paths.pluginsMarketplacesDir).toBe('')
-    expect(paths.projectRulesDir).toBe('')
+    expect(paths.projectRulesDir).toContain('.claude/rules')
   })
 
   it('resolveInstallPaths returns valid directories for init', () => {
