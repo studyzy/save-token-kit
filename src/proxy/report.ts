@@ -4,6 +4,7 @@ import type {
   DiagnosisReport,
   ContextItem,
   MemoryFileSummary,
+  SkillEntry,
   ToolDef,
   ToolDetection,
 } from '../types/index.js'
@@ -76,8 +77,10 @@ export function buildDiagnosisReport(
     ...parsed.tools.mcp.map((t) => ({ ...t, category: 'mcp' as const })),
   ]
 
-  // Build skill list directly from parsed (already SkillEntry[])
-  const skillList = parsed.skills
+  // Build skill list directly from parsed (already SkillEntry[]), then
+  // resolve each skill's source (bundled/user/project/plugin-marketplace)
+  // from the filesystem scan, which knows where skills actually live.
+  const skillList = resolveSkillSources(parsed.skills, fs)
 
   // MCP list: already built in parser (McpEntry[] with tools included).
   // Fix toolsCount and estimatedTokens from actual tool data.
@@ -124,6 +127,32 @@ export function buildDiagnosisReport(
 
 function makeItem(type: ContextItem['type'], name: string, tokens: number): ContextItem {
   return { type, name, estimatedTokens: tokens, percentage: 0 }
+}
+
+/**
+ * Resolve each proxy-parsed skill's source from the filesystem scan.
+ * The request-body listing carries no source marker (Claude) or only a raw
+ * location (CodeBuddy), while the fs scan classifies skills as user/project/
+ * plugin-marketplace. Skills not found on disk are either plugin-introduced
+ * (namespaced like `superpowers:brainstorming`) or built-in (bundled).
+ */
+function resolveSkillSources(
+  skills: SkillEntry[],
+  fs?: FsCollectResult,
+): SkillEntry[] {
+  if (!fs) return skills
+  const byName = new Map<string, SkillEntry>()
+  for (const s of fs.skillList) byName.set(s.name, s)
+  return skills.map((skill) => {
+    const found = byName.get(skill.name)
+    if (!found) return { ...skill, source: isPluginSkillName(skill.name) ? 'plugin' : 'bundled' }
+    return { ...skill, source: found.source, sourcePath: found.sourcePath ?? skill.sourcePath }
+  })
+}
+
+/** Plugin-introduced skills are namespaced in the listing: `plugin:skill` or `plugin.skill`. */
+function isPluginSkillName(name: string): boolean {
+  return /[:.]/.test(name)
 }
 
 /**
@@ -238,7 +267,7 @@ export function renderMarkdown(report: DiagnosisReport): string {
   } else {
     for (const skill of report.skillList) {
       lines.push(
-        `  [${skill.source ?? 'skill'}] ${skill.name.padEnd(20)} ~${skill.estimatedTokens} tok`,
+        `  [${skill.source ?? 'bundled'}] ${skill.name.padEnd(20)} ~${skill.estimatedTokens} tok`,
       )
       if (skill.sourcePath) {
         lines.push(`      ↳ ${skill.sourcePath}`)

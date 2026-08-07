@@ -5,6 +5,9 @@ import type { AgentEntry, ProxyDiagnosisData } from '../types/index.js'
 const CLAUDE_SKILLS_HEADER = 'The following skills are available for use with the Skill tool:'
 const CLAUDE_AGENTS_HEADER = 'Available agent types for the Agent tool:'
 
+/** Claude Code built-in bundled agents shipped with the CLI. */
+const CLAUDE_BUILTIN_AGENTS = new Set(['claude', 'Explore', 'Plan', 'statusline-setup'])
+
 /**
  * Extract per-skill token breakdown from the Claude-mode skills listing that
  * appears in a system message. Format:
@@ -111,6 +114,12 @@ function extractClaudeAgents(
     const end = rest.search(/\n\s*\n/)
     const listText = end === -1 ? rest : rest.slice(0, end)
     extractAgentsFromText(listText, agents, seen)
+  }
+  // The Claude listing carries no (project)/(bundled)/(user) markers, so
+  // resolve source from the built-in agent name list; anything else is a
+  // custom (project-level) agent.
+  for (const a of agents) {
+    if (!a.source) a.source = CLAUDE_BUILTIN_AGENTS.has(a.name) ? 'bundled' : 'project'
   }
   return agents
 }

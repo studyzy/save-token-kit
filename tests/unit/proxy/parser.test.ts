@@ -189,4 +189,25 @@ Next unrelated section starts here.`,
     expect(Object.keys(parseRequestBody(claudeBody).skillTokens)).not.toContain('foo')
     expect(Object.keys(parseRequestBody(claudeBody, 'codex').skillTokens)).not.toContain('foo')
   })
+
+  it('classifies Claude agents as bundled vs project from builtin list', () => {
+    const body = {
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Available agent types for the Agent tool:\n' +
+            '- Explore: Read-only search agent (Tools: Read, Grep)\n' +
+            '- statusline-setup: Configure status line (Tools: Read, Edit)\n' +
+            '- lint-check-fix: 检查并修复 lint 错误 (Tools: All tools)\n',
+        },
+      ],
+      tools: [],
+    }
+    const r = parseRequestBody(body, 'claude')
+    const byName = Object.fromEntries((r.agents ?? []).map((a) => [a.name, a.source]))
+    expect(byName['Explore']).toBe('bundled')
+    expect(byName['statusline-setup']).toBe('bundled')
+    expect(byName['lint-check-fix']).toBe('project')
+  })
 })
