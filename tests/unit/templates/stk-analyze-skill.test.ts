@@ -72,7 +72,8 @@ describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
         'codeFileCount',
         'docFileCount',
         'topLanguages',
-        'hasCodebuddyMd',
+        'hasMemoryMd',
+        'memoryMd',
         'isMonorepo',
       ]) {
         expect(SKILL, `missing repo field: ${f}`).toContain(f)

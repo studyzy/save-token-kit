@@ -74,7 +74,8 @@ describe('stk-analyze types (002-rebuild)', () => {
         docLineCount: 1200,
         topLanguages: ['TypeScript', 'JavaScript', 'Python'],
         hasDocsDir: true,
-        hasCodebuddyMd: true,
+        hasMemoryMd: true,
+        memoryMd: 'CODEBUDDY.md',
         isMonorepo: false,
         scanError: null,
       }

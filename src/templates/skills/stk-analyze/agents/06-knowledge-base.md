@@ -10,7 +10,7 @@
 
 ## 输入
 
-- `repo-scan.json`：含 `codeFileCount` / `docFileCount` / `codeLineCount` / `topLanguages` / `hasDocsDir` / `hasCodebuddyMd` / `isMonorepo` / `scanError`
+- `repo-scan.json`：含 `codeFileCount` / `docFileCount` / `codeLineCount` / `topLanguages` / `hasDocsDir` / `hasMemoryMd` / `memoryMd` / `isMonorepo` / `scanError`
 - `context.json`：含 `graphTool`（用户阶段 2 选择，取值 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` / `none`）。**注意**：`codebase-memory-mcp` 在诊断报告的 `ToolId` 类型中对应 `codebase-memory`，两者等效
 - `toolDetection[]`：判定知识库工具是否已安装/启用
 - `context.graphTool === 'none'` 或缺失：返回 `skipped: true` + 空 `suggestions`（用户明确不需要）

@@ -223,7 +223,7 @@ export interface DiagnosisReport {
   hookList?: HookEntry[]
   /** Rules discovered in rules/ directories */
   ruleList?: RuleEntry[]
-  /** Memory file summaries (CODEBUDDY.md / AGENTS.md, user-level and project-level) */
+  /** Memory file summaries (CODEBUDDY.md / CLAUDE.md / AGENTS.md, user-level and project-level) */
   memoryFiles?: MemoryFileSummary[]
   /** Third-party tool detection (rtk/caveman/headroom/graphify/ponytail/...) */
   toolDetection?: ToolDetection[]
@@ -336,8 +336,10 @@ export interface RepoScan {
   topLanguages: string[]
   /** Whether a docs/ dir or README* entry exists */
   hasDocsDir: boolean
-  /** Whether a project-level CODEBUDDY.md exists */
-  hasCodebuddyMd: boolean
+  /** Whether a project-level instruction memory file exists (CODEBUDDY.md for CodeBuddy, CLAUDE.md for Claude Code) */
+  hasMemoryMd: boolean
+  /** Project-level instruction memory file name (e.g. CODEBUDDY.md / CLAUDE.md); absent when hasMemoryMd=false */
+  memoryMd?: string
   /** Whether the repo is a monorepo (multiple package.json/Cargo.toml/go.mod) */
   isMonorepo: boolean
   /** Error message if scan failed; null on success */
@@ -485,7 +487,7 @@ export interface ProxyDiagnosisData {
   skillTokens: Record<string, { description: string; estimatedTokens: number; location?: string }>
   /** Plugins detected via message content markers */
   detectedPlugins: string[]
-  /** Estimated tokens consumed by the system rules block (CODEBUDDY.md) */
+  /** Estimated tokens consumed by the system rules block (instruction memory file) */
   rulesTokens: number
   /** Estimated tokens consumed by the memory system-reminder block */
   memoryTokens: number

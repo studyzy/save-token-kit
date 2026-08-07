@@ -20,7 +20,7 @@ Hook 默认 60 秒超时自动终止。Hook 问题主要有六类：
 3. **超时配置**：无 timeout 或 timeout 过长会拖慢每次触发
 4. **链过长/重复**：同一事件挂多个 hook，重复执行相似工作
 5. **安全风险**：含危险操作（rm -rf / force push 等）的 hook 自动执行
-6. **信息冗余**：Hook 注入内容与已有 CODEBUDDY.md/rules/skill 描述重复
+6. **信息冗余**：Hook 注入内容与已有指令主文件（CODEBUDDY.md / CLAUDE.md）/rules/skill 描述重复
 
 ## 输入
 

@@ -13,6 +13,19 @@ description: '分析用户AI使用场景，提供Token节省方案'
 
 ## 执行流程
 
+### 平台识别（全局前置）
+
+先判定当前 AI 平台，确定**项目级指令主文件**（下称 `memoryMd`，即每次会话自动全量加载到上下文的项目级记忆/指令文件）：
+
+| 平台 | 项目级指令主文件 |
+| --- | --- |
+| CodeBuddy | `CODEBUDDY.md` |
+| Claude Code | `CLAUDE.md` |
+
+判定方式：以当前运行平台为准（Agent 自知身份）；无法确定时检查项目根目录，存在 `./CODEBUDDY.md` 视为 CodeBuddy，存在 `./CLAUDE.md` 视为 Claude Code，两者同时存在时以当前平台为准。
+
+下文所有涉及主文件的分析（`repo-scan.json` 字段、子 Agent 9 启动条件、建议 `target`、tasks.md 分组标题等）统一用 `memoryMd` 指代实际文件名，**不写死**为 `CODEBUDDY.md`。
+
 ### 阶段 1: 上下文与场景收集
 
 **步骤 1: 检查诊断数据**
@@ -58,7 +71,7 @@ cat save-token/diagnosis-report.md 2>/dev/null || echo "NOT_FOUND"
   - `GitNexus`（monorepo/影响分析）
   - `暂不需要`
 - **推荐标记**：基于仓库扫描特征在对应选项标注"（推荐）"：
-  - TypeScript/JavaScript 为主且有 CODEBUDDY.md → 推荐 **Graphify**
+  - TypeScript/JavaScript 为主且有项目级指令主文件（`memoryMd` 存在）→ 推荐 **Graphify**
   - 多语言大型仓库（codeFileCount > 50 且 topLanguages ≥ 3）→ 推荐 **Codebase-Memory MCP**
   - monorepo 结构 → 推荐 **GitNexus**
   - 规模达标但无上述特征 → 推荐 **Graphify**（默认）
@@ -97,6 +110,9 @@ find . -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx'
 find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt' \) \
   -not -path '*/node_modules/*' ... | wc -l
 
+# 项目级指令主文件（按平台识别结果检测，见"平台识别"）
+ls CODEBUDDY.md CLAUDE.md 2>/dev/null || true
+
 # monorepo 检测：根外是否存在多个 package.json / Cargo.toml / go.mod
 ```
 
@@ -111,7 +127,8 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 | `docLineCount`   | 文档总行数（量级）              |
 | `topLanguages`   | Top 3 语言（按文件数降序，≤ 3） |
 | `hasDocsDir`     | 是否存在 `docs/` 或 `README*`   |
-| `hasCodebuddyMd` | 是否存在项目级 CODEBUDDY.md     |
+| `hasMemoryMd`    | 是否存在项目级指令主文件（memoryMd） |
+| `memoryMd`       | 项目级指令主文件文件名（如 `CODEBUDDY.md` / `CLAUDE.md`），不存在时省略 |
 | `isMonorepo`     | 是否 monorepo                   |
 | `scanError`      | 失败信息；成功为 `null`         |
 
@@ -159,7 +176,7 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
 > 判定依据一律取自诊断报告，不猜测；报告字段缺失时降级为按原"仓库超阈值且 graphTool 非 none"条件启动。
 | 7 | `command-opt`    | `commandList[]`（主 Agent 从诊断报告提取后传入） | `commandList[]` 非空 | @agents/07-command-opt.md |
 | 8 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/08-rules-opt.md   |
-| 9 | `codebuddy-md`   | `CODEBUDDY.md`（项目级）          | 文件存在                                | @agents/09-codebuddy-md.md |
+| 9 | `codebuddy-md`   | 项目级指令主文件（`memoryMd`） | `hasMemoryMd === true`                        | @agents/09-codebuddy-md.md |
 | 10 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/10-hook-audit.md  |
 
 > **注**：`00-repo-scan` 为前置调研 Agent，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`，其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。并行子 Agent 为 01~06、07-command-opt、08~10 共 10 个（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入）。各子 Agent 统一以表中**新名**（如 `plugin-opt`/`agent-opt`/`skill-opt`/`command-opt`）标识，禁止输出旧名别名。
@@ -299,14 +316,14 @@ rm -f save-token/repo-analysis.json
 
 - [ ] [中级] 规则 lint-rule 加 paths 作用域：src/**/*.ts（预估节省 ~XXX Token）
       原因：alwaysApply=true, paths=[]
-- [ ] [中级] 将 CODEBUDDY.md 中"文档读取约定"拆分为 rules: doc-read（预估节省 ~XXX Token）
+- [ ] [中级] 将 <memoryMd> 中"文档读取约定"拆分为 rules: doc-read（预估节省 ~XXX Token）
       原因：rulesTokens 整体偏大，项目级细节可下沉为按需加载规则
 
-## 9. CODEBUDDY.md 审查
+## 9. <memoryMd> 审查
 
-- [ ] [初级] 精简 CODEBUDDY.md 至 ≤200 行（预估节省 ~XXX Token）
+- [ ] [初级] 精简 <memoryMd> 至 ≤200 行（预估节省 ~XXX Token）
       原因：lines=73 含可推断数据流/架构描述，主文件每次会话全量注入，应下沉为 @docs/xxx.md 或 rules
-- [ ] [初级] 为 CODEBUDDY.md 增加关键文件/目录索引
+- [ ] [初级] 为 <memoryMd> 增加关键文件/目录索引
       原因：缺 Resource Map，AI 需自行探索文件系统
 
 ## 10. Hook 审查
@@ -320,7 +337,7 @@ rm -f save-token/repo-analysis.json
 总计：预估节省 ~XXXXX Token (XX.X%)
 ```
 
-每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Command 优化 → 9.Rules 优化 → 10.CODEBUDDY.md 审查 → 11.Hook 审查。每条一行 `- [ ]` + 原因缩进两空格，总计行末尾用 `---` 分隔。
+每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Command 优化 → 9.Rules 优化 → 10.<memoryMd> 审查 → 11.Hook 审查。每条一行 `- [ ]` + 原因缩进两空格，总计行末尾用 `---` 分隔。
 
 ## 边界
 

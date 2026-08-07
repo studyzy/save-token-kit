@@ -27,8 +27,8 @@ CodeBuddy 规则支持 YAML frontmatter 控制加载行为（基于 memory.md �
 ## 职责边界（重要）
 
 - **本 agent 仅处理 `.codebuddy/rules/*.md` 中已存在的规则文件**
-- **不产出"将 CODEBUDDY.md 下沉为 rules"的建议**（该建议由 agent 9 codebuddy-md 负责）
-- 不处理 CODEBUDDY.md 主文件本身的精简（交 agent 9）
+- **不产出"将指令主文件（memoryMd）下沉为 rules"的建议**（该建议由 agent 9 codebuddy-md 负责）
+- 不处理指令主文件（memoryMd）本身的精简（交 agent 9）
 - 不处理 Skill（交 agent 5）
 
 ## 输入
@@ -76,7 +76,7 @@ CodeBuddy 规则支持 YAML frontmatter 控制加载行为（基于 memory.md �
 - `ruleList` 为空或缺失 → `skipped: true`
 - 规则 `alwaysLoaded === false` 且 `estimatedTokens` ≤ 2000 且无多主题 → 已合理配置，不产出
 - 规则内容无法判断主题（无 name 线索）→ 不产出 paths 建议
-- **不产出"CODEBUDDY.md 下沉为 rules"建议**（交 agent 9）
+- **不产出"指令主文件（memoryMd）下沉为 rules"建议**（交 agent 9）
 
 ## level 判定
 
