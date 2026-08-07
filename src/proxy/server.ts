@@ -9,6 +9,10 @@ export interface ProxyOptions {
   port?: number
   /** If set, write every request/response pair as JSON files under this dir. */
   traceDir?: string
+  /** URL path prefix to capture (e.g. "/v2/" for CodeBuddy, "/v1/" for Claude) */
+  capturePathPrefix?: string
+  /** Default upstream API base URL when apiBaseUrl is not set */
+  defaultApiBase?: string
 }
 
 export interface ProxyInstance {
@@ -38,7 +42,9 @@ interface TraceContext {
  * and forwards everything to the real CodeBuddy API backend.
  */
 export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
-  const apiBaseUrl = options?.apiBaseUrl ?? process.env.CODEBUDDY_API_BASE ?? DEFAULT_CODEBUDDY_API
+  const capturePrefix = options?.capturePathPrefix ?? '/v2/'
+  const defaultApi = options?.defaultApiBase ?? DEFAULT_CODEBUDDY_API
+  const apiBaseUrl = options?.apiBaseUrl ?? process.env.CODEBUDDY_API_BASE ?? defaultApi
   const target = new URL(apiBaseUrl)
   const port = options?.port ?? 54321
   const traceDir = options?.traceDir
@@ -63,8 +69,8 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
         const rawBody = Buffer.concat(chunks)
         const bodyStr = rawBody.toString('utf-8')
 
-        // Capture all POST /v2/* request bodies
-        if (req.method === 'POST' && req.url?.startsWith('/v2/') && bodyStr) {
+        // Capture all POST requests matching the capture path prefix
+        if (req.method === 'POST' && req.url?.startsWith(capturePrefix) && bodyStr) {
           try {
             const parsed: unknown = JSON.parse(bodyStr)
             instance.capturedBodies.push(parsed)
@@ -84,14 +90,16 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
         const skipTrace = purposeStr !== '' && skipPurposes.has(purposeStr)
         const traceContext = traceDir && !skipTrace ? prepareTrace(req, rawBody, traceDir) : null
 
-        // Forward to real API
+        // Forward to real API. Preserve the upstream base path so a base URL
+        // with a path prefix (e.g. ANTHROPIC_BASE_URL=https://host/anthropic)
+        // still reaches the correct endpoint.
         const isHttps = target.protocol === 'https:'
         const forwarder = isHttps ? https : http
         const forward = forwarder.request(
           {
             hostname: target.hostname,
             port: target.port || (isHttps ? 443 : 80),
-            path: req.url,
+            path: joinForwardPath(target.pathname, req.url ?? '/'),
             method: req.method,
             headers: { ...req.headers, host: target.hostname },
           },
@@ -244,6 +252,19 @@ function formatTimestamp(d: Date): string {
 
 function writeJsonFile(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2))
+}
+
+/**
+ * Join an upstream base path with the client's request URL, preserving any
+ * path prefix from the target base URL.
+ *   joinForwardPath('/', '/v1/messages')          -> '/v1/messages'
+ *   joinForwardPath('/anthropic', '/v1/messages') -> '/anthropic/v1/messages'
+ */
+function joinForwardPath(basePathname: string, requestUrl: string): string {
+  const base =
+    basePathname === '' || basePathname === '/' ? '' : basePathname.replace(/\/+$/, '')
+  const rel = requestUrl.startsWith('/') ? requestUrl : `/${requestUrl}`
+  return `${base}${rel}`
 }
 
 /**

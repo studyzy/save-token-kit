@@ -71,11 +71,11 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
   const pluginList = scanPlugins(settings)
   const hookList = scanHooks(settings)
   const skillList = scanSkills(paths.skillsDir, 'user')
-  const projectSkills = scanSkills(`${process.cwd()}/.codebuddy/skills`, 'project')
+  const projectSkills = scanSkills(paths.projectSkillsDir, 'project')
   const marketplaceSkills = scanMarketplaceSkills(paths.pluginsMarketplacesDir, settings)
   // CodeBuddy shows commands alongside skills in /context as "Skills and slash commands"
   const userCommands = scanCommandsAsSkills(paths.commandsDir, 'user')
-  const projectCommands = scanCommandsAsSkills(`${process.cwd()}/.codebuddy/commands`, 'project')
+  const projectCommands = scanCommandsAsSkills(paths.projectCommandsDir, 'project')
   const allSkills = [
     ...skillList,
     ...projectSkills,
@@ -87,16 +87,19 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
   const commandList = [...userCommands, ...projectCommands]
 
   // Scan rules directories (both global and project-local)
-  const ruleList = [...scanRules(paths.rulesDir), ...scanRules(`${process.cwd()}/.codebuddy/rules`)]
+  const ruleList = [...scanRules(paths.rulesDir), ...scanRules(paths.projectRulesDir)]
 
   const memoryFiles: MemoryFileSummary[] = []
-  for (const file of [
+  const memoryPaths = [
     paths.codebuddyMd,
-    `${process.cwd()}/CODEBUDDY.md`,
-    `${getHomeDir()}/.codebuddy/AGENTS.md`,
-    `${process.cwd()}/AGENTS.md`,
-  ]) {
-    memoryFiles.push(summarizeFile(file))
+    paths.projectCodebuddyMd,
+  ]
+  if (paths.codebuddyMd.includes('.codebuddy')) {
+    memoryPaths.push(`${getHomeDir()}/.codebuddy/AGENTS.md`)
+    memoryPaths.push(`${process.cwd()}/AGENTS.md`)
+  }
+  for (const file of memoryPaths) {
+    if (file) memoryFiles.push(summarizeFile(file))
   }
 
   const codebuddyMdSize = memoryFiles.find((c) => c.path === paths.codebuddyMd)?.sizeBytes ?? 0

@@ -22,6 +22,8 @@ export class CodeBuddyAdapter implements PlatformAdapter {
   readonly statusLabel = '可用'
   readonly proxyEnvVar = 'CODEBUDDY_BASE_URL'
   readonly triggerCommand = ['codebuddy', '-p', 'Hello', '-y', '--max-turns', '1']
+  readonly capturePathPrefix = '/v2/'
+  readonly defaultApiBase = 'https://tencent.sso.copilot.tencent.com'
 
   resolveInstallPaths(local: boolean): InstallPaths {
     const base = local ? join(process.cwd(), '.codebuddy') : join(homedir(), '.codebuddy')
@@ -49,6 +51,10 @@ export class CodeBuddyAdapter implements PlatformAdapter {
       historyFile: `${dir}/history.jsonl`,
       blobsDir: `${dir}/blobs`,
       cliBinary: 'codebuddy',
+      projectCodebuddyMd: `${process.cwd()}/CODEBUDDY.md`,
+      projectSkillsDir: `${process.cwd()}/.codebuddy/skills`,
+      projectCommandsDir: `${process.cwd()}/.codebuddy/commands`,
+      projectRulesDir: `${process.cwd()}/.codebuddy/rules`,
     }
   }
 
@@ -101,6 +107,8 @@ function unsupportedStub(name: string): PlatformAdapter {
     statusLabel: '暂不支持',
     proxyEnvVar: '',
     triggerCommand: [],
+    capturePathPrefix: '',
+    defaultApiBase: '',
     resolveInstallPaths: () => ({ commandsDir: '', skillsDir: '' }),
     detectInstall: async () => false,
     getConfigPaths: () => ({
@@ -115,16 +123,21 @@ function unsupportedStub(name: string): PlatformAdapter {
       historyFile: '',
       blobsDir: '',
       cliBinary: name,
+      projectCodebuddyMd: '',
+      projectSkillsDir: '',
+      projectCommandsDir: '',
+      projectRulesDir: '',
     }),
     getHeadlessCommand: () => [],
     parseHeadlessOutput: () => null,
   }
 }
 
+import { ClaudeAdapter } from './claude-adapter.js'
+
 export const ADAPTERS: Record<string, PlatformAdapter> = {
   codebuddy: new CodeBuddyAdapter(),
-  // Reserved for future versions; marked unsupported in the installer.
-  claude: unsupportedStub('claude'),
+  claude: new ClaudeAdapter(),
   codex: unsupportedStub('codex'),
   cursor: unsupportedStub('cursor'),
 }

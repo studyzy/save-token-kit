@@ -49,19 +49,29 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
 
   const preferredPort = Number(options.port ?? DEFAULT_PROXY_PORT)
 
+  // Save original proxy env var BEFORE setting it to the proxy,
+  // so we can use it as the upstream API target.
+  const originalBaseUrl = process.env[adapter.proxyEnvVar]
+
   // 1. Start transparent proxy that forwards to the real API
   console.log(bold(green(`启动代理 (127.0.0.1:${preferredPort}) 拦截 ${agentName} 的请求...`)))
-  const proxy = await startProxy({ port: preferredPort })
+  const proxy = await startProxy({
+    port: preferredPort,
+    capturePathPrefix: adapter.capturePathPrefix,
+    apiBaseUrl: originalBaseUrl || adapter.defaultApiBase,
+  })
 
-  // 2. Point CodeBuddy at the proxy
-  const proxyBaseUrl = `http://127.0.0.1:${proxy.port}/v2`
-  const originalBaseUrl = process.env.CODEBUDDY_BASE_URL
-  process.env.CODEBUDDY_BASE_URL = proxyBaseUrl
+  // 2. Point agent at the proxy
+  const proxyBaseUrl = `http://127.0.0.1:${proxy.port}`
+  // CodeBuddy appends /v2 to the base URL, Claude uses bare base URL
+  const proxyUrl = agentName === 'codebuddy' ? `${proxyBaseUrl}/v2` : proxyBaseUrl
+  process.env[adapter.proxyEnvVar] = proxyUrl
 
   try {
     // 3. Trigger a single LLM request through the proxy
     console.log(green(`  代理已就绪 (端口 ${proxy.port})，触发探测请求...`))
-    await exec('codebuddy', ['-p', 'Hello', '-y', '--max-turns', '1'], {
+    const [bin, ...args] = adapter.triggerCommand
+    await exec(bin!, args, {
       timeout: CAPTURE_TIMEOUT_MS,
     })
   } catch (err) {
@@ -69,9 +79,9 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   } finally {
     // 4. Restore original env
     if (originalBaseUrl !== undefined) {
-      process.env.CODEBUDDY_BASE_URL = originalBaseUrl
+      process.env[adapter.proxyEnvVar] = originalBaseUrl
     } else {
-      delete process.env.CODEBUDDY_BASE_URL
+      delete process.env[adapter.proxyEnvVar]
     }
   }
 
@@ -95,10 +105,10 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
 
   // 6. Build report: proxy body + filesystem scan + third-party tool detection
   const fs = scanFilesystem(adapter)
-  const proxyParsed: ProxyDiagnosisData | null = parseRequestBody(mainBody)
+  const proxyParsed: ProxyDiagnosisData | null = parseRequestBody(mainBody, agentName)
   const toolDetection = await detectToolsViaRegistry(fs, proxyParsed)
-  const codebuddyVersion = await detectCodeBuddyVersion()
-  const report = buildDiagnosisReport([mainBody], fs, toolDetection, codebuddyVersion)
+  const agentVersion = await detectCodeBuddyVersion(adapter.getConfigPaths().cliBinary)
+  const report = buildDiagnosisReport([mainBody], fs, toolDetection, agentVersion, agentName)
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
   mkdirSync(outDir, { recursive: true })

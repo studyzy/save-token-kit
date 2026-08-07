@@ -24,6 +24,14 @@ export interface PlatformConfigPaths {
   blobsDir: string
   /** CLI binary name used to trigger requests / headless probes */
   cliBinary: string
+  /** Project-level agent instruction file (e.g. ./CLAUDE.md or ./CODEBUDDY.md) */
+  projectCodebuddyMd: string
+  /** Project-level skills directory */
+  projectSkillsDir: string
+  /** Project-level commands directory */
+  projectCommandsDir: string
+  /** Project-level rules directory */
+  projectRulesDir: string
 }
 
 export interface PlatformAdapter {
@@ -50,4 +58,8 @@ export interface PlatformAdapter {
   getHeadlessCommand(prompt: string, schema?: object): string[]
   /** Parse raw headless probe stdout into structured data (null on failure) */
   parseHeadlessOutput(raw: string): unknown
+  /** URL path prefix to capture (e.g. "/v2/" for CodeBuddy, "/v1/" for Claude) */
+  readonly capturePathPrefix: string
+  /** Default upstream API base URL (e.g. "https://api.anthropic.com") */
+  readonly defaultApiBase: string
 }

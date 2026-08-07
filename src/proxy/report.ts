@@ -17,13 +17,14 @@ export function buildDiagnosisReport(
   rawBodies: unknown[],
   fs?: FsCollectResult,
   toolDetection?: ToolDetection[],
-  codebuddyVersion?: string | null,
+  agentVersion?: string | null,
+  agentName?: string,
 ): DiagnosisReport {
   if (rawBodies.length === 0 && !fs) {
     return emptyReport()
   }
 
-  const parsed = rawBodies.length > 0 ? parseRequestBody(rawBodies[0]) : null
+  const parsed = rawBodies.length > 0 ? parseRequestBody(rawBodies[0], agentName ?? 'codebuddy') : null
 
   // Full request-body text, used to verify which memory files actually reached the LLM.
   const bodyText = parsed ? JSON.stringify(rawBodies[0]) : ''
@@ -35,7 +36,8 @@ export function buildDiagnosisReport(
   categories.push(makeItem('system-prompt', 'system messages', systemPromptTokens))
 
   if (parsed.rulesTokens > 0) {
-    categories.push(makeItem('rules', 'CODEBUDDY.md rules', parsed.rulesTokens))
+    const rulesLabel = agentName === 'claude' ? 'CLAUDE.md rules' : 'CODEBUDDY.md rules'
+    categories.push(makeItem('rules', rulesLabel, parsed.rulesTokens))
   }
 
   if (parsed.memoryTokens > 0) {
@@ -50,11 +52,10 @@ export function buildDiagnosisReport(
   const builtinTokens = parsed.tools.builtin.reduce((s, t) => s + t.estimatedTokens, 0)
   const builtinCount = parsed.tools.builtin.length
   const mcpToolCount = parsed.tools.mcp.length
-  const deferredCount = parsed.tools.deferred.length
   categories.push(
     makeItem(
       'system-tools',
-      `Tool definitions (${builtinCount}内置 + ${mcpToolCount}MCP + ${deferredCount}延迟)`,
+      `Tool definitions (${builtinCount}内置 + ${mcpToolCount}MCP)`,
       builtinTokens,
     ),
   )
@@ -72,7 +73,6 @@ export function buildDiagnosisReport(
   const allTools: ToolDef[] = [
     ...parsed.tools.builtin.map((t) => ({ ...t, category: 'builtin' as const })),
     ...parsed.tools.mcp.map((t) => ({ ...t, category: 'mcp' as const })),
-    ...parsed.tools.deferred.map((t) => ({ ...t, category: 'deferred' as const })),
   ]
 
   // Build skill list directly from parsed (already SkillEntry[])
@@ -98,7 +98,8 @@ export function buildDiagnosisReport(
 
   return {
     scanTimestamp: new Date().toISOString(),
-    codebuddyVersion: codebuddyVersion ?? process.env.CODEBUDDY_VERSION ?? 'unknown',
+    agentVersion: agentVersion ?? 'unknown',
+    agentName: agentName ?? 'codebuddy',
     contextOverview: { totalEstimatedTokens: total, breakdown: categories },
     mcpList,
     skillList,
@@ -153,7 +154,8 @@ function memoryFileInBody(path: string, bodyText: string): boolean {
 function emptyReport(): DiagnosisReport {
   return {
     scanTimestamp: new Date().toISOString(),
-    codebuddyVersion: 'unknown',
+    agentVersion: 'unknown',
+    agentName: 'codebuddy',
     contextOverview: { totalEstimatedTokens: 0, breakdown: [] },
     mcpList: [],
     skillList: [],
@@ -168,10 +170,12 @@ export function renderMarkdown(
   report: DiagnosisReport,
 ): string {
   const lines: string[] = []
-  lines.push('CodeBuddy Token 诊断报告')
+  const agentLabel = report.agentName === 'claude' ? 'Claude Code' : 'CodeBuddy'
+  const versionLabel = report.agentName === 'claude' ? 'Claude 版本' : 'CodeBuddy 版本'
+  lines.push(`${agentLabel} Token 诊断报告`)
   lines.push('='.repeat(50))
   lines.push(`扫描时间: ${report.scanTimestamp}`)
-  lines.push(`CodeBuddy 版本: ${report.codebuddyVersion}`)
+  lines.push(`${versionLabel}: ${report.agentVersion}`)
   lines.push(`数据来源: Proxy 拦截 (最精确)`)
   if (report.proxyDetails?.model) lines.push(`模型: ${report.proxyDetails.model}`)
   lines.push('')
@@ -200,11 +204,11 @@ export function renderMarkdown(
     for (const t of toolDefs) {
       (categories[t.category] ??= []).push(t)
     }
-    const catOrder = ['builtin', 'mcp', 'deferred']
+    const catOrder = ['builtin', 'mcp']
     for (const cat of catOrder) {
       const items = categories[cat]
       if (!items || items.length === 0) continue
-      const catLabel = cat === 'builtin' ? '内置工具' : cat === 'mcp' ? 'MCP 工具' : '延迟加载工具'
+      const catLabel = cat === 'builtin' ? '内置工具' : 'MCP 工具'
       const catTokens = items.reduce((s, t) => s + t.estimatedTokens, 0)
       lines.push(`  [${catLabel}] ${items.length} 个, ~${catTokens} tok`)
       for (const t of items) {

@@ -26,7 +26,7 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 ## 输入
 
 - `agentList[]`（来自 `diagnosis-report.json`）：每项含 `name` / `estimatedTokens` / `source` / `description` / `tools`（工具名数组，可空）。
-- `builtinTools`（来自 `diagnosis-report.json`，`DiagnosisReport.builtinTools`）：每项含 `name` / `estimatedTokens` / `category`（`builtin` / `mcp` / `deferred`）。用于查每个工具的 token 体量。
+- `builtinTools`（来自 `diagnosis-report.json`，`DiagnosisReport.builtinTools`）：每项含 `name` / `estimatedTokens` / `category`（`builtin` / `mcp`）。用于查每个工具的 token 体量。
 - `context.json`：用户场景（`purpose` / `sameRepo` / `graphTool`）。
 - 缺失或为空数组：`agentList` 为空 → 返回 `skipped: true` + 空 `suggestions`。
 

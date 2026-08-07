@@ -10,7 +10,7 @@
 
 1. `commands/diagnose.ts` 启动透明 HTTP 代理（`proxy/server.ts` 的 `startProxy`），监听 `127.0.0.1`，拦截所有 `POST /v2/*` 请求体并原样转发到真实 CodeBuddy API（`CODEBUDDY_API_BASE` 或 `process.env.CODEBUDDY_API_BASE`）。端口占用时回退随机端口（`server.ts:92`）。
 2. 触发命令要求 CodeBuddy 发出一次真实请求，`findMainChatBody`（`server.ts:121`）用启发式（含 user message + tools/多 message）从捕获体里挑出主对话请求。
-3. `proxy/parser.ts` 的 `parseRequestBody` 把请求体解析为 `ProxyDiagnosisData`：按前缀（`mcp__`/`headroom_`）和 `BUILTIN_TOOLS`/`DEFERRED_TOOLS` 集合分类工具，并从 `<available_skills>`、`<available_deferred_tools>` 文本块中正则提取 skill / MCP 引用与令牌估算（估算为 `length/4` 的经验值）。
+3. `proxy/parser.ts` 的 `parseRequestBody(body, agentName)` 按 agent 分派到对应解析器：`proxy/codebuddy-parser.ts`（`parseCodeBuddyRequestBody`）与 `proxy/claude-parser.ts`（`parseClaudeRequestBody`），两者共享 `proxy/parser-core.ts`（消息/工具分解、MCP 聚合、令牌估算）。工具仅按前缀（`mcp__`/`headroom_`）区分 MCP，其余均为内置工具；从 `<available_skills>`、`<available_deferred_tools>` 文本块中正则提取 skill / MCP 引用与令牌估算（估算为 `length/4` 的经验值）。
 4. `collectors/fs-collector.ts` 的 `scanFilesystem(adapter)` 直接读磁盘：MCP 配置、SKILL、插件、hooks、rules、配置文件大小（`FsCollectResult`）。
 5. `proxy/report.ts` 的 `buildDiagnosisReport` 合并 3 与 4，产出 `DiagnosisReport`（`types/index.ts` 定义的契约），写入 `./save-token/diagnosis-report.json` 与 `proxy-raw-body.json`，控制台打印 `renderMarkdown` 摘要。
 6. 第三方省 Token 工具检测通过 `tools/registry.ts` 注册表（`tools/index.ts` 导入各 `impl/*` 触发自注册）配合 `detectToolsViaRegistry` 完成。

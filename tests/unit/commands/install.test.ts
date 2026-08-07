@@ -39,8 +39,8 @@ describe('stk install', () => {
     expect(process.exitCode).toBe(1)
   })
 
-  it('exits with error for reserved unsupported agent (claude)', async () => {
-    await runInstall('rtk', { agent: 'claude' })
+  it('exits with error for reserved unsupported agent (codex)', async () => {
+    await runInstall('rtk', { agent: 'codex' })
     expect(process.exitCode).toBe(1)
   })
 

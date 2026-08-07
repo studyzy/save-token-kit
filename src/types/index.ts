@@ -187,8 +187,6 @@ export interface ToolBreakdown {
   builtin: ToolCategoryStats
   /** MCP-provided tools */
   mcp: ToolCategoryStats
-  /** Deferred-loading tools */
-  deferred: ToolCategoryStats
 }
 
 export interface ToolDef {
@@ -197,14 +195,16 @@ export interface ToolDef {
   /** Estimated token count for this tool definition */
   estimatedTokens: number
   /** Classification category */
-  category: 'builtin' | 'mcp' | 'deferred'
+  category: 'builtin' | 'mcp'
 }
 
 export interface DiagnosisReport {
   /** Scan timestamp (ISO 8601) */
   scanTimestamp: string
-  /** CodeBuddy CLI version string */
-  codebuddyVersion: string
+  /** Agent name (e.g. "codebuddy", "claude") */
+  agentName: string
+  /** Agent CLI version string */
+  agentVersion: string
   /** Token usage overview */
   contextOverview: ContextOverview
   /** MCP server list */
@@ -215,7 +215,7 @@ export interface DiagnosisReport {
   commandList?: CommandEntry[]
   /** Subagent (Agent) list */
   agentList: AgentEntry[]
-  /** Tool definitions with per-tool token breakdown (builtin + mcp + deferred merged) */
+  /** Tool definitions with per-tool token breakdown (builtin + mcp merged) */
   builtinTools: ToolDef[]
   /** Plugin list discovered on the filesystem */
   pluginList?: PluginEntry[]
@@ -470,8 +470,6 @@ export interface ProxyDiagnosisData {
     builtin: { name: string; estimatedTokens: number }[]
     /** MCP tools */
     mcp: { name: string; estimatedTokens: number }[]
-    /** Deferred tools */
-    deferred: { name: string; estimatedTokens: number }[]
   }
   /** Detected skills */
   skills: SkillEntry[]

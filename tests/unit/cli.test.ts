@@ -13,7 +13,7 @@ describe('cli', () => {
     const orig = process.exitCode
     const origErr = process.stderr.write
     process.stderr.write = () => true
-    await main(['diagnose', '--agent', 'claude'])
+    await main(['diagnose', '--agent', 'codex'])
     expect(process.exitCode).toBe(1)
     process.exitCode = orig
     process.stderr.write = origErr

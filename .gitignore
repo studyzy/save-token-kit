@@ -10,3 +10,4 @@ save-token/
 .DS_Store
 .mcp.json
 graphify-out/
+.serena/
