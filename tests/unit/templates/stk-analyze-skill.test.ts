@@ -39,12 +39,12 @@ describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
       'agent-opt',
       'skill-opt',
       'knowledge-base',
-      'repo-scan',
+      'command-opt',
       'rules-opt',
-      'codebuddy-md',
+      'memory-md',
       'hook-audit',
     ]
-    it('defines all 8 sub-agents', () => {
+    it('defines all 10 sub-agents', () => {
       for (const a of agents) {
         expect(SKILL, `missing sub-agent: ${a}`).toContain(a)
       }
