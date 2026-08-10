@@ -16,6 +16,7 @@ export class ClaudeAdapter implements PlatformAdapter {
   readonly supported = true
   readonly statusLabel = '可用'
   readonly proxyEnvVar = 'ANTHROPIC_BASE_URL'
+  readonly proxyBasePath = ''
   readonly triggerCommand = ['claude', '-p', 'Hello', '--max-turns', '1']
   readonly capturePathPrefix = '/v1/'
   readonly defaultApiBase = 'https://api.anthropic.com'

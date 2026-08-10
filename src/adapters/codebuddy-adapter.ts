@@ -21,6 +21,7 @@ export class CodeBuddyAdapter implements PlatformAdapter {
   readonly supported = true
   readonly statusLabel = '可用'
   readonly proxyEnvVar = 'CODEBUDDY_BASE_URL'
+  readonly proxyBasePath = '/v2'
   readonly triggerCommand = ['codebuddy', '-p', 'Hello', '-y', '--max-turns', '1']
   readonly capturePathPrefix = '/v2/'
   readonly defaultApiBase = 'https://tencent.sso.copilot.tencent.com'
@@ -106,6 +107,7 @@ function unsupportedStub(name: string): PlatformAdapter {
     supported: false,
     statusLabel: '暂不支持',
     proxyEnvVar: '',
+    proxyBasePath: '',
     triggerCommand: [],
     capturePathPrefix: '',
     defaultApiBase: '',
@@ -134,11 +136,12 @@ function unsupportedStub(name: string): PlatformAdapter {
 }
 
 import { ClaudeAdapter } from './claude-adapter.js'
+import { CodeXAdapter } from './codex-adapter.js'
 
 export const ADAPTERS: Record<string, PlatformAdapter> = {
   codebuddy: new CodeBuddyAdapter(),
   claude: new ClaudeAdapter(),
-  codex: unsupportedStub('codex'),
+  codex: new CodeXAdapter(),
   cursor: unsupportedStub('cursor'),
 }
 

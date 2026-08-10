@@ -18,7 +18,7 @@ pnpm add -g save-token-kit
 stk init
 ```
 
-选择 CodeBuddy 作为目标 AI Agent。完成后，CodeBuddy 对话中即可使用：
+选择目标 AI Agent（`codebuddy` / `claude` / `codex`）。完成后，对应 Agent 对话中即可使用：
 
 - `/stk-diagnose` 诊断 Token 占用
 - `/stk-analyze` 分析 Token 优化空间
@@ -27,12 +27,12 @@ stk init
 
 ### 安装选项
 
-| 选项             | 说明                                                   |
-| ---------------- | ------------------------------------------------------ |
-| `--local`        | 安装到项目级 `.codebuddy/`（默认全局 `~/.codebuddy/`） |
-| `--skills`       | 额外安装 4 个 SKILL 文件                               |
-| `--force`        | 覆盖已存在的文件                                       |
-| `--agent <name>` | 目标 Agent（本期仅 `codebuddy`）                       |
+| 选项             | 说明                                                       |
+| ---------------- | ---------------------------------------------------------- |
+| `--local`        | 安装到项目级 `.codebuddy/`（默认全局 `~/.codebuddy/`）     |
+| `--skills`       | 额外安装 4 个 SKILL 文件                                   |
+| `--force`        | 覆盖已存在的文件                                           |
+| `--agent <name>` | 目标 Agent（`codebuddy`/`claude`/`codex`）                 |
 
 ## 完整工作流
 
@@ -53,7 +53,7 @@ stk diagnose >> ./save-token/diagnosis-report.md   # 保存首次报告
 
 ### 步骤 2-4：分析 / 优化 / 报告（由 AI Agent 完成）
 
-在 CodeBuddy 对话中依次运行 `/stk-diagnose` → `/stk-analyze` → `/stk-optimize` → `/stk-report`。
+在目标 Agent 对话中依次运行 `/stk-diagnose` → `/stk-analyze` → `/stk-optimize` → `/stk-report`。
 各阶段产物：
 
 | 文件                     | 阶段          | 说明                 |
@@ -67,10 +67,10 @@ stk diagnose >> ./save-token/diagnosis-report.md   # 保存首次报告
 
 ### `stk diagnose`
 
-| 选项              | 默认值      | 说明                                             |
-| ----------------- | ----------- | ------------------------------------------------ |
-| `--agent <name>`  | `codebuddy` | 目标 Agent（`claude`/`codex`/`cursor` 暂不支持） |
-| `--port <number>` | `8899`      | 代理端口（占用时自动回退随机端口）               |
+| 选项              | 默认值      | 说明                                                   |
+| ----------------- | ----------- | ------------------------------------------------------ |
+| `--agent <name>`  | `codebuddy` | 目标 Agent（`codebuddy`/`claude`/`codex`，其余暂不支持） |
+| `--port <number>` | `8899`      | 代理端口（占用时自动回退随机端口）                     |
 
 ### `stk rollback`
 
@@ -101,5 +101,5 @@ make clean      # 清理 dist/ 与覆盖率
 
 - Plugin 封装
 - `stk analyze`/`optimize`/`report` 等 CLI 命令（由 AI Agent 完成）
-- 其他 AI Agent 平台安装支持
+- `cursor` 等其他 AI Agent 平台支持
 - 实时持续监控、云端同步、GUI、自动回滚

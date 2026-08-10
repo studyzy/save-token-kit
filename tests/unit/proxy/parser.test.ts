@@ -210,4 +210,101 @@ Next unrelated section starts here.`,
     expect(byName['statusline-setup']).toBe('bundled')
     expect(byName['lint-check-fix']).toBe('project')
   })
+
+  it('parses CodeX Responses API body (input/instructions/tools)', () => {
+    const body = {
+      model: 'gpt-5-codex',
+      instructions: 'You are a coding agent. <rules>some rules</rules>',
+      input: [
+        { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hello' }] },
+        { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'hi' }] },
+      ],
+      tools: [
+        { type: 'function', name: 'Read', description: 'reads a file', parameters: {} },
+        { type: 'function', name: 'mcp__playwright__click', description: 'clicks', parameters: {} },
+        {
+          type: 'function',
+          name: 'Agent',
+          description:
+            '- Explore: Read-only search agent (Tools: Read, Grep)\n' +
+            '- lint-check-fix: 检查并修复 lint 错误 (Tools: All tools)',
+          parameters: {},
+        },
+      ],
+    }
+    const r = parseRequestBody(body, 'codex')
+    // instructions becomes a virtual system message
+    expect(r.messages.roleCounts.system).toBe(1)
+    expect(r.messages.roleCounts.user).toBe(1)
+    // OpenAI-format tools: Read builtin, playwright MCP
+    expect(r.tools.builtin.map((t) => t.name)).toContain('Read')
+    expect(r.tools.mcp.map((t) => t.name)).toContain('mcp__playwright__click')
+    expect(r.mcpServers).toHaveLength(1)
+    expect(r.mcpServers[0].name).toBe('playwright')
+    // Subagents extracted from the Agent tool description
+    const agentNames = (r.agents ?? []).map((a) => a.name)
+    expect(agentNames).toContain('Explore')
+    expect(agentNames).toContain('lint-check-fix')
+    expect(r.model).toBe('gpt-5-codex')
+    expect(r.rulesTokens).toBeGreaterThan(0)
+    expect(r.totalEstimatedTokens).toBeGreaterThan(0)
+  })
+
+  it('extracts skills from CodeX Skill tool description', () => {
+    const body = {
+      model: 'gpt-5-codex',
+      instructions: 'You are a coding agent',
+      input: [{ role: 'user', content: 'hi' }],
+      tools: [
+        {
+          type: 'function',
+          name: 'Skill',
+          description: `Execute a skill within the main conversation
+
+<available_skills>
+- loop: description (location: bundled)
+- cavecrew: Decision guide (location: /Users/test/.codex/skills/cavecrew/SKILL.md)
+</available_skills>`,
+          parameters: {},
+        },
+      ],
+    }
+    const r = parseRequestBody(body, 'codex')
+    expect(Object.keys(r.skillTokens)).toContain('loop')
+    expect(Object.keys(r.skillTokens)).toContain('cavecrew')
+  })
+
+  it('extracts skills from CodeX input <skills_instructions> block', () => {
+    const body = {
+      model: 'gpt-5-codex',
+      instructions: 'You are a coding agent',
+      input: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `<skills_instructions>
+## Skills
+### Available skills
+- imagegen: Generate images. (file: /Users/test/.codex/skills/.system/imagegen/SKILL.md)
+- visualize: Create visualizations. (file: /Users/test/.codex/plugins/cache/openai-bundled/visualize/1.0.20/skills/visualize/SKILL.md)
+- plugin-creator: Create plugins. (file: /Users/test/.codex/skills/.system/plugin-creator/SKILL.md)
+</skills_instructions>`,
+            },
+          ],
+        },
+      ],
+      tools: [],
+    }
+    const r = parseRequestBody(body, 'codex')
+    const names = Object.keys(r.skillTokens)
+    expect(names).toContain('imagegen')
+    expect(names).toContain('visualize')
+    expect(names).toContain('plugin-creator')
+    expect(r.skillTokens.imagegen.location).toContain('imagegen/SKILL.md')
+    // skills should be surfaced in the report as bundled entries
+    const skillNames = (r.skills ?? []).map((s) => s.name)
+    expect(skillNames).toContain('visualize')
+  })
 })

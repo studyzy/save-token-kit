@@ -14,7 +14,7 @@ export interface InstallOptions {
  * Installs a third-party token-saving tool by running its registered
  * install + config commands. `-g/--global` targets ~/.codebuddy (default);
  * `--local` overrides to project-level .codebuddy/. `--agent` defaults to
- * codebuddy; claude/codex are reserved (unsupported) and rejected.
+ * codebuddy; claude/codex/cursor are resolved via the adapter registry.
  */
 export async function runInstall(toolName: string, options: InstallOptions): Promise<void> {
   const agentName = options.agent ?? 'codebuddy'

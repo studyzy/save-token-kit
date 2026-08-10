@@ -268,14 +268,15 @@ function joinForwardPath(basePathname: string, requestUrl: string): string {
 
 /**
  * Find the main chat/completions request from all captured bodies.
- * Heuristic: the body with messages array that contains at least one user
- * message and has tools definitions (or many messages).
+ * Heuristic: the body with messages (or Responses `input`) array that contains
+ * at least one user message and has tools definitions (or many messages).
  */
 export function findMainChatBody(bodies: unknown[]): Record<string, unknown> | null {
   for (const body of bodies) {
     if (typeof body !== 'object' || body === null) continue
     const b = body as Record<string, unknown>
-    const messages = b['messages'] as Array<Record<string, unknown>> | undefined
+    // CodeBuddy / Claude use `messages`; CodeX (Responses API) uses `input`.
+    const messages = (b['messages'] ?? b['input']) as Array<Record<string, unknown>> | undefined
     if (!messages || !Array.isArray(messages)) continue
     const hasUser = messages.some((m) => m['role'] === 'user')
     const hasTools = Array.isArray(b['tools']) && (b['tools'] as unknown[]).length > 0
@@ -290,7 +291,7 @@ export function findMainChatBody(bodies: unknown[]): Record<string, unknown> | n
   for (const body of bodies) {
     if (typeof body !== 'object' || body === null) continue
     const b = body as Record<string, unknown>
-    const messages = b['messages'] as Array<unknown> | undefined
+    const messages = (b['messages'] ?? b['input']) as Array<unknown> | undefined
     if (messages && messages.length > bestCount) {
       bestCount = messages.length
       best = b

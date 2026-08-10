@@ -1,5 +1,6 @@
 import { parseCodeBuddyRequestBody } from './codebuddy-parser.js'
 import { parseClaudeRequestBody } from './claude-parser.js'
+import { parseCodexRequestBody } from './codex-parser.js'
 import { aggregateCaptures } from './parser-core.js'
 import type { ProxyDiagnosisData } from '../types/index.js'
 
@@ -10,6 +11,7 @@ import type { ProxyDiagnosisData } from '../types/index.js'
  */
 export function parseRequestBody(body: unknown, agentName = 'codebuddy'): ProxyDiagnosisData {
   if (agentName === 'claude') return parseClaudeRequestBody(body)
+  if (agentName === 'codex') return parseCodexRequestBody(body)
   return parseCodeBuddyRequestBody(body)
 }
 

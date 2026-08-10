@@ -99,5 +99,5 @@ id: "<task id>"
 
 - 单个任务失败：记录 `failed` 并继续下一任务（整体流程可见）；如需遇错即停，执行前与用户确认。
 - 本 SKILL 仅指导修改，不自动回滚；回滚依赖用户侧备份手动恢复。
-- 仅支持 `codebuddy` 平台（`stk install --agent` 仅 codebuddy 生效，claude/codex 等预留）；`memory-md` 任务按当前平台实际指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md）处理。
+- 支持 `codebuddy`/`claude`/`codex` 平台（`stk init`/`stk install --agent` 均生效）；`memory-md` 任务按当前平台实际指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md）处理。
 - 子 Agent 详细规则见 `agents/` 目录下对应文件，按需读取。

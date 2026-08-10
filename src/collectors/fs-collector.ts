@@ -95,6 +95,11 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
     memoryPaths.push(`${getHomeDir()}/.codebuddy/AGENTS.md`)
     memoryPaths.push(`${process.cwd()}/AGENTS.md`)
   }
+  // CodeX stores instructions in AGENTS.md; the config-dir file is already
+  // covered by `paths.codebuddyMd`, so only add the project-level AGENTS.md.
+  if (paths.codebuddyMd.includes('.codex')) {
+    memoryPaths.push(`${process.cwd()}/AGENTS.md`)
+  }
   for (const file of memoryPaths) {
     if (file) memoryFiles.push(summarizeFile(file))
   }

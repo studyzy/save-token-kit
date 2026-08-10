@@ -36,7 +36,7 @@ describe('stk init', () => {
     tmp = mkdtempSync(join(tmpdir(), 'stk-init-'))
     process.env.HOME = tmp
     const before = process.exitCode
-    await runInit({ agent: 'codex', force: true })
+    await runInit({ agent: 'cursor', force: true })
     expect(process.exitCode).toBe(1)
     process.exitCode = before
   })

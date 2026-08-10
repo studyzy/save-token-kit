@@ -1,6 +1,6 @@
 ---
 name: stk-diagnose
-description: '采集 AI Agent（CodeBuddy / Claude Code）会话的 Token 占用诊断数据'
+description: '采集 AI Agent（CodeBuddy / Claude Code / CodeX）会话的 Token 占用诊断数据'
 argument-hint: ''
 ---
 
@@ -28,6 +28,9 @@ argument-hint: ''
    # Claude Code 会话会注入 CLAUDE_CODE_SESSION_ID / CLAUDE_PID 环境变量
    elif [ -n "$CLAUDE_CODE_SESSION_ID" ] || [ -n "$CLAUDE_PID" ]; then
      AGENT=claude
+   # CodeX 会话会注入 CODEX_HOME（指向其配置目录，如 ~/.codex）
+   elif [ -n "$CODEX_HOME" ]; then
+     AGENT=codex
    else
      # 无法判定（如普通终端直接运行、或当前版本未注入上述变量）：不要猜测
      AGENT=

@@ -49,39 +49,50 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
 
   const preferredPort = Number(options.port ?? DEFAULT_PROXY_PORT)
 
-  // Save original proxy env var BEFORE setting it to the proxy,
-  // so we can use it as the upstream API target.
-  const originalBaseUrl = process.env[adapter.proxyEnvVar]
+  // Resolve the upstream API base URL: some adapters read it from their own
+  // config (e.g. CodeX provider base_url); others use the current env var value
+  // or the built-in default.
+  const originalBaseUrl =
+    adapter.resolveUpstreamBaseUrl?.() ?? process.env[adapter.proxyEnvVar]
+  const upstreamBaseUrl = originalBaseUrl || adapter.defaultApiBase
 
   // 1. Start transparent proxy that forwards to the real API
   console.log(bold(green(`启动代理 (127.0.0.1:${preferredPort}) 拦截 ${agentName} 的请求...`)))
   const proxy = await startProxy({
     port: preferredPort,
     capturePathPrefix: adapter.capturePathPrefix,
-    apiBaseUrl: originalBaseUrl || adapter.defaultApiBase,
+    apiBaseUrl: upstreamBaseUrl,
   })
 
-  // 2. Point agent at the proxy
+  // 2. Point agent at the proxy. Most agents append a base path (e.g. /v2) to
+  // the base URL; CodeX routes via `-c model_providers.<id>.base_url=` config
+  // overrides and ignores env vars, so it returns redirect args instead.
   const proxyBaseUrl = `http://127.0.0.1:${proxy.port}`
-  // CodeBuddy appends /v2 to the base URL, Claude uses bare base URL
-  const proxyUrl = agentName === 'codebuddy' ? `${proxyBaseUrl}/v2` : proxyBaseUrl
-  process.env[adapter.proxyEnvVar] = proxyUrl
+  const proxyUrl = `${proxyBaseUrl}${adapter.proxyBasePath}`
+  const redirectArgs = adapter.proxyRedirectArgs?.(proxyUrl) ?? []
+  const usesEnvRedirect = redirectArgs.length === 0
+  if (usesEnvRedirect) {
+    process.env[adapter.proxyEnvVar] = proxyUrl
+  }
 
   try {
     // 3. Trigger a single LLM request through the proxy
     console.log(green(`  代理已就绪 (端口 ${proxy.port})，触发探测请求...`))
     const [bin, ...args] = adapter.triggerCommand
-    await exec(bin!, args, {
+    await exec(bin!, [...args, ...redirectArgs], {
       timeout: CAPTURE_TIMEOUT_MS,
+      nodeOptions: adapter.triggerNodeOptions,
     })
   } catch (err) {
     console.error(yellow(`触发命令异常，仍会分析已捕获的数据: ${(err as Error).message}`))
   } finally {
-    // 4. Restore original env
-    if (originalBaseUrl !== undefined) {
-      process.env[adapter.proxyEnvVar] = originalBaseUrl
-    } else {
-      delete process.env[adapter.proxyEnvVar]
+    // 4. Restore original env (only when env-based redirection was used)
+    if (usesEnvRedirect) {
+      if (originalBaseUrl !== undefined) {
+        process.env[adapter.proxyEnvVar] = originalBaseUrl
+      } else {
+        delete process.env[adapter.proxyEnvVar]
+      }
     }
   }
 

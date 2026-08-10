@@ -48,6 +48,8 @@ export interface PlatformAdapter {
   resolveInstallPaths(local: boolean): InstallPaths
   /** Environment variable name that points the agent at the proxy base URL */
   readonly proxyEnvVar: string
+  /** URL path the agent appends to the base URL when talking to the API (e.g. "/v2" for CodeBuddy, "" for Claude/CodeX) */
+  readonly proxyBasePath: string
   /** Trigger command used to force a single LLM request through the proxy */
   readonly triggerCommand: string[]
   /** Whether the agent CLI is installed and discoverable on PATH */
@@ -62,4 +64,21 @@ export interface PlatformAdapter {
   readonly capturePathPrefix: string
   /** Default upstream API base URL (e.g. "https://api.anthropic.com") */
   readonly defaultApiBase: string
+  /**
+   * CLI args to append to `triggerCommand` that redirect this agent to a proxy
+   * base URL. Return [] (default) to fall back to setting `proxyEnvVar`.
+   * Some agents (e.g. CodeX) ignore env vars and route via config flags.
+   */
+  readonly proxyRedirectArgs?: (proxyBaseUrl: string) => string[]
+  /**
+   * Resolve the upstream API base URL this agent currently targets, so the proxy
+   * can forward captured requests to the real backend. Defaults to
+   * `proxyEnvVar`'s current value, falling back to `defaultApiBase`.
+   */
+  readonly resolveUpstreamBaseUrl?: () => string
+  /**
+   * Extra node child_process spawn options for the trigger command. Some agents
+   * (e.g. CodeX) block on a piped stdin, so stdin must be ignored.
+   */
+  readonly triggerNodeOptions?: Record<string, unknown>
 }
