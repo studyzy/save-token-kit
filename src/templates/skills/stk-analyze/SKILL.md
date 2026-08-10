@@ -21,10 +21,11 @@ description: '分析用户AI使用场景，提供Token节省方案'
 | --- | --- |
 | CodeBuddy | `CODEBUDDY.md` |
 | Claude Code | `CLAUDE.md` |
+| CodeX | `AGENTS.md` |
 
-判定方式：以当前运行平台为准（Agent 自知身份）；无法确定时检查项目根目录，存在 `./CODEBUDDY.md` 视为 CodeBuddy，存在 `./CLAUDE.md` 视为 Claude Code，两者同时存在时以当前平台为准。
+判定方式：以当前运行平台为准（Agent 自知身份）；无法确定时检查项目根目录，存在 `./CODEBUDDY.md` 视为 CodeBuddy，存在 `./CLAUDE.md` 视为 Claude Code，存在 `./AGENTS.md` 视为 CodeX，多者并存时以当前平台为准。
 
-下文所有涉及主文件的分析（`repo-scan.json` 字段、子 Agent 9 启动条件、建议 `target`、tasks.md 分组标题等）统一用 `memoryMd` 指代实际文件名，**不写死**为 `CODEBUDDY.md`。
+下文所有涉及主文件的分析（`repo-scan.json` 字段、`memory-md` 子 Agent 启动条件、建议 `target`、tasks.md 分组标题等）统一用 `memoryMd` 指代实际文件名，**不写死**为具体平台文件名。
 
 ### 阶段 1: 上下文与场景收集
 
@@ -111,7 +112,7 @@ find . -type f \( -name '*.md' -o -name '*.mdx' -o -name '*.rst' -o -name '*.txt
   -not -path '*/node_modules/*' ... | wc -l
 
 # 项目级指令主文件（按平台识别结果检测，见"平台识别"）
-ls CODEBUDDY.md CLAUDE.md 2>/dev/null || true
+ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 # monorepo 检测：根外是否存在多个 package.json / Cargo.toml / go.mod
 ```
@@ -128,7 +129,7 @@ ls CODEBUDDY.md CLAUDE.md 2>/dev/null || true
 | `topLanguages`   | Top 3 语言（按文件数降序，≤ 3） |
 | `hasDocsDir`     | 是否存在 `docs/` 或 `README*`   |
 | `hasMemoryMd`    | 是否存在项目级指令主文件（memoryMd） |
-| `memoryMd`       | 项目级指令主文件文件名（如 `CODEBUDDY.md` / `CLAUDE.md`），不存在时省略 |
+| `memoryMd`       | 项目级指令主文件文件名（如 `CODEBUDDY.md` / `CLAUDE.md` / `AGENTS.md`），不存在时省略 |
 | `isMonorepo`     | 是否 monorepo                   |
 | `scanError`      | 失败信息；成功为 `null`         |
 
@@ -138,10 +139,10 @@ ls CODEBUDDY.md CLAUDE.md 2>/dev/null || true
 
 **步骤 3.5: 前置仓库调研（单独调用，非并行）**
 
-扫描完成后、进入并行派发前，**单独调用一次**前置调研 Agent `00-repo-scan`（规则见 `@agents/00-repo-scan.md`），读取 `repo-scan.json` + `context.json`，产出 `save-token/repo-analysis.json`（含 `flags` 结构化结论 + `suggestions[]`）。
+扫描完成后、进入并行派发前，**单独调用一次**前置调研 Agent `repo-scan`（规则见 `@agents/repo-scan.md`），读取 `repo-scan.json` + `context.json`，产出 `save-token/repo-analysis.json`（含 `flags` 结构化结论 + `suggestions[]`）。
 
 - 此 Agent **不进入阶段 3 并行列表**，由主流程在步骤 3 后单发。
-- `flags`（如 `docsOverInjected` / `needsMonorepoSplit` / `needsIndex`）供并行子 Agent 01~10 按需读取，避免各 Agent 重复计算仓库特征。
+- `flags`（如 `docsOverInjected` / `needsMonorepoSplit` / `needsIndex`）供并行子 Agent 按需读取，避免各 Agent 重复计算仓库特征。
 - `suggestions[]` 由汇总阶段（步骤 5）直接消费进 tasks.md 第 7 组"仓库专项"，不再经由并行 suggestion 文件。
 - 该 Agent 失败/超时 → 跳过仓库专项维度，汇总其余，摘要标注。
 
@@ -159,14 +160,14 @@ ls CODEBUDDY.md CLAUDE.md 2>/dev/null || true
 
 | # | 子 Agent         | 关注对象                          | 启动条件                                | 详细规则                  |
 |---|------------------|-----------------------------------|-----------------------------------------|---------------------------|
-| 1 | `tool-enable`    | `toolDetection[]`                 | 数组非空                                | @agents/01-tool-enable.md |
-| 2 | `mcp-opt`        | `mcpList[]`                       | 数组非空                                | @agents/02-mcp-opt.md     |
+| 1 | `tool-enable`    | `toolDetection[]`                 | 数组非空                                | @agents/tool-enable.md |
+| 2 | `mcp-opt`        | `mcpList[]`                       | 数组非空                                | @agents/mcp-opt.md     |
 
 > **MCP 优化关键约束**：TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具，**不得建议禁用**。应建议用对应 CLI（`tapd-cli` / `gongfeng` / `gh`）替代 MCP，保留功能同时移除工具定义的 Token 开销。领域匹配判定（如 purpose=code/role=backend）不适用于此类开发协作平台——它们对所有开发角色均必要。
-| 3 | `plugin-opt`     | `pluginList[]`                    | 数组非空                                | @agents/03-plugin-opt.md  |
-| 4 | `agent-opt`      | `agentList[]`                     | 数组非空                                | @agents/04-agent-opt.md   |
-| 5 | `skill-opt`      | `skillList[]`                     | 数组非空                                | @agents/05-skill-opt.md   |
-| 6 | `knowledge-base` | `repo-scan.json` + `context.json` | 仓库超阈值 **且** `graphTool` 非 `none` | @agents/06-knowledge-base.md |
+| 3 | `plugin-opt`     | `pluginList[]`                    | 数组非空                                | @agents/plugin-opt.md  |
+| 4 | `agent-opt`      | `agentList[]`                     | 数组非空                                | @agents/agent-opt.md   |
+| 5 | `skill-opt`      | `skillList[]`                     | 数组非空                                | @agents/skill-opt.md   |
+| 6 | `knowledge-base` | `repo-scan.json` + `context.json` | 仓库超阈值 **且** `graphTool` 非 `none` | @agents/knowledge-base.md |
 
 > **`knowledge-base` 启动前置判定**（派发前执行，依据诊断报告）：
 > - 诊断报告显示某代码知识库 `enabled === true`（已启用）→ **不启动**该 Agent（已就绪，无需建议）。
@@ -174,12 +175,12 @@ ls CODEBUDDY.md CLAUDE.md 2>/dev/null || true
 > - `graphTool` 指定某工具且未安装 / 用户主动选择 → 启动，按规模产出"启用"建议。
 > - `graphTool === 'none'` 或缺失 → 不启动。
 > 判定依据一律取自诊断报告，不猜测；报告字段缺失时降级为按原"仓库超阈值且 graphTool 非 none"条件启动。
-| 7 | `command-opt`    | `commandList[]`（主 Agent 从诊断报告提取后传入） | `commandList[]` 非空 | @agents/07-command-opt.md |
-| 8 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/08-rules-opt.md   |
-| 9 | `codebuddy-md`   | 项目级指令主文件（`memoryMd`） | `hasMemoryMd === true`                        | @agents/09-codebuddy-md.md |
-| 10 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/10-hook-audit.md  |
+| 7 | `command-opt`    | `commandList[]`（主 Agent 从诊断报告提取后传入） | `commandList[]` 非空 | @agents/command-opt.md |
+| 8 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/rules-opt.md   |
+| 9 | `memory-md`      | 项目级指令主文件（`memoryMd`） | `hasMemoryMd === true`                        | @agents/memory-md.md |
+| 10 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/hook-audit.md  |
 
-> **注**：`00-repo-scan` 为前置调研 Agent，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`，其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。并行子 Agent 为 01~06、07-command-opt、08~10 共 10 个（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入）。各子 Agent 统一以表中**新名**（如 `plugin-opt`/`agent-opt`/`skill-opt`/`command-opt`）标识，禁止输出旧名别名。
+> **注**：`repo-scan` 为前置调研 Agent，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`，其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。并行子 Agent 共 10 个：`tool-enable`、`mcp-opt`、`plugin-opt`、`agent-opt`、`skill-opt`、`knowledge-base`、`command-opt`、`rules-opt`、`memory-md`、`hook-audit`（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入）。各子 Agent 统一以表中**新名**（如 `plugin-opt`/`agent-opt`/`skill-opt`/`command-opt`）标识，禁止输出旧名别名。
 
 ### 阶段 4: 汇总生成 tasks.md
 
@@ -207,7 +208,7 @@ ls CODEBUDDY.md CLAUDE.md 2>/dev/null || true
 rm -f save-token/suggestions-*.json
 ```
 
-- 删除对象：阶段 3 并行子 Agent 01~10 的 `save-token/suggestions-<agent-name>.json`。
+- 删除对象：阶段 3 并行子 Agent 的 `save-token/suggestions-<agent-name>.json`。
 - **保留**：`tasks.md`、`diagnosis-report.md` / `diagnosis-report.json`、`repo-scan.json`、`repo-analysis.json`、`context.json`、`proxy-raw-body.json`。
 - 前置调研 `repo-analysis.json` 同为中间产物，但其 `suggestions[]` 已并入 `tasks.md` 第 7 组，故一并删除：
 

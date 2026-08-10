@@ -1,4 +1,4 @@
-# 子 Agent 6: 知识图谱推荐 (knowledge-base)
+# 知识图谱推荐 (knowledge-base)
 
 ## 角色与目标
 

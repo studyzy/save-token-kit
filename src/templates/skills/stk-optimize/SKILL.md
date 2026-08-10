@@ -58,7 +58,7 @@ argument-hint: ''
 | `replace-mcp-with-cli` | `github` / `github-mcp` | `@agents/cli-replace-gh.md` | 安装 gh CLI + 禁用 GitHub MCP |
 | `disable-plugin` | — | `@agents/plugin-opt.md` | 修改 settings.json 禁用 Plugin |
 | `migrate-plugin` | — | `@agents/plugin-opt.md` | 修改 settings.json 迁移 Plugin 作用域 |
-| `codebuddy-md-review` | — | `@agents/codebuddy-md.md` | 精简/优化 CODEBUDDY.md |
+| `memory-md-review` | — | `@agents/memory-md.md` | 精简/优化指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md） |
 | `rules-opt` | — | `@agents/rules-opt.md` | 修改 rules 配置 |
 | 其他 | — | `@agents/generic.md` | 兜底，按 detail 描述执行 |
 
@@ -99,5 +99,5 @@ id: "<task id>"
 
 - 单个任务失败：记录 `failed` 并继续下一任务（整体流程可见）；如需遇错即停，执行前与用户确认。
 - 本 SKILL 仅指导修改，不自动回滚；回滚依赖用户侧备份手动恢复。
-- 仅支持 `codebuddy` 平台（`stk install --agent` 仅 codebuddy 生效，claude/codex 等预留）。
+- 仅支持 `codebuddy` 平台（`stk install --agent` 仅 codebuddy 生效，claude/codex 等预留）；`memory-md` 任务按当前平台实际指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md）处理。
 - 子 Agent 详细规则见 `agents/` 目录下对应文件，按需读取。

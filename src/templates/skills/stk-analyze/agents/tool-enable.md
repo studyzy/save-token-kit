@@ -1,4 +1,4 @@
-# 子 Agent 1: 第三方工具启用 (tool-enable)
+# 第三方工具启用 (tool-enable)
 
 ## 角色与目标
 

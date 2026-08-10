@@ -1,4 +1,4 @@
-# 子 Agent 2: MCP 优化 (mcp-opt)
+# MCP 优化 (mcp-opt)
 
 ## 角色与目标
 

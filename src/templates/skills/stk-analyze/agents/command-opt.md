@@ -1,4 +1,4 @@
-# 子 Agent 7: Command 优化 (command-opt)
+# Command 优化 (command-opt)
 
 ## 角色与目标
 

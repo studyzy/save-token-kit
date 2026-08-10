@@ -277,7 +277,7 @@ export type OperationType =
   | 'disable-mcp'
   | 'defer-mcp'
   | 'replace-mcp-with-cli'
-  | 'trim-codebuddy-md'
+  | 'trim-memory-md'
   | 'trim-file'
   | 'install-tool'
   | 'other'
@@ -336,9 +336,9 @@ export interface RepoScan {
   topLanguages: string[]
   /** Whether a docs/ dir or README* entry exists */
   hasDocsDir: boolean
-  /** Whether a project-level instruction memory file exists (CODEBUDDY.md for CodeBuddy, CLAUDE.md for Claude Code) */
+  /** Whether a project-level instruction memory file exists (CODEBUDDY.md for CodeBuddy, CLAUDE.md for Claude Code, AGENTS.md for CodeX) */
   hasMemoryMd: boolean
-  /** Project-level instruction memory file name (e.g. CODEBUDDY.md / CLAUDE.md); absent when hasMemoryMd=false */
+  /** Project-level instruction memory file name (e.g. CODEBUDDY.md / CLAUDE.md / AGENTS.md); absent when hasMemoryMd=false */
   memoryMd?: string
   /** Whether the repo is a monorepo (multiple package.json/Cargo.toml/go.mod) */
   isMonorepo: boolean

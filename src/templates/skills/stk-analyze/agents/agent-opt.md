@@ -1,4 +1,4 @@
-# 子 Agent 4: 子代理工具优化 (agent-opt)
+# 子代理工具优化 (agent-opt)
 
 ## 角色与目标
 

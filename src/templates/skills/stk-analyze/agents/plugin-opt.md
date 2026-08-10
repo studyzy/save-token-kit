@@ -1,4 +1,4 @@
-# 子 Agent 3: 插件优化 (plugin-opt)
+# 插件优化 (plugin-opt)
 
 ## 角色与目标
 

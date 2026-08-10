@@ -1,4 +1,4 @@
-# 子 Agent 5: Skill 优化 (skill-opt)
+# Skill 优化 (skill-opt)
 
 ## 角色与目标
 
