@@ -186,7 +186,22 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 **步骤 5: 合并与落盘**
 
-读取 `save-token/suggestions-*.json` 全部文件，并额外读取前置调研产出 `save-token/repo-analysis.json` 的 `suggestions[]`（第 7 组"仓库专项"来源，非并行 suggestion 文件），合并所有 `suggestions[]`，按 `category` 分组，写入 `save-token/tasks.md`：
+读取 `save-token/suggestions-*.json` 全部文件，并额外读取前置调研产出 `save-token/repo-analysis.json` 的 `suggestions[]`（第 7 组"仓库专项"来源，非并行 suggestion 文件），合并所有 `suggestions[]`，按 `category` 分组，写入 `save-token/tasks.md`。
+
+**步骤 5a: 跨 Agent 去重与冲突仲裁（合并后、分组落盘前）**
+
+各子 Agent 并行独立产出，可能对同一 `target` 产生重复或冲突建议。合并后必须先仲裁，再分组落盘：
+
+- **完全重复**：`agentName` 不同但 `operationType` + `target` + `action` 语义完全相同（如 `tool-enable` 与 `knowledge-base` 均建议"启用某知识库工具"）→ 仅保留一条，取两者中 `estimatedSavingTokens` 较大者，并在保留条目的 `evidence` 追加"来源：<agentName1> + <agentName2>"。
+- **对象级冲突（同 `target` 操作互斥）**：同一 `target` 同时命中两条互斥建议（如某 Agent 建议"启用 X"而另一 Agent 建议"禁用 X"；或"迁移 X 到 project 层"与"移除 X"）→ 保留**优先级最高**的一条，其余丢弃，并在 `detail` 注明"已合并同 target 的冲突建议"。
+- **冲突优先级（从高到低）**：`启用/安装/就绪类` > `禁用/移除/迁移类` > `斜杠化/降级/收窄类` > `审查/检查类`。同一优先级内保留 `estimatedSavingTokens` 较大者。
+- **无法判定是否互斥**（`target` 相同但操作不构成互斥，如"精简 X"与"为 X 补索引"可并存）→ 两者都保留。
+
+仲裁仅针对**相同 `target`** 的建议；不同 `target` 之间不比较。
+
+**步骤 5b: 分组与落盘**
+
+按 `category` 分组，写入 `save-token/tasks.md`：
 
 - 顶部注释：`<!-- scenario: <purpose 中文> / <同仓|异仓> -->`
 - **一个 SKILL 一个 Task、一个工具一个 Task、一个 MCP 一个 Task，绝不合并**
@@ -248,6 +263,8 @@ rm -f save-token/repo-analysis.json
 
 顶层字段：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`。
 每条 `suggestion` 字段：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level` / `evidence?`。
+
+> `evidence?` 可选。汇总阶段（步骤 5a）对完全重复建议合并时会**追加**"来源：<agentName1> + <agentName2>"，故该字段允许在主流程中扩展，各子 Agent 初版输出无需预填合并来源。
 
 **优化等级（`level`）字段**
 
@@ -345,6 +362,7 @@ rm -f save-token/repo-analysis.json
 - 不做任何用户侧配置文件修改，仅产出 `suggestions-*.json` 与 `tasks.md` 等中间/最终产物。
 - 汇总生成 `tasks.md` 后执行收尾清理（步骤 7）：删除 `suggestions-*.json` 与 `repo-analysis.json`，仅保留 `tasks.md` 及诊断/扫描产物。
 - 无法估算节省时 `estimatedSavingTokens` 填 0 并在 `detail` 描述效果。
+- 汇总阶段（步骤 5a）对同一 `target` 的重复/冲突建议做仲裁合并，tasks.md 中同一 `target` 只出现一条最终建议。
 - 子 Agent 超时/失败 → 跳过该维度，汇总其余，摘要标注。
 - tasks.md 一个条目对应一个具体操作，绝不合并。
 - 所有 `action` 必须可执行，不得泛泛而谈。
