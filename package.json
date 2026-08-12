@@ -1,6 +1,6 @@
 {
   "name": "@studyzy/save-token-kit",
-  "version": "0.1.0",
+  "version": "0.6.0",
   "description": "A CLI tool (stk) that helps AI Agents save tokens by diagnosing and optimizing context usage.",
   "type": "module",
   "bin": {
@@ -36,10 +36,5 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
   }
 }
