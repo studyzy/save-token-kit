@@ -16,9 +16,9 @@ argument-hint: ''
 
 1. 检查 `stk` 命令是否已安装（如 `which stk` 或 `stk --version`）。如未安装，先执行安装：
    ```bash
-   npm install -g save-token-kit
+   npm install -g @studyzy/save-token-kit
    # 或
-   pnpm add -g save-token-kit
+   pnpm add -g @studyzy/save-token-kit
    ```
 2. 检测当前 AI Agent 运行环境，选择对应的 `--agent` 参数。一台机器可能同时安装多个 Agent，且 `CODEBUDDY_BASE_URL` 这类**配置类**环境变量可能被用户全局设置（如指向自定义 API 或本工具代理），在任意 Agent 会话里都存在——因此只能以**当前会话注入的会话级环境变量**判定，不能用"是否安装了某个 Agent"或配置类变量判断：
    ```bash

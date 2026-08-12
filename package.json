@@ -1,5 +1,5 @@
 {
-  "name": "save-token-kit",
+  "name": "@studyzy/save-token-kit",
   "version": "0.1.0",
   "description": "A CLI tool (stk) that helps AI Agents save tokens by diagnosing and optimizing context usage.",
   "type": "module",
