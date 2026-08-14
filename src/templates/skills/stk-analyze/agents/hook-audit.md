@@ -50,6 +50,15 @@ Hook 默认 60 秒超时自动终止。Hook 问题主要有六类：
 - Hook `command` 短小（无大段输出）且 `timeout` 已设置且 `event` 挂载数 < 3 → 不产出
 - Hook `command` 为 `rtk` 透明改写类（如 `rtk git status`）且 `rtk` 已启用 → 不产出（正常工作）
 
+## 验收条件（Acceptance，与 `stk verify` 校验规则一致）
+
+落盘后**必须**运行 `stk verify --file save-token/suggestions-<name>.json` 校验通过，不得仅凭主观判断"格式对了"。核心规则：
+
+- 顶层必填：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`；`agentName` 须与文件名 `suggestions-<name>.json` 匹配。
+- 每条必填：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level`。
+- `operationType` ∈ `OperationType` 联合类型；`risk` ∈ `low|medium|high`；`level` ∈ `初级|中级|高级`；`estimatedSavingTokens` ≥ 0；`target` 非空；`reversible` 布尔。
+- 校验失败 → 依据 `stk verify` 输出的错误行**覆盖重写**并再次校验，连续 3 次失败则放弃本维度。
+
 ## level 判定
 
 | level | 命中条件 |

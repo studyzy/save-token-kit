@@ -5,7 +5,25 @@ description: '分析用户AI使用场景，提供Token节省方案'
 
 # SKILL: stk-analyze
 
-收集用户的使用场景与当前仓库的代码/文档情况，结合 `stk diagnose` 诊断报告，并行派发多个专注不同优化点的子 Agent，每个子 Agent 输出统一 Schema 的 JSON 到 `save-token/`，最后汇总为 `save-token/tasks.md` 待办清单。
+收集用户的使用场景与当前仓库的代码/文档情况，结合 `stk diagnose` 诊断报告，并行派发多个专注不同优化点的子 Agent，每个子 Agent 将统一 Schema 的 JSON 落盘到 `save-token/suggestions-<agent-name>.json` 并**自行用 `stk verify --file` 校验格式**（程序化死逻辑，失败则覆盖重写自纠），最后汇总为 `save-token/tasks.md` 待办清单。
+
+## 编排模型（状态机）
+
+采用**显式状态机**驱动，避免子 Agent 之间自由对话、各自为政。每个对象（子 Agent / 前置调研）在其生命周期内处于一个状态，由主 Agent 依据**产物是否落盘且校验通过**来推进：
+
+```text
+PENDING → READY → RUNNING → SUCCESS
+                        └── FAILED → (RETRYING) → SUCCESS / FAILED
+```
+
+- `PENDING`：对象存在性判定通过、尚未派发。
+- `READY`：输入产物（诊断字段 / `context.json` / `repo-scan.json`）齐备，可进入并行派发。
+- `RUNNING`：子 Agent 已派发、正在产出并落盘 `suggestions-<name>.json`。
+- `SUCCESS`：产物已落盘且通过 `stk verify --file`（或按对象为前置 `repo-analysis.json`）。
+- `FAILED`：达到重试上限仍失败 / 超时 → 跳过该维度，汇总其余，摘要标注。
+- `RETRYING`：`stk verify` 校验失败后子 Agent 自我修复并覆盖重写的中间态（有限重试，见"失败处理"）。
+
+> 主 Agent 只依据**落盘产物的存在性 + 校验结果**推进状态，不靠子 Agent 的自我声称"我完成了"。这与"Artifact 而非 Conversation"一致——Agent 之间通过结构化 JSON 产物通信，不传聊天记录。
 
 ## 目标
 
@@ -152,9 +170,29 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 读取诊断报告，仅对**存在且非空**的对象启动对应子 Agent。对象为空 → 不启动，摘要标注跳过。
 
-在**单条消息**中并行发起所有需启动的子 Agent（多次 `Agent` 调用）。每个子 Agent 接收：诊断报告相关字段 + `context.json` + `repo-scan.json`（按需），输出统一 Schema JSON 到 `save-token/suggestions-<agent-name>.json`。
+在**单条消息**中并行发起所有需启动的子 Agent（多次 `Agent` 调用）。每个子 Agent 接收：诊断报告相关字段 + `context.json` + `repo-scan.json`（按需），并**自行落盘**统一 Schema JSON 到 `save-token/suggestions-<agent-name>.json`。
 
-任一子 Agent 失败/超时 → 跳过该维度，汇总其余，摘要标注。
+**落盘与格式校验（子 Agent 自验，程序化死逻辑）**：
+
+1. 子 Agent 完成分析后，将建议写入自己的文件 `save-token/suggestions-<agent-name>.json`。
+2. 子 Agent **随即运行** `stk verify --file save-token/suggestions-<agent-name>.json` 校验**自己这一个文件**的格式（字段齐全、`operationType`/`risk`/`level` 合法、`estimatedSavingTokens ≥ 0`、`agentName` 与文件名匹配等）。
+3. **校验失败** → 子 Agent 依据 `stk verify` 输出的具体错误行**自我修复并覆盖重写**该文件，再次 `stk verify --file`，直至通过。
+4. **有限重试**：同一文件连续校验失败达 3 次仍不通过 → 放弃该维度，标记该子 Agent 为 `FAILED`（**不再无限重试**），汇总其余，摘要标注失败原因。
+5. 校验通过 → 状态推进到 `SUCCESS`，汇总阶段（步骤 5）直接消费该文件。
+
+> **校验是确定性死逻辑，归程序（`stk verify`）而非 LLM 重读自检**：子 Agent 负责"产出建议 + 依据错误修复"，`stk verify` 负责"判定格式对错"，二者职责分离（Generate → Independent Verify）。格式校验不涉及主观质量判断，不存在"执行者自我验收的确认偏差"。
+>
+> **覆盖重写不触发删除**：修复采用覆盖写（`writeFileSync` 同路径），不删除旧文件，避免权限摩擦。
+
+**失败分类与处理**（任一子 Agent 失败/超时）：
+
+| 失败类型 | 判定 | 处理 |
+| --- | --- | --- |
+| `tool_error` | `stk verify` 报错/命令执行失败 | 重试一次 |
+| `context_missing` | 子 Agent 反馈缺少必要输入字段 | 补全输入后重派发该 Agent |
+| `impl_error` | `stk verify` 返回格式错误清单 | 子 Agent 按清单覆盖重写（见上"有限重试"） |
+| `plan_error` | 连续 3 次 `impl_error` 仍失败 | 放弃该维度，标记 `FAILED`，不重规划 |
+| `unknown` | 超时 / 未产出文件 | 跳过该维度，汇总其余 |
 
 **子 Agent 启动条件表**
 
@@ -186,7 +224,9 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 **步骤 5: 合并与落盘**
 
-读取 `save-token/suggestions-*.json` 全部文件，并额外读取前置调研产出 `save-token/repo-analysis.json` 的 `suggestions[]`（第 7 组"仓库专项"来源，非并行 suggestion 文件），合并所有 `suggestions[]`，按 `category` 分组，写入 `save-token/tasks.md`。
+读取 `save-token/suggestions-*.json` 全部文件（各文件已由对应子 Agent 在落盘时 `stk verify --file` 校验通过，主 Agent **不再重复跑全量 verify**，信任子 Agent 自验），并额外读取前置调研产出 `save-token/repo-analysis.json` 的 `suggestions[]`（第 7 组"仓库专项"来源，非并行 suggestion 文件），合并所有 `suggestions[]`，按 `category` 分组，写入 `save-token/tasks.md`。
+
+> 主 Agent 汇总前仅做**轻量自查**：确认每个已启动子 Agent 均有非空文件、且 `agentName` 与文件名匹配（对应 `stk verify` 的部分规则）。若发现某文件缺失（如子 Agent 未落盘即失败），按"失败分类"处理，不强行合并空数据。
 
 **步骤 5a: 跨 Agent 去重与冲突仲裁（合并后、分组落盘前）**
 
@@ -220,6 +260,7 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 `tasks.md` 落盘且摘要打印完成后，删除所有子 Agent 产出的中间 JSON，只保留最终 `tasks.md`（以及阶段 1/2 的诊断与扫描产物）：
 
 ```bash
+# 清理 stk-analyze 本次自产的中间态建议文件（格式已通过 stk verify，删除安全）
 rm -f save-token/suggestions-*.json
 ```
 
@@ -228,10 +269,12 @@ rm -f save-token/suggestions-*.json
 - 前置调研 `repo-analysis.json` 同为中间产物，但其 `suggestions[]` 已并入 `tasks.md` 第 7 组，故一并删除：
 
 ```bash
+# 清理前置调研中间态（suggestions 已并入 tasks.md，删除安全）
 rm -f save-token/repo-analysis.json
 ```
 
 - 仅删除本次实际生成过的文件；未启动的子 Agent 无对应文件，`rm -f` 安全跳过。
+- 这些文件均为 `stk-analyze` 本次会话自产、且已通过 `stk verify` 校验的中间态，删除不影响任何用户配置与最终 `tasks.md`。
 
 ## 统一 Schema
 
@@ -263,6 +306,20 @@ rm -f save-token/repo-analysis.json
 
 顶层字段：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`。
 每条 `suggestion` 字段：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level` / `evidence?`。
+
+**验收条件（Acceptance，即 `stk verify` 的校验规则，二者必须一致）**：
+
+- 顶层必填：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`。
+- 每条必填：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level`。
+- `operationType` ∈ `src/types/index.ts` 的 `OperationType` 联合类型（含扩展值 `agent-opt` / `knowledge-base` / `plugin-opt` / `disable-plugin` / `migrate-plugin` / `migrate-skill` / `disable-model-invocation` / `skill-model-downgrade`）。
+- `risk` ∈ `low` | `medium` | `high`。
+- `level` ∈ `初级` | `中级` | `高级`。
+- `estimatedSavingTokens` 为非负整数（未知填 0 并在 `detail` 描述效果）。
+- `target` 为非空字符串。
+- `reversible` 为布尔值。
+- `agentName` 与文件名 `suggestions-<agent-name>.json` 匹配。
+
+> 每条规则均可由 `stk verify` 机械判定。子 Agent 落盘后**必须**运行 `stk verify --file` 校验通过（见步骤 4），不得仅凭主观判断"格式对了"。
 
 > `evidence?` 可选。汇总阶段（步骤 5a）对完全重复建议合并时会**追加**"来源：<agentName1> + <agentName2>"，故该字段允许在主流程中扩展，各子 Agent 初版输出无需预填合并来源。
 
@@ -360,7 +417,8 @@ rm -f save-token/repo-analysis.json
 ## 边界
 
 - 不做任何用户侧配置文件修改，仅产出 `suggestions-*.json` 与 `tasks.md` 等中间/最终产物。
-- 汇总生成 `tasks.md` 后执行收尾清理（步骤 7）：删除 `suggestions-*.json` 与 `repo-analysis.json`，仅保留 `tasks.md` 及诊断/扫描产物。
+- 子 Agent 落盘后**自行 `stk verify --file` 校验格式**（程序化死逻辑），失败覆盖重写，连续 3 次失败则标记该维度 `FAILED` 跳过（有限重试，不无限循环）。
+- 汇总生成 `tasks.md` 后执行收尾清理（步骤 7）：删除 `suggestions-*.json` 与 `repo-analysis.json`（均经校验、安全），仅保留 `tasks.md` 及诊断/扫描产物。
 - 无法估算节省时 `estimatedSavingTokens` 填 0 并在 `detail` 描述效果。
 - 汇总阶段（步骤 5a）对同一 `target` 的重复/冲突建议做仲裁合并，tasks.md 中同一 `target` 只出现一条最终建议。
 - 子 Agent 超时/失败 → 跳过该维度，汇总其余，摘要标注。

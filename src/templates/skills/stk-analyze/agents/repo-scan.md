@@ -44,6 +44,15 @@
 - `purpose === 'doc'` → 文档场景不需要排除文档
 - 以上情况 `flags` 全 false，`suggestions` 为空数组
 
+## 验收条件（Acceptance）
+
+落盘 `save-token/repo-analysis.json` 后，用 `stk verify`（无参全量模式会校验 `repo-analysis.json`）确认格式合规：
+
+- 顶层含 `generatedAt` / `input` / `flags` / `skipped` / `suggestions[]`。
+- `suggestions[]` 每条字段规则与统一 Schema 一致（`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level` 等）。
+- `flags` 键名须与判定规则表一致（`docsOverInjected` / `needsMonorepoSplit` / `needsIndex`）。
+- 校验失败 → 依据 `stk verify` 错误行**覆盖重写**并再次校验，连续 3 次失败则放弃"仓库专项"维度。
+
 ## suggestion 生成规则（flags → suggestions）
 
 | flag | action | operationType | reason | level |

@@ -117,4 +117,26 @@ describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
       expect(rows.length).toBeGreaterThanOrEqual(8)
     })
   })
+
+  describe('T031: sub-agent self-verify with stk verify (programmatic format check)', () => {
+    it('requires sub-agent to write and self-verify its own file via stk verify --file', () => {
+      expect(SKILL).toContain('stk verify --file')
+      expect(SKILL).toContain('suggestions-<agent-name>.json')
+    })
+    it('defines finite retry (overwrite + re-verify, capped) rather than infinite loop', () => {
+      expect(SKILL).toMatch(/连续.*3 次|有限重试|不再无限重试/)
+      expect(SKILL).toContain('覆盖重写')
+    })
+    it('explains format validation belongs to the program, not LLM re-read self-check', () => {
+      expect(SKILL).toMatch(/死逻辑|程序化/)
+    })
+  })
+
+  describe('T032: explicit state machine', () => {
+    it('defines PENDING/READY/RUNNING/SUCCESS/FAILED/RETRYING states', () => {
+      for (const s of ['PENDING', 'READY', 'RUNNING', 'SUCCESS', 'FAILED', 'RETRYING']) {
+        expect(SKILL, `missing state: ${s}`).toContain(s)
+      }
+    })
+  })
 })

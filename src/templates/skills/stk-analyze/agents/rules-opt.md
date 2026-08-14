@@ -78,6 +78,15 @@ CodeBuddy 规则支持 YAML frontmatter 控制加载行为（基于 memory.md �
 - 规则内容无法判断主题（无 name 线索）→ 不产出 paths 建议
 - **不产出"指令主文件（memoryMd）下沉为 rules"建议**（交 agent `memory-md`）
 
+## 验收条件（Acceptance，与 `stk verify` 校验规则一致）
+
+落盘后**必须**运行 `stk verify --file save-token/suggestions-<name>.json` 校验通过，不得仅凭主观判断"格式对了"。核心规则：
+
+- 顶层必填：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`；`agentName` 须与文件名 `suggestions-<name>.json` 匹配。
+- 每条必填：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level`。
+- `operationType` ∈ `OperationType` 联合类型；`risk` ∈ `low|medium|high`；`level` ∈ `初级|中级|高级`；`estimatedSavingTokens` ≥ 0；`target` 非空；`reversible` 布尔。
+- 校验失败 → 依据 `stk verify` 输出的错误行**覆盖重写**并再次校验，连续 3 次失败则放弃本维度。
+
 ## level 判定
 
 | level | 命中条件 |

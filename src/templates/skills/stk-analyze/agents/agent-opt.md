@@ -78,6 +78,15 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 - `builtinTools` 缺失导致无法查得工具 token 体量 → 仍可按工具名产出清单，`estimatedSavingTokens` 用 80 兜底
 - 子代理 `name` 为系统内置 Agent（`Explore` / `statusline-setup` / `Plan`）→ 不产出（系统代理不开放 tools 配置，不可优化）
 
+## 验收条件（Acceptance，与 `stk verify` 校验规则一致）
+
+落盘后**必须**运行 `stk verify --file save-token/suggestions-<name>.json` 校验通过，不得仅凭主观判断"格式对了"。核心规则：
+
+- 顶层必填：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`；`agentName` 须与文件名 `suggestions-<name>.json` 匹配。
+- 每条必填：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level`。
+- `operationType` ∈ `OperationType` 联合类型；`risk` ∈ `low|medium|high`；`level` ∈ `初级|中级|高级`；`estimatedSavingTokens` ≥ 0；`target` 非空；`reversible` 布尔。
+- 校验失败 → 依据 `stk verify` 输出的错误行**覆盖重写**并再次校验，连续 3 次失败则放弃本维度。
+
 ## level 判定
 
 | level | 命中条件 |

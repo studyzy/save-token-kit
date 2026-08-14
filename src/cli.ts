@@ -6,10 +6,11 @@ import { runInit } from './commands/init.js'
 import { runInstall } from './commands/install.js'
 import { runRollback } from './commands/rollback.js'
 import { runProxy } from './commands/proxy.js'
+import { runVerify } from './commands/verify.js'
 
 /**
  * CLI entry point for `stk`.
- * Registers the three top-level commands: diagnose, init, rollback (rollback reserved).
+ * Registers the top-level commands: diagnose, init, rollback (rollback reserved), install, proxy, verify.
  */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const cli = cac('stk')
@@ -62,6 +63,13 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         upstream: options.upstream,
         traceDir: options.traceDir,
       })
+    })
+
+  cli
+    .command('verify', 'Validate stk-analyze suggestion files against the format contract')
+    .option('--file <path>', 'Validate a single suggestion file instead of all under save-token/')
+    .action(async (options: { file?: string }) => {
+      await runVerify(options)
     })
 
   cli.help()

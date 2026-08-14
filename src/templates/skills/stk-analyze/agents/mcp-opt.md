@@ -49,6 +49,15 @@ TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`
 
 > **⚠️ 启动即必须优化**：只要 `mcpList[]` 中存在 `status === "enabled"` 的 MCP，`mcp-opt` 就必须真实运行优化逻辑，**不得因该 MCP 已 `deferLoading === true` 就整体跳过**。延迟加载仅消除"设置 defer"这一条建议，但 CLI 替代（TAPD/GitHub/工蜂 等）、异常空 MCP、禁用残留等规则与 defer 状态无关，仍须逐项判定并产出。若遍历后确无任何可优化维度，才返回 `skipped: true`。
 
+## 验收条件（Acceptance，与 `stk verify` 校验规则一致）
+
+落盘后**必须**运行 `stk verify --file save-token/suggestions-<name>.json` 校验通过，不得仅凭主观判断"格式对了"。核心规则：
+
+- 顶层必填：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`；`agentName` 须与文件名 `suggestions-<name>.json` 匹配。
+- 每条必填：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level`。
+- `operationType` ∈ `OperationType` 联合类型；`risk` ∈ `low|medium|high`；`level` ∈ `初级|中级|高级`；`estimatedSavingTokens` ≥ 0；`target` 非空；`reversible` 布尔。
+- 校验失败 → 依据 `stk verify` 输出的错误行**覆盖重写**并再次校验，连续 3 次失败则放弃本维度。
+
 ## level 判定
 
 | level | 命中条件 |
