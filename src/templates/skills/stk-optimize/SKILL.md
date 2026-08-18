@@ -1,7 +1,8 @@
 ---
 name: stk-optimize
 description: '执行Token优化任务'
-argument-hint: ''
+argument-hint: '初级、中级、高级、全部'
+disable-model-invocation: true
 ---
 
 # SKILL: stk-optimize

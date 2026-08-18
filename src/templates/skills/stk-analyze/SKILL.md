@@ -1,6 +1,7 @@
 ---
 name: stk-analyze
 description: '分析用户AI使用场景，提供Token节省方案'
+disable-model-invocation: true
 ---
 
 # SKILL: stk-analyze

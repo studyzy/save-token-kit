@@ -1,7 +1,7 @@
 ---
 name: stk-report
 description: '对比优化前后诊断报告'
-argument-hint: ''
+disable-model-invocation: true
 ---
 
 # SKILL: stk-report

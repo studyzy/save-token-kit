@@ -19,6 +19,7 @@ import {
 } from '../utils/fs-operations.js'
 import { estimate, estimateMcpTokens, impactLevel } from './token-estimator.js'
 import { getHomeDir } from '../utils/platform.js'
+import { dirname } from 'node:path'
 
 export interface FsCollectResult {
   mcpList: McpEntry[]
@@ -243,14 +244,70 @@ function scanMarketplaceSkills(marketplacesDir: string, settings: SettingsFile):
     if (!exists(pluginsDir)) continue
     for (const pluginId of readDir(pluginsDir)) {
       if (!enabledPluginIds.has(`${marketplace}/${pluginId}`)) continue
-      const skillsDir = `${pluginsDir}/${pluginId}/skills`
+      const pluginDir = `${pluginsDir}/${pluginId}`
+      // Subdir layout: multiple skills under plugins/<pluginId>/skills/
+      const skillsDir = `${pluginDir}/skills`
       const skills = scanSkills(skillsDir, 'plugin-marketplace')
       for (const s of skills) {
         entries.push({ ...s, source: 'plugin-marketplace' })
       }
+      // Flat layout: a plugin whose SKILL.md sits directly in plugins/<pluginId>/
+      if (skills.length === 0) {
+        const flat = scanFlatSkill(`${pluginDir}/SKILL.md`, pluginId)
+        if (flat) entries.push(flat)
+      }
     }
   }
+
+  // The runtime cache is a sibling of marketplaces/ and may hold plugins whose
+  // marketplace dir is empty (e.g. content-research-writer). Cache layout:
+  // plugins/cache/<marketplace>/<pluginId>/<version>/SKILL.md
+  const cacheDir = `${dirname(marketplacesDir)}/cache`
+  if (exists(cacheDir) && isDirectory(cacheDir)) {
+    for (const marketplace of readDir(cacheDir)) {
+      const mpCacheDir = `${cacheDir}/${marketplace}`
+      if (!isDirectory(mpCacheDir)) continue
+      for (const pluginId of readDir(mpCacheDir)) {
+        if (!enabledPluginIds.has(`${marketplace}/${pluginId}`)) continue
+        const pluginDir = `${mpCacheDir}/${pluginId}`
+        if (!isDirectory(pluginDir)) continue
+        for (const version of readDir(pluginDir)) {
+          const versionDir = `${pluginDir}/${version}`
+          if (!isDirectory(versionDir)) continue
+          const subSkills = scanSkills(`${versionDir}/skills`, 'plugin-marketplace')
+          for (const s of subSkills) {
+            entries.push({ ...s, source: 'plugin-marketplace' })
+          }
+          const flat = scanFlatSkill(`${versionDir}/SKILL.md`, pluginId)
+          if (flat) entries.push(flat)
+        }
+      }
+    }
+  }
+
   return entries
+}
+
+/**
+ * Scan a single flat-layout plugin skill (SKILL.md directly in a plugin dir).
+ * Returns null when the file does not exist.
+ */
+function scanFlatSkill(skillMd: string, fallbackName: string): SkillEntry | null {
+  if (!exists(skillMd)) return null
+  const content = readFile(skillMd)
+  const stats = getStats(skillMd)
+  const { name: frontName, description, model, context } = parseSkillFrontmatter(content)
+  return {
+    name: frontName ?? fallbackName,
+    source: 'plugin-marketplace',
+    sourcePath: skillMd,
+    description,
+    model,
+    context,
+    fileSizeBytes: stats.size,
+    estimatedTokens: estimate(content),
+    loaded: null,
+  }
 }
 
 /**
