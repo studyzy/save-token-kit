@@ -248,7 +248,7 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 - **一个 SKILL 一个 Task、一个工具一个 Task、一个 MCP 一个 Task，绝不合并**
 - 每条 Task 含可执行 `action`、预估节省 Token、原因
 - 已跳过的子 Agent 在摘要区列出
-- ID 在全文件范围重新编号（S1, S2, ...）保证唯一
+- 仲裁合并用 suggestion 内部 ID（S1, S2, ...）保证唯一；tasks.md 落盘时另为每条 Task 生成用户可见的 `<N.M>` 编号（N 为组标题编号，M 为组内序号），供用户精确指定要执行的 Task
 
 **步骤 6: 输出摘要**
 
@@ -332,9 +332,9 @@ rm -f save-token/repo-analysis.json
 
 | 等级 | 命中条件（按 `target` / 对象名匹配） |
 | ---- | ------------------------------------- |
-| 初级 | `target` 或工具名为 `rtk`、`caveman`、`caveman-*`、`ponytail`、`ponytail-*`、`karpathy-skills` 之一（省 Token 工具类，安装即用、零配置）；或属于 Plugin 优化（子 Agent `plugin-opt` 产出，如 `disable-plugin` / `migrate-plugin` 类） |
+| 初级 | `target` 或工具名为 `rtk` 之一（省 Token 工具类，安装即用、零配置）；或属于 Plugin 优化（子 Agent `plugin-opt` 产出，如 `disable-plugin` / `migrate-plugin` 类） |
 | 高级 | `target` 为 `headroom`，或属于代码知识库类（子 Agent `knowledge-base` 产出，如 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` 等） |
-| 中级 | 其余所有：SKILL 优化、Agent 优化、MCP 优化、Rules 优化、Hook 审查、仓库专项等 |
+| 中级 | 其余所有：`caveman` / `caveman-*` / `ponytail` / `ponytail-*` / `karpathy-skills`、SKILL 优化、Agent 优化、MCP 优化、Rules 优化、Hook 审查、仓库专项等 |
 
 > 同一 Agent 内部混合示例：`tool-enable` 中"启用 RTK"→ 初级，"启用 Headroom"→ 高级。各子 Agent 在输出时**逐条**按上表判定 `level`，不得整组统一标级。
 
@@ -351,60 +351,60 @@ rm -f save-token/repo-analysis.json
 
 ## 1. 第三方工具启用
 
-- [ ] [初级] 启用 RTK（预估节省 ~XXX Token）
+- [ ] 1.1 [初级] 启用 RTK（预估节省 ~XXX Token）
       原因：已安装未启用，CLI 透明代理省 Token
-- [ ] [高级] 启用 Headroom（预估节省 ~6200 Token）
+- [ ] 1.2 [高级] 启用 Headroom（预估节省 ~6200 Token）
       原因：已安装未启用，可提供 47-92% 上下文压缩
 
 ## 2. MCP 优化
 
-- [ ] [中级] 移除 mcp: skills-sec-audit（预估节省 ~XXX Token）
+- [ ] 2.1 [中级] 移除 mcp: skills-sec-audit（预估节省 ~XXX Token）
       原因：disabled 且无工具
 
 ## 3. 插件优化
 
-- [ ] [初级] 禁用 plugin: office-suite（预估节省 ~1000 Token）
+- [ ] 3.1 [初级] 禁用 plugin: office-suite（预估节省 ~1000 Token）
       原因：purpose=code 与办公领域不符，全局启用浪费上下文
-- [ ] [初级] 将 plugin: react-ui-kit 从 user 迁移到 project 层（预估节省 ~1000 Token）
+- [ ] 3.2 [初级] 将 plugin: react-ui-kit 从 user 迁移到 project 层（预估节省 ~1000 Token）
       原因：前端 UI 领域与当前前端项目强相关，全局常驻浪费其他项目
 
 ## 4. 子代理工具优化
 
-- [ ] [中级] 为 ponytail 声明最小 tools 列表（预估节省 ~XXX Token）
+- [ ] 4.1 [中级] 为 ponytail 声明最小 tools 列表（预估节省 ~XXX Token）
       原因：plugin 未声明 tools，全量加载
 
 ## 5. Skill 优化
 
-- [ ] [中级] 禁用 skill: ponytail-help（预估节省 ~48 Token）
+- [ ] 5.1 [中级] 禁用 skill: ponytail-help（预估节省 ~48 Token）
       原因：帮助类 Skill，代码场景非高频
 
 ## 6. 知识图谱推荐
 
-- [ ] [高级] 启用 Graphify（预估节省 依赖图谱检索替代回读）
+- [ ] 6.1 [高级] 启用 Graphify（预估节省 依赖图谱检索替代回读）
       原因：codeFileCount=42, topLanguages=[TypeScript,JavaScript]
 
 ## 7. 仓库专项
 
-- [ ] [中级] 排除 docs/ 出自动上下文（预估节省 ~3000 Token）
+- [ ] 7.1 [中级] 排除 docs/ 出自动上下文（预估节省 ~3000 Token）
       原因：同仓，文档每次对话重复注入
 
 ## 8. Rules 优化
 
-- [ ] [中级] 规则 lint-rule 加 paths 作用域：src/**/*.ts（预估节省 ~XXX Token）
+- [ ] 8.1 [中级] 规则 lint-rule 加 paths 作用域：src/**/*.ts（预估节省 ~XXX Token）
       原因：alwaysApply=true, paths=[]
-- [ ] [中级] 将 <memoryMd> 中"文档读取约定"拆分为 rules: doc-read（预估节省 ~XXX Token）
+- [ ] 8.2 [中级] 将 <memoryMd> 中"文档读取约定"拆分为 rules: doc-read（预估节省 ~XXX Token）
       原因：rulesTokens 整体偏大，项目级细节可下沉为按需加载规则
 
 ## 9. <memoryMd> 审查
 
-- [ ] [初级] 精简 <memoryMd> 至 ≤200 行（预估节省 ~XXX Token）
+- [ ] 9.1 [初级] 精简 <memoryMd> 至 ≤200 行（预估节省 ~XXX Token）
       原因：lines=73 含可推断数据流/架构描述，主文件每次会话全量注入，应下沉为 @docs/xxx.md 或 rules
-- [ ] [初级] 为 <memoryMd> 增加关键文件/目录索引
+- [ ] 9.2 [初级] 为 <memoryMd> 增加关键文件/目录索引
       原因：缺 Resource Map，AI 需自行探索文件系统
 
 ## 10. Hook 审查
 
-- [ ] [中级] 精简 hook: rtk（预估节省 ~XXX Token）
+- [ ] 10.1 [中级] 精简 hook: rtk（预估节省 ~XXX Token）
       原因：每次对话注入压缩提示
 
 ---
@@ -413,7 +413,7 @@ rm -f save-token/repo-analysis.json
 总计：预估节省 ~XXXXX Token (XX.X%)
 ```
 
-每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Command 优化 → 9.Rules 优化 → 10.<memoryMd> 审查 → 11.Hook 审查。每条一行 `- [ ]` + 原因缩进两空格，总计行末尾用 `---` 分隔。
+每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Command 优化 → 9.Rules 优化 → 10.<memoryMd> 审查 → 11.Hook 审查。每条一行 `- [ ] <N.M> [等级] 描述` + 原因缩进两空格，总计行末尾用 `---` 分隔。其中 `<N.M>` 为该 Task 的全局唯一编号：`N` 取所属组标题编号（如 `## 8.` 组内为 `8.x`），`M` 为组内从 1 递增的序号，供用户精确指定要执行的 Task。
 
 ## 边界
 

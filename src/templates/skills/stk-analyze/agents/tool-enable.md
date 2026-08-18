@@ -54,9 +54,9 @@
 
 | level | 命中条件（`target` / 工具名） |
 | --- | --- |
-| 初级 | `rtk` / `caveman` / `caveman-*` / `ponytail` / `ponytail-*` / `karpathy-skills`（安装即用、零配置） |
-| 中级 | `headroom`（需上下文压缩配置） / `context-mode`（需 MCP + Hook 配置） |
-| 高级 | 无（知识库类工具交 agent 6，本 Agent 不产出高级建议） |
+| 初级 | `rtk`（安装即用、零配置） |
+| 中级 | `caveman` / `caveman-*` / `ponytail` / `ponytail-*` / `karpathy-skills` / `context-mode`（需 MCP + Hook 配置） |
+| 高级 | `headroom`（需上下文压缩配置，配置复杂度高）；知识库类工具交 agent 6，本 Agent 不产出 |
 
 ## estimatedSavingTokens 估算口径
 
