@@ -1,6 +1,6 @@
 ---
 name: stk-diagnose
-description: '采集 AI Agent（CodeBuddy / Claude Code / CodeX）会话的 Token 占用诊断数据'
+description: 'AI Agent体检，采集会话的 Token 占用诊断数据'
 disable-model-invocation: true
 ---
 
