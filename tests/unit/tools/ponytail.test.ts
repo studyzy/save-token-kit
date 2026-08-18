@@ -1,10 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { ponytailTool } from '@/tools/impl/ponytail.js'
-import { mkdirSync, rmSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ToolDetection } from '@/types/index.js'
 
 const HOME = join(process.cwd(), 'tests', '.tmp-ponytail-home')
+
+const settingsPath = () => join(HOME, '.codebuddy', 'settings.json')
+
+function writeSettings(enabledPlugins: Record<string, boolean>): void {
+  mkdirSync(join(HOME, '.codebuddy'), { recursive: true })
+  writeFileSync(settingsPath(), JSON.stringify({ enabledPlugins }))
+}
 
 describe('ponytailTool', () => {
   const originalHome = process.env.HOME
@@ -36,11 +43,20 @@ describe('ponytailTool', () => {
     expect(await ponytailTool.detect()).toBe(true)
   })
 
-  it('isEnabled mirrors detect', async () => {
-    expect(await ponytailTool.isEnabled()).toBe(false)
+  it('isEnabled false when plugin not enabled in settings', async () => {
     mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'ponytail'), {
       recursive: true,
     })
+    expect(await ponytailTool.isEnabled()).toBe(false)
+  })
+
+  it('isEnabled true only when plugin enabled in settings', async () => {
+    mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'ponytail'), {
+      recursive: true,
+    })
+    writeSettings({ 'ponytail@ponytail': false })
+    expect(await ponytailTool.isEnabled()).toBe(false)
+    writeSettings({ 'ponytail@ponytail': true })
     expect(await ponytailTool.isEnabled()).toBe(true)
   })
 
