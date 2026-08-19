@@ -290,6 +290,7 @@ export type OperationType =
   | 'migrate-skill' // Move a skill from user-level to project-level scope
   | 'disable-model-invocation' // Restrict a skill to slash-command only (disable-model-invocation: true)
   | 'skill-model-downgrade' // Add `context: fork` + `model: lite` to a skill for cheaper execution
+  | 'tool-opt' // Session-level --tools Defer()/NoDefer() via a cblite alias (e.g. Defer(Task*)/Defer(Agent)/Defer(*PlanMode))
 
 export type RiskLevel = 'low' | 'medium' | 'high'
 

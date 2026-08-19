@@ -31,7 +31,7 @@ describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
     })
   })
 
-  describe('T010/T029: ten sub-agents with existence-based start conditions', () => {
+  describe('T010/T029: eleven sub-agents with existence-based start conditions', () => {
     const agents = [
       'tool-enable',
       'mcp-opt',
@@ -43,8 +43,9 @@ describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
       'rules-opt',
       'memory-md',
       'hook-audit',
+      'tool-opt',
     ]
-    it('defines all 10 sub-agents', () => {
+    it('defines all 11 sub-agents', () => {
       for (const a of agents) {
         expect(SKILL, `missing sub-agent: ${a}`).toContain(a)
       }

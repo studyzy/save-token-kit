@@ -158,6 +158,7 @@ function isOperationType(value: string): boolean {
     'migrate-skill',
     'disable-model-invocation',
     'skill-model-downgrade',
+    'tool-opt',
   ]
   return (ops as string[]).includes(value)
 }

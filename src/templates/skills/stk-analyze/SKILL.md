@@ -218,8 +218,17 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 | 8 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/rules-opt.md   |
 | 9 | `memory-md`      | 项目级指令主文件（`memoryMd`） | `hasMemoryMd === true`                        | @agents/memory-md.md |
 | 10 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/hook-audit.md  |
+| 11 | `tool-opt`       | `builtinTools[]`                  | `agentName ∈ {codebuddy, claude}` **且** 数组非空 **且**（codebuddy：无 `cblite` alias；claude：无已 deny 候选） | @agents/tool-opt.md |
 
-> **注**：`repo-scan` 为前置调研 Agent，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`，其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。并行子 Agent 共 10 个：`tool-enable`、`mcp-opt`、`plugin-opt`、`agent-opt`、`skill-opt`、`knowledge-base`、`command-opt`、`rules-opt`、`memory-md`、`hook-audit`（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入）。各子 Agent 统一以表中**新名**（如 `plugin-opt`/`agent-opt`/`skill-opt`/`command-opt`）标识，禁止输出旧名别名。
+> **`tool-opt` 启动前置判定**（派发前执行）：
+> - **平台限制**：仅当诊断报告 `agentName` 为 `codebuddy` 或 `claude` 时启动；**CodeX 不启动**（无内置工具延迟/禁用统一开关；`mcp_servers.<id>.enabled_tools`/`disabled_tools` 仅 MCP 工具且为白/黑名单禁用）。
+>   - **CodeBuddy**：走 `cblite` alias + `--tools "Defer(...)"`（延迟加载，低频批量收窄）。
+>   - **Claude Code**：走 `~/.claude/settings.json` 的 `permissions.deny`（**禁用**语义），且**只对用户明确确认不使用**的工具建议 deny。
+> - **CodeBuddy 幂等**：运行 `type cblite 2>/dev/null`（或 `alias cblite`），能解析到 → 已存在 `cblite` alias，**不启动**（已就绪）。
+> - **Claude 幂等**：读取 `~/.claude/settings.json` 的 `permissions.deny`，若候选低频工具均已 deny → **不启动**（已就绪）。
+> - 判定失败/无法确认时，按"未就绪"处理并启动（避免漏建议）。
+
+> **注**：`repo-scan` 为前置调研 Agent，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`，其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。并行子 Agent 共 11 个：`tool-enable`、`mcp-opt`、`plugin-opt`、`agent-opt`、`skill-opt`、`knowledge-base`、`command-opt`、`rules-opt`、`memory-md`、`hook-audit`、`tool-opt`（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入）。各子 Agent 统一以表中**新名**（如 `plugin-opt`/`agent-opt`/`skill-opt`/`command-opt`/`tool-opt`）标识，禁止输出旧名别名。
 
 ### 阶段 4: 汇总生成 tasks.md
 
@@ -312,7 +321,7 @@ rm -f save-token/repo-analysis.json
 
 - 顶层必填：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`。
 - 每条必填：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level`。
-- `operationType` ∈ `src/types/index.ts` 的 `OperationType` 联合类型（含扩展值 `agent-opt` / `knowledge-base` / `plugin-opt` / `disable-plugin` / `migrate-plugin` / `migrate-skill` / `disable-model-invocation` / `skill-model-downgrade`）。
+- `operationType` ∈ `src/types/index.ts` 的 `OperationType` 联合类型（含扩展值 `agent-opt` / `knowledge-base` / `plugin-opt` / `disable-plugin` / `migrate-plugin` / `migrate-skill` / `disable-model-invocation` / `skill-model-downgrade` / `tool-opt`）。
 - `risk` ∈ `low` | `medium` | `high`。
 - `level` ∈ `初级` | `中级` | `高级`。
 - `estimatedSavingTokens` 为非负整数（未知填 0 并在 `detail` 描述效果）。
@@ -334,11 +343,11 @@ rm -f save-token/repo-analysis.json
 | ---- | ------------------------------------- |
 | 初级 | `target` 或工具名为 `rtk` 之一（省 Token 工具类，安装即用、零配置）；或属于 Plugin 优化（子 Agent `plugin-opt` 产出，如 `disable-plugin` / `migrate-plugin` 类） |
 | 高级 | `target` 为 `headroom`，或属于代码知识库类（子 Agent `knowledge-base` 产出，如 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` 等） |
-| 中级 | 其余所有：`caveman` / `caveman-*` / `ponytail` / `ponytail-*` / `karpathy-skills`、SKILL 优化、Agent 优化、MCP 优化、Rules 优化、Hook 审查、仓库专项等 |
+| 中级 | 其余所有：`caveman` / `caveman-*` / `ponytail` / `ponytail-*` / `karpathy-skills`、SKILL 优化、Agent 优化、MCP 优化、Rules 优化、Hook 审查、仓库专项、会话级工具延迟加载（`tool-opt`）等 |
 
 > 同一 Agent 内部混合示例：`tool-enable` 中"启用 RTK"→ 初级，"启用 Headroom"→ 高级。各子 Agent 在输出时**逐条**按上表判定 `level`，不得整组统一标级。
 
-`operationType` 取值同 `src/types/index.ts` 的 `OperationType`，含扩展值 `plugin-opt`、`agent-opt`、`knowledge-base`、`disable-plugin`、`migrate-plugin`；既有 `defer-mcp` 语义 = 在 `.mcp.json` 中对该 MCP server 设置 `"defer_loading": true`，使其工具按需加载而非常驻上下文。
+`operationType` 取值同 `src/types/index.ts` 的 `OperationType`，含扩展值 `plugin-opt`、`agent-opt`、`knowledge-base`、`disable-plugin`、`migrate-plugin`、`tool-opt`；既有 `defer-mcp` 语义 = 在 `.mcp.json` 中对该 MCP server 设置 `"defer_loading": true`，使其工具按需加载而非常驻上下文。
 
 ## tasks.md 输出格式
 
@@ -407,13 +416,18 @@ rm -f save-token/repo-analysis.json
 - [ ] 10.1 [中级] 精简 hook: rtk（预估节省 ~XXX Token）
       原因：每次对话注入压缩提示
 
+## 11. 会话级工具延迟加载
+
+- [ ] 11.1 [中级] 建立 cblite alias，延迟加载低频内置工具（预估节省 ~10783 Token）
+      原因：Task*/Web*/Agent/SendMessage/WaitForMcpServers/*PlanMode 低频，收进 Defer 减少常驻工具定义
+
 ---
 
 等级统计：初级 X 项 / 中级 X 项 / 高级 X 项
 总计：预估节省 ~XXXXX Token (XX.X%)
 ```
 
-每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Command 优化 → 9.Rules 优化 → 10.<memoryMd> 审查 → 11.Hook 审查。每条一行 `- [ ] <N.M> [等级] 描述` + 原因缩进两空格，总计行末尾用 `---` 分隔。其中 `<N.M>` 为该 Task 的全局唯一编号：`N` 取所属组标题编号（如 `## 8.` 组内为 `8.x`），`M` 为组内从 1 递增的序号，供用户精确指定要执行的 Task。
+每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Command 优化 → 9.Rules 优化 → 10.<memoryMd> 审查 → 11.Hook 审查 → 12.会话级工具延迟加载。每条一行 `- [ ] <N.M> [等级] 描述` + 原因缩进两空格，总计行末尾用 `---` 分隔。其中 `<N.M>` 为该 Task 的全局唯一编号：`N` 取所属组标题编号（如 `## 8.` 组内为 `8.x`），`M` 为组内从 1 递增的序号，供用户精确指定要执行的 Task。
 
 ## 边界
 

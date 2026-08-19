@@ -62,6 +62,9 @@ disable-model-invocation: true
 | `migrate-plugin` | — | `@agents/plugin-opt.md` | 修改 settings.json 迁移 Plugin 作用域 |
 | `memory-md-review` | — | `@agents/memory-md.md` | 精简/优化指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md） |
 | `rules-opt` | — | `@agents/rules-opt.md` | 修改 rules 配置 |
+| `tool-opt` | `codebuddy` / `claude`（诊断 agentName） | `@agents/tool-opt.md` | 收窄低频内置工具：CodeBuddy 建 cblite alias（Defer 延迟），Claude 写 permissions.deny（禁用，需用户确认） |
+
+> **`tool-opt` 平台限制**：按诊断 `agentName` 分支——**CodeBuddy** 走 `cblite` alias（`--tools "Defer(...)"` 延迟加载），**Claude Code** 走 `~/.claude/settings.json` 的 `permissions.deny`（禁用语义，仅落地用户明确确认不使用的工具）；**CodeX 无此等价机制**，遇到 `tool-opt` 任务时回报跳过并标注原因。
 | 其他 | — | `@agents/generic.md` | 兜底，按 detail 描述执行 |
 
 > **CLI 替代 Agent 说明**：`replace-mcp-with-cli` 按 `target` 名匹配到对应 CLI 安装 Agent。这些 Agent 会先安装 CLI 工具、引导用户认证、再禁用对应 MCP。安装与禁用解耦：安装失败不影响禁用操作。
