@@ -11,3 +11,4 @@ save-token/
 .mcp.json
 graphify-out/
 .serena/
+*.bak
