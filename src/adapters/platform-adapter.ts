@@ -48,7 +48,7 @@ export interface PlatformAdapter {
   resolveInstallPaths(local: boolean): InstallPaths
   /** Environment variable name that points the agent at the proxy base URL */
   readonly proxyEnvVar: string
-  /** URL path the agent appends to the base URL when talking to the API (e.g. "/v2" for CodeBuddy, "" for Claude/CodeX) */
+  /** URL path the agent appends to the base URL when talking to the API (e.g. "/v1" for CodeBuddy/CodeX, "" for Claude) */
   readonly proxyBasePath: string
   /** Trigger command used to force a single LLM request through the proxy */
   readonly triggerCommand: string[]
@@ -60,7 +60,7 @@ export interface PlatformAdapter {
   getHeadlessCommand(prompt: string, schema?: object): string[]
   /** Parse raw headless probe stdout into structured data (null on failure) */
   parseHeadlessOutput(raw: string): unknown
-  /** URL path prefix to capture (e.g. "/v2/" for CodeBuddy, "/v1/" for Claude) */
+  /** URL path prefix to capture (e.g. "/v1/" for CodeBuddy/Claude/CodeX) */
   readonly capturePathPrefix: string
   /** Default upstream API base URL (e.g. "https://api.anthropic.com") */
   readonly defaultApiBase: string
@@ -81,4 +81,19 @@ export interface PlatformAdapter {
    * (e.g. CodeX) block on a piped stdin, so stdin must be ignored.
    */
   readonly triggerNodeOptions?: Record<string, unknown>
+  /**
+   * Whether the agent's own config (e.g. `~/.claude/settings.json` env) can
+   * override the proxy env var set by `diagnose`. When true, `diagnose` must
+   * isolate the agent's config dir (Claude Code reads `CLAUDE_CONFIG_DIR`) so
+   * the process-env `ANTHROPIC_BASE_URL` redirection actually takes effect.
+   */
+  readonly needsIsolatedConfigDir?: boolean
+  /**
+   * Environment variables to retain from the agent's own config (e.g.
+   * `~/.claude/settings.json` env) when `diagnose` isolates the config dir.
+   * The proxy env var (`ANTHROPIC_BASE_URL`) is intentionally excluded so the
+   * proxy redirection wins. Used to preserve credentials (e.g. `ANTHROPIC_AUTH_TOKEN`)
+   * that would otherwise be hidden by config-dir isolation.
+   */
+  readonly configDirRetainedEnv?: () => Record<string, string>
 }

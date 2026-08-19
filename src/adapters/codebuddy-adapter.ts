@@ -21,9 +21,9 @@ export class CodeBuddyAdapter implements PlatformAdapter {
   readonly supported = true
   readonly statusLabel = '可用'
   readonly proxyEnvVar = 'CODEBUDDY_BASE_URL'
-  readonly proxyBasePath = '/v2'
+  readonly proxyBasePath = '/v1'
   readonly triggerCommand = ['codebuddy', '-p', 'Hello', '-y', '--max-turns', '1']
-  readonly capturePathPrefix = '/v2/'
+  readonly capturePathPrefix = '/v1/'
   readonly defaultApiBase = 'https://tencent.sso.copilot.tencent.com'
 
   resolveInstallPaths(local: boolean): InstallPaths {

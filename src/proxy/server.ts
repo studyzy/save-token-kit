@@ -9,10 +9,21 @@ export interface ProxyOptions {
   port?: number
   /** If set, write every request/response pair as JSON files under this dir. */
   traceDir?: string
-  /** URL path prefix to capture (e.g. "/v2/" for CodeBuddy, "/v1/" for Claude) */
+  /** URL path prefix to capture (e.g. "/v1/" for CodeBuddy/Claude/CodeX) */
   capturePathPrefix?: string
   /** Default upstream API base URL when apiBaseUrl is not set */
   defaultApiBase?: string
+  /**
+   * When true, respond to captured requests with a protocol-appropriate mock
+   * "Hello" response instead of forwarding to the real upstream. The response
+   * protocol is selected by the request URL path:
+   *   - `/v1/chat/completions` -> OpenAI Chat (CodeBuddy)
+   *   - `/v1/messages`         -> Anthropic Messages (Claude Code)
+   *   - `/v1/responses`        -> OpenAI Responses (CodeX)
+   * Used by `stk diagnose`, which only needs the intercepted request bodies for
+   * its report and so avoids depending on a reachable upstream.
+   */
+  mock?: boolean
 }
 
 export interface ProxyInstance {
@@ -38,16 +49,19 @@ interface TraceContext {
 
 /**
  * Start a transparent HTTP proxy on 127.0.0.1.
- * Intercepts POST /v2/* requests, captures request bodies,
- * and forwards everything to the real CodeBuddy API backend.
+ * Captures POST requests under the configured `capturePathPrefix` (default
+ * `/v2/`; `stk diagnose` passes `/v1/` for Claude/CodeX and `/v1/chat/completions`,
+ * `/v1/messages`, `/v1/responses` for the three mock protocols), captures request
+ * bodies, and forwards everything to the real LLM API backend (unless mocking).
  */
 export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
   const capturePrefix = options?.capturePathPrefix ?? '/v2/'
   const defaultApi = options?.defaultApiBase ?? DEFAULT_CODEBUDDY_API
   const apiBaseUrl = options?.apiBaseUrl ?? process.env.CODEBUDDY_API_BASE ?? defaultApi
-  const target = new URL(apiBaseUrl)
   const port = options?.port ?? 54321
   const traceDir = options?.traceDir
+  const mock = options?.mock ?? false
+  const target = mock ? undefined : new URL(apiBaseUrl)
 
   const instance: ProxyInstance = {
     port: 0,
@@ -94,18 +108,39 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
         const skipTrace = purposeStr !== '' && skipPurposes.has(purposeStr)
         const traceContext = traceDir && !skipTrace ? prepareTrace(req, rawBody, traceDir) : null
 
+        // Mock mode: answer with a protocol-appropriate "Hello" response so the
+        // agent's probe request completes without a real upstream. The protocol
+        // is chosen by the request URL path (see detectProtocol). Diagnosis only
+        // reads captured request bodies, so no response content matters.
+        // (Mock mode is used by `stk diagnose`, which does not set traceDir.)
+        if (mock) {
+          const protocol = detectProtocol(req.url ?? '')
+          const wantsStream = isStreamingRequest(bodyStr)
+          if (wantsStream) {
+            writeMockStream(res, protocol)
+          } else {
+            const mockBody = JSON.stringify(buildMockResponse(protocol))
+            res.writeHead(200, {
+              'content-type': 'application/json',
+              'content-length': Buffer.byteLength(mockBody),
+            })
+            res.end(mockBody)
+          }
+          return
+        }
+
         // Forward to real API. Preserve the upstream base path so a base URL
         // with a path prefix (e.g. ANTHROPIC_BASE_URL=https://host/anthropic)
         // still reaches the correct endpoint.
-        const isHttps = target.protocol === 'https:'
+        const isHttps = target!.protocol === 'https:'
         const forwarder = isHttps ? https : http
         const forward = forwarder.request(
           {
-            hostname: target.hostname,
-            port: target.port || (isHttps ? 443 : 80),
-            path: joinForwardPath(target.pathname, req.url ?? '/'),
+            hostname: target!.hostname,
+            port: target!.port || (isHttps ? 443 : 80),
+            path: joinForwardPath(target!.pathname, req.url ?? '/'),
             method: req.method,
-            headers: { ...req.headers, host: target.hostname },
+            headers: { ...req.headers, host: target!.hostname },
           },
           (forwardRes) => {
             res.writeHead(forwardRes.statusCode ?? 200, forwardRes.headers)
@@ -264,6 +299,231 @@ function joinForwardPath(basePathname: string, requestUrl: string): string {
   const base = basePathname === '' || basePathname === '/' ? '' : basePathname.replace(/\/+$/, '')
   const rel = requestUrl.startsWith('/') ? requestUrl : `/${requestUrl}`
   return `${base}${rel}`
+}
+
+/**
+ * Determine whether a captured request body asks for a streaming response
+ * (Anthropic Messages `"stream": true`, OpenAI Chat `"stream": true`,
+ * OpenAI Responses `"stream": true`).
+ */
+function isStreamingRequest(bodyStr: string): boolean {
+  try {
+    const parsed = JSON.parse(bodyStr) as { stream?: unknown }
+    return parsed.stream === true
+  } catch {
+    return false
+  }
+}
+
+/** Supported mock LLM protocols, selected by request URL path. */
+type MockProtocol = 'anthropic' | 'openai-chat' | 'openai-responses'
+
+/**
+ * Map a request URL path to the mock protocol it speaks.
+ *   - `/v1/chat/completions` -> OpenAI Chat (CodeBuddy)
+ *   - `/v1/responses`        -> OpenAI Responses (CodeX)
+ *   - everything else        -> Anthropic Messages (Claude Code, default)
+ */
+function detectProtocol(url: string): MockProtocol {
+  if (url.includes('/v1/chat/completions')) return 'openai-chat'
+  if (url.includes('/v1/responses')) return 'openai-responses'
+  return 'anthropic'
+}
+
+/**
+ * Write an SSE "Hello" stream for the given protocol, satisfying each agent's
+ * streaming probe request.
+ */
+function writeMockStream(res: http.ServerResponse, protocol: MockProtocol): void {
+  res.writeHead(200, {
+    'content-type': 'text/event-stream',
+    'cache-control': 'no-cache',
+    connection: 'keep-alive',
+  })
+
+  if (protocol === 'openai-chat') {
+    writeOpenaiChatStream(res)
+  } else if (protocol === 'openai-responses') {
+    writeOpenaiResponsesStream(res)
+  } else {
+    writeAnthropicStream(res)
+  }
+}
+
+/**
+ * Anthropic Messages streaming format (`/v1/messages`). Claude Code speaks this.
+ */
+function writeAnthropicStream(res: http.ServerResponse): void {
+  const emit = (event: string, data: unknown): void => {
+    res.write(`event: ${event}\n`)
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
+  }
+
+  const startMsg = {
+    id: 'msg_stk_mock',
+    type: 'message',
+    role: 'assistant',
+    content: [],
+    model: 'mock',
+    stop_reason: null,
+    usage: { input_tokens: 1, output_tokens: 0 },
+  }
+  emit('message_start', { type: 'message_start', message: startMsg })
+  emit('content_block_start', {
+    type: 'content_block_start',
+    index: 0,
+    content_block: { type: 'text', text: '' },
+  })
+  emit('content_block_delta', {
+    type: 'content_block_delta',
+    index: 0,
+    delta: { type: 'text_delta', text: 'Hello' },
+  })
+  emit('content_block_stop', { type: 'content_block_stop', index: 0 })
+  emit('message_delta', {
+    type: 'message_delta',
+    delta: { stop_reason: 'end_turn', stop_sequence: null },
+    usage: { output_tokens: 1 },
+  })
+  emit('message_stop', { type: 'message_stop' })
+  res.end()
+}
+
+/**
+ * OpenAI Chat Completions streaming format (`/v1/chat/completions`). CodeBuddy
+ * speaks this. Emits `data:`-only SSE chunks, terminating with `data: [DONE]`.
+ */
+function writeOpenaiChatStream(res: http.ServerResponse): void {
+  const id = 'chatcmpl_stk_mock'
+  const created = Math.floor(Date.now() / 1000)
+  const chunk = (delta: Record<string, unknown>, finish_reason: string | null): void => {
+    const payload = {
+      id,
+      object: 'chat.completion.chunk',
+      created,
+      model: 'mock',
+      choices: [{ index: 0, delta, finish_reason }],
+    }
+    res.write(`data: ${JSON.stringify(payload)}\n\n`)
+  }
+  chunk({ role: 'assistant', content: '' }, null)
+  chunk({ content: 'Hello' }, null)
+  chunk({}, 'stop')
+  res.write('data: [DONE]\n\n')
+  res.end()
+}
+
+/**
+ * OpenAI Responses streaming format (`/v1/responses`). CodeX speaks this.
+ * Uses the `event:` + `data:` SSE shape of the Responses API.
+ */
+function writeOpenaiResponsesStream(res: http.ServerResponse): void {
+  const emit = (event: string, data: unknown): void => {
+    res.write(`event: ${event}\n`)
+    res.write(`data: ${JSON.stringify(data)}\n\n`)
+  }
+  const base = {
+    id: 'resp_stk_mock',
+    object: 'response',
+    created_at: Math.floor(Date.now() / 1000),
+    model: 'mock',
+  }
+
+  emit('response.created', {
+    type: 'response.created',
+    response: { ...base, status: 'in_progress', output: [] },
+  })
+  emit('response.output_item.added', {
+    type: 'response.output_item.added',
+    output_index: 0,
+    item: { id: 'msg_stk_mock', type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+  })
+  emit('response.content_part.added', {
+    type: 'response.content_part.added',
+    item_id: 'msg_stk_mock',
+    output_index: 0,
+    content_index: 0,
+    part: { type: 'output_text', text: '', annotations: [] },
+  })
+  emit('response.output_text.delta', {
+    type: 'response.output_text.delta',
+    item_id: 'msg_stk_mock',
+    output_index: 0,
+    content_index: 0,
+    delta: 'Hello',
+  })
+  emit('response.completed', {
+    type: 'response.completed',
+    response: {
+      ...base,
+      status: 'completed',
+      output: [
+        {
+          id: 'msg_stk_mock',
+          type: 'message',
+          role: 'assistant',
+          status: 'completed',
+          content: [{ type: 'output_text', text: 'Hello', annotations: [] }],
+        },
+      ],
+      usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+    },
+  })
+  res.end()
+}
+
+/**
+ * Build a minimal, protocol-appropriate "Hello" response for a mocked LLM API.
+ * The response is only used to let the agent's probe request complete; content
+ * carries no diagnostic value.
+ */
+function buildMockResponse(protocol: MockProtocol): Record<string, unknown> {
+  if (protocol === 'openai-chat') {
+    return {
+      id: 'chatcmpl_stk_mock',
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model: 'mock',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'Hello' },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    }
+  }
+  if (protocol === 'openai-responses') {
+    return {
+      id: 'resp_stk_mock',
+      object: 'response',
+      created_at: Math.floor(Date.now() / 1000),
+      status: 'completed',
+      model: 'mock',
+      output: [
+        {
+          type: 'message',
+          id: 'msg_stk_mock',
+          role: 'assistant',
+          status: 'completed',
+          content: [{ type: 'output_text', text: 'Hello' }],
+        },
+      ],
+      usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
+    }
+  }
+  // anthropic: Anthropic Messages response.
+  return {
+    id: 'msg_stk_mock',
+    type: 'message',
+    role: 'assistant',
+    content: [{ type: 'text', text: 'Hello' }],
+    model: 'mock',
+    stop_reason: 'end_turn',
+    stop_sequence: null,
+    usage: { input_tokens: 1, output_tokens: 1 },
+  }
 }
 
 /**

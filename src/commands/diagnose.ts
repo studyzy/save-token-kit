@@ -1,7 +1,8 @@
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { exec } from 'tinyexec'
-import { bold, green, red, yellow } from 'ansis'
+import { bold, cyan, green, red, yellow } from 'ansis'
 import { getAdapter } from '../adapters/codebuddy-adapter.js'
 import { detectCodeBuddyVersion } from '../utils/platform.js'
 import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
@@ -62,15 +63,40 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     port: preferredPort,
     capturePathPrefix: adapter.capturePathPrefix,
     apiBaseUrl: upstreamBaseUrl,
+    // Mock the LLM API: diagnosis only needs the intercepted request bodies, so
+    // answer with a protocol "Hello" (selected by request URL path) instead of
+    // depending on a reachable upstream.
+    mock: true,
   })
 
-  // 2. Point agent at the proxy. Most agents append a base path (e.g. /v2) to
+  // 2. Point agent at the proxy. Most agents append a base path (e.g. /v1) to
   // the base URL; CodeX routes via `-c model_providers.<id>.base_url=` config
   // overrides and ignores env vars, so it returns redirect args instead.
   const proxyBaseUrl = `http://127.0.0.1:${proxy.port}`
   const proxyUrl = `${proxyBaseUrl}${adapter.proxyBasePath}`
   const redirectArgs = adapter.proxyRedirectArgs?.(proxyUrl) ?? []
   const usesEnvRedirect = redirectArgs.length === 0
+
+  // For agents whose own config can override the proxy env var (e.g. Claude
+  // Code's `~/.claude/settings.json` env), isolate the config dir to a temp
+  // dir so the process-env redirection below actually takes effect.
+  const configDirVar = 'CLAUDE_CONFIG_DIR'
+  const originalConfigDir = process.env[configDirVar]
+  let isolatedConfigDir: string | undefined
+  // Track env vars we injected during isolation so we can delete them in finally.
+  const injectedEnvKeys = new Set<string>()
+  if (usesEnvRedirect && adapter.needsIsolatedConfigDir) {
+    isolatedConfigDir = mkdtempSync(join(tmpdir(), 'stk-config-'))
+    process.env[configDirVar] = isolatedConfigDir
+    // Isolation hides settings.json env (credentials, model mappings). Preserve
+    // everything except the proxy env var so the probe can authenticate.
+    for (const [k, v] of Object.entries(adapter.configDirRetainedEnv?.() ?? {})) {
+      if (process.env[k] === undefined) {
+        process.env[k] = v
+        injectedEnvKeys.add(k)
+      }
+    }
+  }
   if (usesEnvRedirect) {
     process.env[adapter.proxyEnvVar] = proxyUrl
   }
@@ -78,6 +104,9 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   try {
     // 3. Trigger a single LLM request through the proxy
     console.log(green(`  代理已就绪 (端口 ${proxy.port})，触发探测请求...`))
+    if (usesEnvRedirect) {
+      console.error(cyan(`  重定向 ${adapter.proxyEnvVar}=${proxyUrl}${isolatedConfigDir ? ` (隔离配置目录 ${isolatedConfigDir})` : ''}`))
+    }
     const [bin, ...args] = adapter.triggerCommand
     await exec(bin!, [...args, ...redirectArgs], {
       timeout: CAPTURE_TIMEOUT_MS,
@@ -93,6 +122,19 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
       } else {
         delete process.env[adapter.proxyEnvVar]
       }
+      // Restore the original config dir and clean up the temp isolation dir.
+      if (isolatedConfigDir) {
+        if (originalConfigDir !== undefined) {
+          process.env[configDirVar] = originalConfigDir
+        } else {
+          delete process.env[configDirVar]
+        }
+        rmSync(isolatedConfigDir, { recursive: true, force: true })
+      }
+      // Restore any retained env vars we injected during isolation.
+      for (const k of injectedEnvKeys) {
+        delete process.env[k]
+      }
     }
   }
 
@@ -101,6 +143,15 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   const capturedBodies = proxy.capturedBodies
   if (capturedBodies.length === 0) {
     console.error(red('未捕获到任何请求，请确认 Agent 已正确指向代理。'))
+    if (agentName === 'claude') {
+      console.error(
+        yellow(
+          '排查提示：Claude Code 可能被 shell 别名/函数或 preload 拦截，覆盖了代理重定向。\n' +
+            '  1) 请确认 `which claude` 不是被包裹的函数；若 ~/.zshrc 有 claude() 函数定义（如 onesuite-pilot 拦截），会干扰重定向。\n' +
+            '  2) 可临时跳过拦截重跑，或用 `stk diagnose --agent codebuddy` 验证代理链路是否正常。',
+        ),
+      )
+    }
     process.exitCode = 1
     return
   }
