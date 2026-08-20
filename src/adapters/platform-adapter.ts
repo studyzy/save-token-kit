@@ -96,4 +96,12 @@ export interface PlatformAdapter {
    * that would otherwise be hidden by config-dir isolation.
    */
   readonly configDirRetainedEnv?: () => Record<string, string>
+  /**
+   * When true, `diagnose` cannot auto-trigger a probe request (the agent is a
+   * persistent daemon, e.g. the WorkBuddy desktop whose real prompt is produced
+   * by its own templates/sidecar). Instead, `diagnose` starts the proxy, prints
+   * guidance for redirecting the running agent to it, and waits for the user to
+   * manually produce a request (with a timeout) before building the report.
+   */
+  readonly requiresManualTrigger?: boolean
 }

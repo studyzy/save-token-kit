@@ -22,8 +22,11 @@ disable-model-invocation: true
    ```
 2. 检测当前 AI Agent 运行环境，选择对应的 `--agent` 参数。一台机器可能同时安装多个 Agent，且 `CODEBUDDY_BASE_URL` 这类**配置类**环境变量可能被用户全局设置（如指向自定义 API 或本工具代理），在任意 Agent 会话里都存在——因此只能以**当前会话注入的会话级环境变量**判定，不能用"是否安装了某个 Agent"或配置类变量判断：
    ```bash
+   # WorkBuddy 桌面会话注入 WORKBUDDY_* 变量（须在 CodeBuddy 判定之前，因两者同内核可能同时设置 CODEBUDDY_SESSION_ID）
+   if [ -n "$WORKBUDDY_CONFIG_DIR" ] || [ -n "$WORKBUDDY_APP_NAME" ]; then
+     AGENT=workbuddy
    # CodeBuddy 会话注入的会话级变量（不是配置类变量 CODEBUDDY_BASE_URL）
-   if [ -n "$CODEBUDDY_SESSION_ID" ]; then
+   elif [ -n "$CODEBUDDY_SESSION_ID" ]; then
      AGENT=codebuddy
    # Claude Code 会话会注入 CLAUDE_CODE_SESSION_ID / CLAUDE_PID 环境变量
    elif [ -n "$CLAUDE_CODE_SESSION_ID" ] || [ -n "$CLAUDE_PID" ]; then

@@ -38,8 +38,7 @@ export function buildDiagnosisReport(
   categories.push(makeItem('system-prompt', 'system messages', systemPromptTokens))
 
   if (parsed.rulesTokens > 0) {
-    const rulesLabel =
-      agentName === 'claude' ? 'CLAUDE.md rules' : agentName === 'codex' ? 'AGENTS.md rules' : 'CODEBUDDY.md rules'
+    const rulesLabel = rulesFileLabel(agentName)
     categories.push(makeItem('rules', rulesLabel, parsed.rulesTokens))
   }
 
@@ -196,13 +195,39 @@ function emptyReport(): DiagnosisReport {
   }
 }
 
+/** Human-readable display name for an agent used in report titles. */
+export function agentDisplayName(agentName?: string): string {
+  switch (agentName) {
+    case 'claude':
+      return 'Claude Code'
+    case 'codex':
+      return 'CodeX'
+    case 'workbuddy':
+      return 'WorkBuddy'
+    default:
+      return 'CodeBuddy'
+  }
+}
+
+/** Label for the rules/memory file category, per agent. */
+export function rulesFileLabel(agentName?: string): string {
+  switch (agentName) {
+    case 'claude':
+      return 'CLAUDE.md rules'
+    case 'codex':
+      return 'AGENTS.md rules'
+    case 'workbuddy':
+      return 'SOUL.md rules'
+    default:
+      return 'CODEBUDDY.md rules'
+  }
+}
+
 /** Render a DiagnosisReport as terminal-friendly output matching save-token style. */
 export function renderMarkdown(report: DiagnosisReport): string {
   const lines: string[] = []
-  const agentLabel =
-    report.agentName === 'claude' ? 'Claude Code' : report.agentName === 'codex' ? 'CodeX' : 'CodeBuddy'
-  const versionLabel =
-    report.agentName === 'claude' ? 'Claude 版本' : report.agentName === 'codex' ? 'CodeX 版本' : 'CodeBuddy 版本'
+  const agentLabel = agentDisplayName(report.agentName)
+  const versionLabel = `${agentLabel} 版本`
   lines.push(`${agentLabel} Token 诊断报告`)
   lines.push('='.repeat(50))
   lines.push(`扫描时间: ${report.scanTimestamp}`)

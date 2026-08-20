@@ -9,6 +9,7 @@
 | 平台            | 机制                                            | 语义                                          | target                    |
 | --------------- | ----------------------------------------------- | --------------------------------------------- | ------------------------- |
 | **CodeBuddy**   | `cblite` alias + `--tools "Defer(...)"`         | 延迟加载（工具保留，按需发现）                | `cblite`                  |
+| **WorkBuddy**   | `cblite` alias + `--tools "Defer(...)"`（同 CodeBuddy 内核） | 延迟加载（工具保留，按需发现）        | `cblite`                  |
 | **Claude Code** | `~/.claude/settings.json` 的 `permissions.deny` | 禁用/从上下文移除（模型不可见、不可按需加载） | `claude-permissions-deny` |
 | **CodeX**       | 无内置工具延迟/禁用统一开关                     | —                                             | 不产出                    |
 
@@ -52,15 +53,16 @@ Claude Code 无 `Defer()` 等价语法，但用户级 `~/.claude/settings.json` 
 ## 输入
 
 - `builtinTools`（来自 `diagnosis-report.json`，`DiagnosisReport.builtinTools`）：每项含 `name` / `estimatedTokens` / `category`（`builtin`）。
-- 诊断报告 `agentName`：当前平台（`codebuddy` / `claude` / `codex`）。
+- 诊断报告 `agentName`：当前平台（`codebuddy` / `workbuddy` / `claude` / `codex`）。
 - `context.json`：用户场景（`purpose` / `sameRepo` / `role`）。
 - 缺失或为空数组：`builtinTools` 为空 → 返回 `skipped: true` + 空 `suggestions`，不阻塞流程。
 
 ## 判定规则
 
-### CodeBuddy 分支（低频批量收窄，Defer）
+### CodeBuddy / WorkBuddy 分支（低频批量收窄，Defer）
 
 低频工具集按**工具类别 + 场景**判定，命中即把对应工具归入 `Defer(...)` 组：
+（WorkBuddy 与 CodeBuddy 同内核，走相同 `cblite` alias + `--tools "Defer(...)"` 机制，产出 `target: "cblite"`。）
 
 | 条件                                                           | 判定       | 归入的 Defer 组                                                                               |
 | -------------------------------------------------------------- | ---------- | --------------------------------------------------------------------------------------------- |

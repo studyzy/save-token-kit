@@ -10,7 +10,7 @@
 
 **上下文加载机制**（CodeBuddy 基于官方 memory.md 文档；Claude Code 机制类似）：
 
-1. **启动时自动加载**：CodeBuddy 加载 `~/.codebuddy/CODEBUDDY.md`、`./CODEBUDDY.md`（向上递归）、`./.codebuddy/rules/*.md`、`./CODEBUDDY.local.md`；Claude Code 加载 `./CLAUDE.md`（向上递归）、`./.claude/rules/*.md`；CodeX 加载 `./AGENTS.md`（向上递归）
+1. **启动时自动加载**：CodeBuddy 加载 `~/.codebuddy/CODEBUDDY.md`、`./CODEBUDDY.md`（向上递归）、`./.codebuddy/rules/*.md`、`./CODEBUDDY.local.md`；WorkBuddy 基于 CodeBuddy 内核，主文件为 `SOUL.md`（`~/.workbuddy/SOUL.md`、`./SOUL.md`）；Claude Code 加载 `./CLAUDE.md`（向上递归）、`./.claude/rules/*.md`；CodeX 加载 `./AGENTS.md`（向上递归）
 2. **@导入按需加载**：主文件（`memoryMd`）中通过 `@path/to/file` 语法导入的文件
 3. **子目录主文件**：当 Agent 操作子目录文件时，按需加载该子目录的 `memoryMd`
 

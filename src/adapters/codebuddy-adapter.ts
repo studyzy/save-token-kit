@@ -137,9 +137,11 @@ function unsupportedStub(name: string): PlatformAdapter {
 
 import { ClaudeAdapter } from './claude-adapter.js'
 import { CodeXAdapter } from './codex-adapter.js'
+import { WorkBuddyAdapter } from './workbuddy-adapter.js'
 
 export const ADAPTERS: Record<string, PlatformAdapter> = {
   codebuddy: new CodeBuddyAdapter(),
+  workbuddy: new WorkBuddyAdapter(),
   claude: new ClaudeAdapter(),
   codex: new CodeXAdapter(),
   cursor: unsupportedStub('cursor'),

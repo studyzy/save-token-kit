@@ -23,7 +23,7 @@
 
 ## 特性
 
-- **多 Agent 支持** — 同时支持 CodeBuddy、Claude Code、CodeX 的诊断与优化，自动检测当前运行环境
+- **多 Agent 支持** — 同时支持 CodeBuddy、WorkBuddy、Claude Code、CodeX 的诊断与优化，自动检测当前运行环境
 - **透明代理诊断** — 拦截真实 LLM 请求体，100% 基于实际数据，非估算模拟
 - **结构化报告** — 输出 `diagnosis-report.json` / `.md`，按 system-prompt、tools、skills、MCP、rules、hooks、messages 等维度拆解 Token 占用
 - **SKILL 驱动工作流** — 安装后 Agent 对话内即可运行 `/stk-analyze`、`/stk-optimize`、`/stk-report`
@@ -43,7 +43,7 @@ pnpm add -g @studyzy/save-token-kit
 
 ### 1. 初始化（安装 SKILL）
 
-在项目根目录运行，选择目标 Agent（`codebuddy` / `claude` / `codex`）：
+在项目根目录运行，选择目标 Agent（`codebuddy` / `workbuddy` / `claude` / `codex`）：
 
 ```bash
 stk init
@@ -64,6 +64,7 @@ stk init
 stk diagnose                        # 自动检测 Agent，默认 codebuddy
 stk diagnose --agent claude         # 显式指定 Agent
 stk diagnose --agent codex
+stk diagnose --agent workbuddy      # 注入自定义模型并捕获 WorkBuddy 桌面真实请求（见提示）
 stk diagnose --report-path ./save-token/diagnosis-report.md
 ```
 
@@ -99,7 +100,7 @@ stk diagnose --report-path ./save-token/diagnosis-report.md
 
 | 选项                    | 默认值      | 说明                                                          |
 | ----------------------- | ----------- | ------------------------------------------------------------- |
-| `--agent <name>`        | `codebuddy` | 目标 Agent（`codebuddy` / `claude` / `codex`）                |
+| `--agent <name>`        | `codebuddy` | 目标 Agent（`codebuddy` / `workbuddy` / `claude` / `codex`）   |
 | `--port <number>`       | `8899`      | 代理端口（占用时自动回退随机端口）                            |
 | `--report-path <path>`  | 控制台输出  | 将 Markdown 报告写入指定路径而非打印到控制台                  |
 
@@ -109,7 +110,7 @@ stk diagnose --report-path ./save-token/diagnosis-report.md
 
 | 选项             | 说明                                                          |
 | ---------------- | ------------------------------------------------------------- |
-| `--agent <name>` | 目标 Agent（`codebuddy` / `claude` / `codex`，默认 `codebuddy`）|
+| `--agent <name>` | 目标 Agent（`codebuddy` / `workbuddy` / `claude` / `codex`，默认 `codebuddy`）|
 | `--local`        | 安装到项目级 `.codebuddy/`（默认全局 `~/.codebuddy/`）        |
 | `--force`        | 覆盖已存在的文件                                              |
 

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { exec } from 'tinyexec'
 import { bold, cyan, green, red, yellow } from 'ansis'
 import { getAdapter } from '../adapters/codebuddy-adapter.js'
+import { WorkBuddyAdapter } from '../adapters/workbuddy-adapter.js'
 import { detectCodeBuddyVersion } from '../utils/platform.js'
 import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
@@ -75,7 +76,10 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   const proxyBaseUrl = `http://127.0.0.1:${proxy.port}`
   const proxyUrl = `${proxyBaseUrl}${adapter.proxyBasePath}`
   const redirectArgs = adapter.proxyRedirectArgs?.(proxyUrl) ?? []
-  const usesEnvRedirect = redirectArgs.length === 0
+  // Manual-trigger agents (WorkBuddy desktop) must be redirected by the user
+  // restarting the app with an env var; stk setting its own process env is
+  // meaningless, so skip the env-based redirection path for them.
+  const usesEnvRedirect = !adapter.requiresManualTrigger && redirectArgs.length === 0
 
   // For agents whose own config can override the proxy env var (e.g. Claude
   // Code's `~/.claude/settings.json` env), isolate the config dir to a temp
@@ -85,6 +89,8 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   let isolatedConfigDir: string | undefined
   // Track env vars we injected during isolation so we can delete them in finally.
   const injectedEnvKeys = new Set<string>()
+  // Prior models.json state when we inject the stk-diagnose custom model.
+  let prevModels: Array<Record<string, unknown>> | null = null
   if (usesEnvRedirect && adapter.needsIsolatedConfigDir) {
     isolatedConfigDir = mkdtempSync(join(tmpdir(), 'stk-config-'))
     process.env[configDirVar] = isolatedConfigDir
@@ -102,19 +108,52 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   }
 
   try {
-    // 3. Trigger a single LLM request through the proxy
-    console.log(green(`  代理已就绪 (端口 ${proxy.port})，触发探测请求...`))
-    if (usesEnvRedirect) {
-      console.error(cyan(`  重定向 ${adapter.proxyEnvVar}=${proxyUrl}${isolatedConfigDir ? ` (隔离配置目录 ${isolatedConfigDir})` : ''}`))
+    // 3. Trigger a single LLM request through the proxy.
+    if (adapter.requiresManualTrigger) {
+      // WorkBuddy cannot be auto-triggered: its real prompt comes from its own
+      // desktop templates + SOUL/USER/IDENTITY, produced by the GUI+sidecar
+      // session, and it blocks CODEBUDDY_BASE_URL env redirection. The only way
+      // to capture its real requests is to inject a custom model whose url
+      // points at the proxy (WorkBuddy watches ~/.workbuddy/models.json), then
+      // have the user select it and send a message.
+      if (adapter instanceof WorkBuddyAdapter) {
+        // Custom-model url targets the proxy's /chat/completions path directly.
+        const customModelUrl = proxyBaseUrl
+        prevModels = adapter.injectDiagnoseModel(customModelUrl)
+        console.error(green(`  代理已就绪 (端口 ${proxy.port})，等待 WorkBuddy 桌面发起请求...`))
+        console.error(cyan(`  已注入自定义模型 "stk-diagnose" → ${customModelUrl}/chat/completions`))
+        console.error(
+          yellow(
+            `  请在 WorkBuddy 桌面选择 "stk-diagnose (token check)" 模型，然后发送一条消息：\n` +
+              `    1) 在 WorkBuddy 桌面切换模型为 "stk-diagnose (token check)"\n` +
+              `    2) 随便发一条消息（stk 将自动捕获请求体）\n` +
+              `    3) 诊断完成后自动移除该模型`,
+          ),
+        )
+      }
+      await waitForCapture(proxy.capturedBodies, CAPTURE_TIMEOUT_MS)
+      if (proxy.capturedBodies.length > 0) {
+        console.error(green(`  ✓ 已捕获请求，继续分析...`))
+      }
+    } else {
+      console.log(green(`  代理已就绪 (端口 ${proxy.port})，触发探测请求...`))
+      if (usesEnvRedirect) {
+        console.error(cyan(`  重定向 ${adapter.proxyEnvVar}=${proxyUrl}${isolatedConfigDir ? ` (隔离配置目录 ${isolatedConfigDir})` : ''}`))
+      }
+      const [bin, ...args] = adapter.triggerCommand
+      await exec(bin!, [...args, ...redirectArgs], {
+        timeout: CAPTURE_TIMEOUT_MS,
+        nodeOptions: adapter.triggerNodeOptions,
+      })
     }
-    const [bin, ...args] = adapter.triggerCommand
-    await exec(bin!, [...args, ...redirectArgs], {
-      timeout: CAPTURE_TIMEOUT_MS,
-      nodeOptions: adapter.triggerNodeOptions,
-    })
   } catch (err) {
     console.error(yellow(`触发命令异常，仍会分析已捕获的数据: ${(err as Error).message}`))
   } finally {
+    // Remove the injected stk-diagnose model (if any) so WorkBuddy config is restored.
+    if (adapter instanceof WorkBuddyAdapter && prevModels !== null) {
+      adapter.removeDiagnoseModel(prevModels)
+      console.error(green(`  已移除诊断用自定义模型 "stk-diagnose"`))
+    }
     // 4. Restore original env (only when env-based redirection was used)
     if (usesEnvRedirect) {
       if (originalBaseUrl !== undefined) {
@@ -288,5 +327,22 @@ async function isHeadroomProxyRunning(): Promise<boolean> {
       )
   } catch {
     return false
+  }
+}
+
+/**
+ * Wait until the proxy has captured at least one request, or the timeout elapses.
+ * Used for agents that require manual triggering (e.g. WorkBuddy desktop), where
+ * the user must restart the agent pointed at the proxy and fire a conversation.
+ * Polls every 500ms so a long user interaction is not missed.
+ */
+export async function waitForCapture(
+  capturedBodies: unknown[],
+  timeoutMs: number,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (capturedBodies.length > 0) return
+    await new Promise((r) => setTimeout(r, 500))
   }
 }

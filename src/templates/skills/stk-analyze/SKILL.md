@@ -218,13 +218,13 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 | 8 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/rules-opt.md   |
 | 9 | `memory-md`      | 项目级指令主文件（`memoryMd`） | `hasMemoryMd === true`                        | @agents/memory-md.md |
 | 10 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/hook-audit.md  |
-| 11 | `tool-opt`       | `builtinTools[]`                  | `agentName ∈ {codebuddy, claude}` **且** 数组非空 **且**（codebuddy：无 `cblite` alias；claude：无已 deny 候选） | @agents/tool-opt.md |
+| 11 | `tool-opt`       | `builtinTools[]`                  | `agentName ∈ {codebuddy, workbuddy, claude}` **且** 数组非空 **且**（codebuddy/workbuddy：无 `cblite` alias；claude：无已 deny 候选） | @agents/tool-opt.md |
 
 > **`tool-opt` 启动前置判定**（派发前执行）：
-> - **平台限制**：仅当诊断报告 `agentName` 为 `codebuddy` 或 `claude` 时启动；**CodeX 不启动**（无内置工具延迟/禁用统一开关；`mcp_servers.<id>.enabled_tools`/`disabled_tools` 仅 MCP 工具且为白/黑名单禁用）。
->   - **CodeBuddy**：走 `cblite` alias + `--tools "Defer(...)"`（延迟加载，低频批量收窄）。
+> - **平台限制**：仅当诊断报告 `agentName` 为 `codebuddy`、`workbuddy` 或 `claude` 时启动；**CodeX 不启动**（无内置工具延迟/禁用统一开关；`mcp_servers.<id>.enabled_tools`/`disabled_tools` 仅 MCP 工具且为白/黑名单禁用）。
+>   - **CodeBuddy / WorkBuddy**：走 `cblite` alias + `--tools "Defer(...)"`（延迟加载，低频批量收窄）。WorkBuddy 基于 CodeBuddy CLI 内核，支持相同 `--tools` Defer 语法。
 >   - **Claude Code**：走 `~/.claude/settings.json` 的 `permissions.deny`（**禁用**语义），且**只对用户明确确认不使用**的工具建议 deny。
-> - **CodeBuddy 幂等**：运行 `type cblite 2>/dev/null`（或 `alias cblite`），能解析到 → 已存在 `cblite` alias，**不启动**（已就绪）。
+> - **CodeBuddy / WorkBuddy 幂等**：运行 `type cblite 2>/dev/null`（或 `alias cblite`），能解析到 → 已存在 `cblite` alias，**不启动**（已就绪）。
 > - **Claude 幂等**：读取 `~/.claude/settings.json` 的 `permissions.deny`，若候选低频工具均已 deny → **不启动**（已就绪）。
 > - 判定失败/无法确认时，按"未就绪"处理并启动（避免漏建议）。
 

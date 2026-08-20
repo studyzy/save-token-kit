@@ -17,9 +17,9 @@ export interface ProxyOptions {
    * When true, respond to captured requests with a protocol-appropriate mock
    * "Hello" response instead of forwarding to the real upstream. The response
    * protocol is selected by the request URL path:
-   *   - `/v1/chat/completions` -> OpenAI Chat (CodeBuddy)
-   *   - `/v1/messages`         -> Anthropic Messages (Claude Code)
-   *   - `/v1/responses`        -> OpenAI Responses (CodeX)
+   *   - `/chat/completions`      -> OpenAI Chat (CodeBuddy /v1/, WorkBuddy /v2/)
+   *   - `/v1/messages`           -> Anthropic Messages (Claude Code)
+   *   - `/v1/responses`          -> OpenAI Responses (CodeX)
    * Used by `stk diagnose`, which only needs the intercepted request bodies for
    * its report and so avoids depending on a reachable upstream.
    */
@@ -320,12 +320,12 @@ type MockProtocol = 'anthropic' | 'openai-chat' | 'openai-responses'
 
 /**
  * Map a request URL path to the mock protocol it speaks.
- *   - `/v1/chat/completions` -> OpenAI Chat (CodeBuddy)
- *   - `/v1/responses`        -> OpenAI Responses (CodeX)
- *   - everything else        -> Anthropic Messages (Claude Code, default)
+ *   - `<prefix>/chat/completions` -> OpenAI Chat (CodeBuddy /v1/, WorkBuddy /v2/)
+ *   - `/v1/responses`             -> OpenAI Responses (CodeX)
+ *   - everything else             -> Anthropic Messages (Claude Code, default)
  */
 function detectProtocol(url: string): MockProtocol {
-  if (url.includes('/v1/chat/completions')) return 'openai-chat'
+  if (url.includes('/chat/completions')) return 'openai-chat'
   if (url.includes('/v1/responses')) return 'openai-responses'
   return 'anthropic'
 }

@@ -1,0 +1,238 @@
+{
+  "model": "deepseek-v4-flash-ioa",
+  "messages": [
+    {
+      "role": "system",
+      "content": "This conversation is powered by deepseek-v4-flash-ioa\nYour main goal is to follow the USER instructions.\nHere is your identity: SOUL.md identity.\n<rules>project rules</rules>"
+    },
+    {
+      "role": "user",
+      "content": "hello, analyze this repository"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "Agent",
+        "description": "Launch a new agent to handle complex, multi-step tasks autonomously.\n\n- planner: Plans multi-step work for coding tasks. (project) (Tools: Read,Write,Edit,Bash)\n- reviewer: Reviews code changes for correctness. (project) (Tools: Read,Grep)\n- general-purpose: default agent (Tools: *)",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "Read",
+        "description": "Read does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "Write",
+        "description": "Write does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "Edit",
+        "description": "Edit does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "Bash",
+        "description": "Bash does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "Glob",
+        "description": "Glob does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "Grep",
+        "description": "Grep does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "TaskCreate",
+        "description": "TaskCreate does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "TaskGet",
+        "description": "TaskGet does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "TaskUpdate",
+        "description": "TaskUpdate does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "TaskList",
+        "description": "TaskList does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "WebFetch",
+        "description": "WebFetch does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "WebSearch",
+        "description": "WebSearch does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "TaskOutput",
+        "description": "TaskOutput does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "Skill",
+        "description": "Skill does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "ToolSearch",
+        "description": "Load tool schemas before invoking deferred tools.\n<available_deferred_tools>\nmcp__github__search\nmcp__github__read_file\nmcp__slack__send\n</available_deferred_tools>",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "DeferExecuteTool",
+        "description": "DeferExecuteTool does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "SendMessage",
+        "description": "SendMessage does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "TeamCreate",
+        "description": "TeamCreate does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "TeamDelete",
+        "description": "TeamDelete does its job.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    }
+  ],
+  "temperature": 0,
+  "max_tokens": 8192,
+  "stream": false
+}

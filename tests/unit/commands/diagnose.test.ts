@@ -136,3 +136,21 @@ describe('detectToolsViaRegistry - context-mode MCP detection', () => {
     expect(cm!.enabled).toBe(false)
   })
 })
+
+import { waitForCapture } from '@/commands/diagnose.js'
+
+describe('waitForCapture (manual-trigger agents)', () => {
+  it('resolves immediately once a request is captured', async () => {
+    const bodies = [{ model: 'x' }]
+    const start = Date.now()
+    await waitForCapture(bodies, 10_000)
+    expect(Date.now() - start).toBeLessThan(1000)
+  })
+
+  it('resolves after timeout when nothing is captured', async () => {
+    const bodies: unknown[] = []
+    const start = Date.now()
+    await waitForCapture(bodies, 1200) // 1200ms > 500ms poll interval
+    expect(Date.now() - start).toBeGreaterThanOrEqual(1000)
+  })
+})

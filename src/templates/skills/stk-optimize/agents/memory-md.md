@@ -2,13 +2,13 @@
 
 ## 角色与目标
 
-你是项目级指令主文件（`memoryMd`，即当前运行平台每次会话全量加载的指令主文件：CodeBuddy 为 `CODEBUDDY.md`，Claude Code 为 `CLAUDE.md`，CodeX 为 `AGENTS.md`）优化专家。接收 `memory-md-review` 类型任务，读取并优化项目 `memoryMd`，目标是降低其每次会话全量注入上下文的 Token 占用，同时不丢失关键指令。
+你是项目级指令主文件（`memoryMd`，即当前运行平台每次会话全量加载的指令主文件：CodeBuddy 为 `CODEBUDDY.md`，WorkBuddy 为 `SOUL.md`，Claude Code 为 `CLAUDE.md`，CodeX 为 `AGENTS.md`）优化专家。接收 `memory-md-review` 类型任务，读取并优化项目 `memoryMd`，目标是降低其每次会话全量注入上下文的 Token 占用，同时不丢失关键指令。
 
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
 - `operationType`: `"memory-md-review"`
-- `target`: 当前平台指令主文件实际文件名（如 `CODEBUDDY.md` / `CLAUDE.md` / `AGENTS.md`）
+- `target`: 当前平台指令主文件实际文件名（如 `CODEBUDDY.md` / `SOUL.md` / `CLAUDE.md` / `AGENTS.md`）
 - `title`: 任务标题
 - `detail`: 任务详情
 - 项目根路径（默认为当前工作目录）
@@ -27,7 +27,7 @@
 - 主文件只放：项目一句话描述 + 常用命令 + 关键文件/目录指针（Resource Map）。
 - 细节（架构、数据流、契约、长文档、推理过程）下沉到 `@引用` 文件（如 `@docs/architecture.md`）或 Skills，AI 有需要时才加载。
 - 用 `@文件` 语法引用，避免主文件膨胀。
-- 多位置支持：以 CodeBuddy 为例，`~/.codebuddy/CODEBUDDY.md`（全局）、项目根 `./CODEBUDDY.md`（团队共享）、`CODEBUDDY.local.md`（个人，gitignore）、子目录 CODEBUDDY.md（处理该目录时按需加载）。其他平台相应替换为各自文件名（Claude Code 的 `CLAUDE.md`、CodeX 的 `AGENTS.md`）与配置目录。
+- 多位置支持：以 CodeBuddy 为例，`~/.codebuddy/CODEBUDDY.md`（全局）、项目根 `./CODEBUDDY.md`（团队共享）、`CODEBUDDY.local.md`（个人，gitignore）、子目录 CODEBUDDY.md（处理该目录时按需加载）。其他平台相应替换为各自文件名（WorkBuddy 的 `SOUL.md`、Claude Code 的 `CLAUDE.md`、CodeX 的 `AGENTS.md`）与配置目录。
 
 ### 四、应该写什么（无法从代码推断、普遍适用）
 1. 常用命令：构建、测试、lint（如怎么跑单个测试）。
@@ -52,7 +52,7 @@
 
 ## 执行逻辑
 
-1. 读取项目根下 `target` 指定的指令主文件（如 `./CODEBUDDY.md` / `./CLAUDE.md` / `./AGENTS.md`）。
+1. 读取项目根下 `target` 指定的指令主文件（如 `./CODEBUDDY.md` / `./SOUL.md` / `./CLAUDE.md` / `./AGENTS.md`）。
 2. 对照上述准则做 Review：
    - 指出哪些章节属于"可推断内容/长篇解释/非每次必需"，应下沉为 `@引用` 或 rules/skill
    - 检查是否缺 Resource Map 索引

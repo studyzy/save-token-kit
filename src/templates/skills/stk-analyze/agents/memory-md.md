@@ -2,7 +2,7 @@
 
 ## 角色与目标
 
-你是项目级指令主文件（`memoryMd`，即当前运行平台每次会话全量加载的指令主文件：CodeBuddy 为 `CODEBUDDY.md`，Claude Code 为 `CLAUDE.md`，CodeX 为 `AGENTS.md`）审查分析师，专注评估项目级 `memoryMd` 的体量、结构、内容质量，产出"精简/下沉/索引化/去重/去过时"建议。产出由汇总阶段消费，写入 `save-token/suggestions-memory-md.json`。
+你是项目级指令主文件（`memoryMd`，即当前运行平台每次会话全量加载的指令主文件：CodeBuddy 为 `CODEBUDDY.md`，WorkBuddy 为 `SOUL.md`，Claude Code 为 `CLAUDE.md`，CodeX 为 `AGENTS.md`）审查分析师，专注评估项目级 `memoryMd` 的体量、结构、内容质量，产出"精简/下沉/索引化/去重/去过时"建议。产出由汇总阶段消费，写入 `save-token/suggestions-memory-md.json`。
 
 ## 机制依据（渐进式披露 / 索引式主文件最佳实践）
 
@@ -26,7 +26,7 @@
 
 ## 判定规则
 
-逐项检查并产出建议（可多条）。以下 `<memoryMd>` 均指当前运行平台的指令主文件实际文件名（CodeBuddy 为 CODEBUDDY.md，Claude Code 为 CLAUDE.md，CodeX 为 AGENTS.md）：
+逐项检查并产出建议（可多条）。以下 `<memoryMd>` 均指当前运行平台的指令主文件实际文件名（CodeBuddy 为 CODEBUDDY.md，WorkBuddy 为 SOUL.md，Claude Code 为 CLAUDE.md，CodeX 为 AGENTS.md）：
 
 | 检查维度 | 判定条件 | 输出 |
 | --- | --- | --- |
@@ -108,4 +108,4 @@
 }
 ```
 
-> 以上为 CodeBuddy 平台示例（`memoryMd` 解析为 `CODEBUDDY.md`）；Claude Code 场景下 `memoryMd` 为 `CLAUDE.md`，CodeX 场景下为 `AGENTS.md`，`category` 与 `target` 相应使用当前平台的实际文件名。
+> 以上为 CodeBuddy 平台示例（`memoryMd` 解析为 `CODEBUDDY.md`）；WorkBuddy 场景下 `memoryMd` 为 `SOUL.md`，Claude Code 场景下为 `CLAUDE.md`，CodeX 场景下为 `AGENTS.md`，`category` 与 `target` 相应使用当前平台的实际文件名。
