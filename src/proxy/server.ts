@@ -4,6 +4,13 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 
 const DEFAULT_CODEBUDDY_API = 'https://tencent.sso.copilot.tencent.com'
 
+/**
+ * Text returned by the mocked LLM API. Diagnosis only needs the intercepted
+ * request bodies, so the response tells the agent its request was captured and
+ * it should stop, keeping the probe to a single turn.
+ */
+const MOCK_RESPONSE_TEXT = '请求内容已获取，请关闭当前会话。'
+
 export interface ProxyOptions {
   apiBaseUrl?: string
   port?: number
@@ -15,7 +22,7 @@ export interface ProxyOptions {
   defaultApiBase?: string
   /**
    * When true, respond to captured requests with a protocol-appropriate mock
-   * "Hello" response instead of forwarding to the real upstream. The response
+   * response instead of forwarding to the real upstream. The response
    * protocol is selected by the request URL path:
    *   - `/chat/completions`      -> OpenAI Chat (CodeBuddy /v1/, WorkBuddy /v2/)
    *   - `/v1/messages`           -> Anthropic Messages (Claude Code)
@@ -108,7 +115,7 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
         const skipTrace = purposeStr !== '' && skipPurposes.has(purposeStr)
         const traceContext = traceDir && !skipTrace ? prepareTrace(req, rawBody, traceDir) : null
 
-        // Mock mode: answer with a protocol-appropriate "Hello" response so the
+        // Mock mode: answer with a protocol-appropriate response so the
         // agent's probe request completes without a real upstream. The protocol
         // is chosen by the request URL path (see detectProtocol). Diagnosis only
         // reads captured request bodies, so no response content matters.
@@ -331,7 +338,7 @@ function detectProtocol(url: string): MockProtocol {
 }
 
 /**
- * Write an SSE "Hello" stream for the given protocol, satisfying each agent's
+ * Write an SSE stream for the given protocol, satisfying each agent's
  * streaming probe request.
  */
 function writeMockStream(res: http.ServerResponse, protocol: MockProtocol): void {
@@ -377,7 +384,7 @@ function writeAnthropicStream(res: http.ServerResponse): void {
   emit('content_block_delta', {
     type: 'content_block_delta',
     index: 0,
-    delta: { type: 'text_delta', text: 'Hello' },
+    delta: { type: 'text_delta', text: MOCK_RESPONSE_TEXT },
   })
   emit('content_block_stop', { type: 'content_block_stop', index: 0 })
   emit('message_delta', {
@@ -407,7 +414,7 @@ function writeOpenaiChatStream(res: http.ServerResponse): void {
     res.write(`data: ${JSON.stringify(payload)}\n\n`)
   }
   chunk({ role: 'assistant', content: '' }, null)
-  chunk({ content: 'Hello' }, null)
+  chunk({ content: MOCK_RESPONSE_TEXT }, null)
   chunk({}, 'stop')
   res.write('data: [DONE]\n\n')
   res.end()
@@ -450,7 +457,7 @@ function writeOpenaiResponsesStream(res: http.ServerResponse): void {
     item_id: 'msg_stk_mock',
     output_index: 0,
     content_index: 0,
-    delta: 'Hello',
+    delta: MOCK_RESPONSE_TEXT,
   })
   emit('response.completed', {
     type: 'response.completed',
@@ -463,7 +470,7 @@ function writeOpenaiResponsesStream(res: http.ServerResponse): void {
           type: 'message',
           role: 'assistant',
           status: 'completed',
-          content: [{ type: 'output_text', text: 'Hello', annotations: [] }],
+          content: [{ type: 'output_text', text: MOCK_RESPONSE_TEXT, annotations: [] }],
         },
       ],
       usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
@@ -473,9 +480,9 @@ function writeOpenaiResponsesStream(res: http.ServerResponse): void {
 }
 
 /**
- * Build a minimal, protocol-appropriate "Hello" response for a mocked LLM API.
- * The response is only used to let the agent's probe request complete; content
- * carries no diagnostic value.
+ * Build a minimal, protocol-appropriate response for a mocked LLM API. The
+ * response only lets the agent's probe request complete and signals that the
+ * request content was captured; it carries no diagnostic value itself.
  */
 function buildMockResponse(protocol: MockProtocol): Record<string, unknown> {
   if (protocol === 'openai-chat') {
@@ -487,7 +494,7 @@ function buildMockResponse(protocol: MockProtocol): Record<string, unknown> {
       choices: [
         {
           index: 0,
-          message: { role: 'assistant', content: 'Hello' },
+          message: { role: 'assistant', content: MOCK_RESPONSE_TEXT },
           finish_reason: 'stop',
         },
       ],
@@ -507,7 +514,7 @@ function buildMockResponse(protocol: MockProtocol): Record<string, unknown> {
           id: 'msg_stk_mock',
           role: 'assistant',
           status: 'completed',
-          content: [{ type: 'output_text', text: 'Hello' }],
+          content: [{ type: 'output_text', text: MOCK_RESPONSE_TEXT }],
         },
       ],
       usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 },
@@ -518,7 +525,7 @@ function buildMockResponse(protocol: MockProtocol): Record<string, unknown> {
     id: 'msg_stk_mock',
     type: 'message',
     role: 'assistant',
-    content: [{ type: 'text', text: 'Hello' }],
+    content: [{ type: 'text', text: MOCK_RESPONSE_TEXT }],
     model: 'mock',
     stop_reason: 'end_turn',
     stop_sequence: null,
