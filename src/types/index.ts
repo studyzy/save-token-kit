@@ -235,6 +235,8 @@ export interface DiagnosisReport {
   rulesInfo?: import('./rules.js').RulesInfo
   /** Extra details captured from the intercepted proxy request */
   proxyDetails?: ProxyDetails
+  /** Session-history usage statistics (present when the agent has a sessions dir) */
+  usageStats?: UsageStats
 }
 
 /** Extra details captured from the intercepted proxy request body. */
@@ -265,6 +267,7 @@ export type OperationType =
   | 'migrate-plugin' // Move a plugin from user-level to project-level scope
   | 'migrate-skill' // Move a skill from user-level to project-level scope
   | 'disable-model-invocation' // Restrict a skill to slash-command only (disable-model-invocation: true)
+  | 'disable-agent' // Remove an unused subagent definition (user/project/plugin-sourced, no recent invocations)
   | 'skill-model-downgrade' // Add `context: fork` + `model: lite` to a skill for cheaper execution
   | 'tool-opt' // Session-level --tools Defer()/NoDefer() via a cblite alias (e.g. Defer(Task*)/Defer(Agent)/Defer(*PlanMode))
 
@@ -479,6 +482,61 @@ export interface ProxyCapture {
   parsed: ProxyDiagnosisData
   /** Timestamp of capture */
   capturedAt: string
+}
+
+// ---------------------------------------------------------------------------
+// 6. UsageStats (usage-report.json, from `stk usage` / session-history scan)
+// ---------------------------------------------------------------------------
+
+export interface UsageRankItem {
+  /** Identifier (tool name / skill name / subagent name / mcp server or tool name) */
+  name: string
+  /** Invocation count in this time window */
+  count: number
+}
+
+export interface UsageDimension {
+  /** Total invocations in this time window */
+  total: number
+  /** Invocations ranked by count (descending) */
+  ranking: UsageRankItem[]
+}
+
+export interface UsageTimeBucket {
+  /** All history */
+  all: UsageDimension
+  /** Last 90 days */
+  last90Days: UsageDimension
+  /** Last 30 days */
+  last30Days: UsageDimension
+}
+
+/**
+ * Usage statistics aggregated from the agent's session history JSONL
+ * (CodeBuddy: ~/.codebuddy/projects recursive "*.jsonl" function_call events).
+ * Counts tool invocations only — never session message content.
+ */
+export interface UsageStats {
+  /** Scan timestamp (ISO 8601) */
+  scannedAt: string
+  /** Session directory that was scanned */
+  sessionsDir: string
+  /** Number of .jsonl files scanned */
+  filesScanned: number
+  /** Lines that failed JSON parsing */
+  parseErrors: number
+  /** Records without a timestamp (counted in the "all" bucket only) */
+  missingTimestamp: number
+  /** Tool invocation rankings (builtin + mcp merged) */
+  toolUsage: UsageTimeBucket
+  /** Skill invocations, keyed by skill name (Skill tool calls) */
+  skillUsage: UsageTimeBucket
+  /** SubAgent invocations, keyed by agent name (Task/Agent tool calls) */
+  subagentUsage: UsageTimeBucket
+  /** MCP invocations keyed by server name (mcp__<server>__<tool>) */
+  mcpServerUsage: UsageTimeBucket
+  /** MCP invocations keyed by full tool name (mcp__<server>__<tool>) */
+  mcpToolUsage: UsageTimeBucket
 }
 
 // ---------------------------------------------------------------------------

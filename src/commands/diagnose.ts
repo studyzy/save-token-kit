@@ -10,6 +10,7 @@ import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
 import { parseRequestBody } from '../proxy/parser.js'
 import { scanFilesystem } from '../collectors/fs-collector.js'
+import { collectUsageStats } from '../collectors/usage-collector.js'
 import { loadRules, RULES_HOME } from '../rules/loader.js'
 import { autoCheckLibraryUpdate, metaPath } from '../rules/update.js'
 import {
@@ -25,6 +26,7 @@ import {
   SAVE_TOKEN_DIR,
   type ToolDetection,
   type ProxyDiagnosisData,
+  type UsageStats,
 } from '../types/index.js'
 
 export interface DiagnoseOptions {
@@ -215,6 +217,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   const toolDetection = await detectToolsViaRegistry(fs, proxyParsed)
   const agentVersion = await detectCodeBuddyVersion(adapter.getConfigPaths().cliBinary)
   const report = buildDiagnosisReport([mainBody], fs, toolDetection, agentVersion, agentName, loadRules().rulesInfo)
+  await attachUsageStats(report, adapter.getConfigPaths().sessionsDir)
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
   mkdirSync(outDir, { recursive: true })
@@ -233,6 +236,23 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     // 注意：不将 markdown 打印到 stdout，否则 `stk diagnose > file` 会与文件内容重复。
     writeFileSync(join(outDir, 'diagnosis-report.md'), markdown)
     console.error(bold(green(`\n诊断完成：文件已写入 ./${SAVE_TOKEN_DIR}/`)))
+  }
+}
+
+/**
+ * Attach session-history usage statistics to the report (CodeBuddy only —
+ * other agents have no `sessionsDir` and are skipped). Best-effort: any scan
+ * failure leaves `usageStats` unset and never blocks the diagnosis flow.
+ */
+export async function attachUsageStats(
+  report: { usageStats?: UsageStats },
+  sessionsDir?: string,
+): Promise<void> {
+  if (!sessionsDir) return
+  try {
+    report.usageStats = await collectUsageStats({ sessionsDir })
+  } catch {
+    // 采集失败降级：诊断主流程不受影响，报告不含 usageStats
   }
 }
 

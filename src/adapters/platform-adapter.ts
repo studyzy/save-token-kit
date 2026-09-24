@@ -22,6 +22,12 @@ export interface PlatformConfigPaths {
   pluginsMarketplacesDir: string
   historyFile: string
   blobsDir: string
+  /**
+   * Directory containing session history JSONL files (e.g.
+   * `~/.codebuddy/projects`). Only set for agents whose session format is
+   * supported; absent means usage-history collection is skipped.
+   */
+  sessionsDir?: string
   /** CLI binary name used to trigger requests / headless probes */
   cliBinary: string
   /** Project-level agent instruction file (e.g. ./CLAUDE.md or ./CODEBUDDY.md) */

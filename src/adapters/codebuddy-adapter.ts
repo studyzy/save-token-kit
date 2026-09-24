@@ -51,6 +51,7 @@ export class CodeBuddyAdapter implements PlatformAdapter {
       pluginsMarketplacesDir: `${dir}/plugins/marketplaces`,
       historyFile: `${dir}/history.jsonl`,
       blobsDir: `${dir}/blobs`,
+      sessionsDir: `${dir}/projects`,
       cliBinary: 'codebuddy',
       projectCodebuddyMd: `${process.cwd()}/CODEBUDDY.md`,
       projectSkillsDir: `${process.cwd()}/.codebuddy/skills`,

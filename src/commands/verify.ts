@@ -157,6 +157,7 @@ function isOperationType(value: string): boolean {
     'migrate-plugin',
     'migrate-skill',
     'disable-model-invocation',
+    'disable-agent',
     'skill-model-downgrade',
     'tool-opt',
   ]

@@ -6,6 +6,7 @@ import { runInit } from './commands/init.js'
 import { runInstall } from './commands/install.js'
 import { runRollback } from './commands/rollback.js'
 import { runProxy } from './commands/proxy.js'
+import { runUsage } from './commands/usage.js'
 import { runVerify } from './commands/verify.js'
 import { runRulesUpdate, runRulesStatus } from './commands/rules.js'
 
@@ -64,6 +65,13 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         upstream: options.upstream,
         traceDir: options.traceDir,
       })
+    })
+
+  cli
+    .command('usage', 'Scan CodeBuddy session history and rank Tool/Skill/SubAgent/MCP usage')
+    .option('--json', 'Print the full usage report as JSON to stdout')
+    .action(async (options: { json?: boolean }) => {
+      await runUsage(options)
     })
 
   cli
