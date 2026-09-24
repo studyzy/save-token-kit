@@ -4,12 +4,14 @@
 
 你是会话级工具延迟加载优化分析师，按平台评估诊断报告中 `builtinTools[]` 的低频系统工具，产出「收窄低频内置工具常驻上下文」建议。产出由汇总阶段消费，写入 `save-token/suggestions-tool-opt.json`。
 
+<!-- stk:rules:prompts/tool-opt.codebuddy -->
 按平台采用不同落地方式：
 
 | 平台            | 机制                                            | 语义                                          | target                    |
 | --------------- | ----------------------------------------------- | --------------------------------------------- | ------------------------- |
 | **CodeBuddy**   | `cblite` alias + `--tools "Defer(...)"`         | 延迟加载（工具保留，按需发现）                | `cblite`                  |
 | **WorkBuddy**   | `cblite` alias + `--tools "Defer(...)"`（同 CodeBuddy 内核） | 延迟加载（工具保留，按需发现）        | `cblite`                  |
+<!-- /stk:rules:prompts/tool-opt.codebuddy -->
 | **Claude Code** | `~/.claude/settings.json` 的 `permissions.deny` | 禁用/从上下文移除（模型不可见、不可按需加载） | `claude-permissions-deny` |
 | **CodeX**       | 无内置工具延迟/禁用统一开关                     | —                                             | 不产出                    |
 

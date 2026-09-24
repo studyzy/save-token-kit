@@ -10,6 +10,8 @@ import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
 import { parseRequestBody } from '../proxy/parser.js'
 import { scanFilesystem } from '../collectors/fs-collector.js'
+import { loadRules, RULES_HOME } from '../rules/loader.js'
+import { autoCheckLibraryUpdate, metaPath } from '../rules/update.js'
 import {
   getAllTools,
   headroomTool,
@@ -41,6 +43,9 @@ const CAPTURE_TIMEOUT_MS = 60_000
  * calls, so it finishes in seconds.
  */
 export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
+  // Fire-and-forget rules-pack freshness check (24h TTL, never blocks; R5)
+  void autoCheckLibraryUpdate(metaPath(RULES_HOME), RULES_HOME)
+
   const agentName = options.agent ?? 'codebuddy'
   const adapter = getAdapter(agentName)
   if (!adapter || !adapter.supported) {
@@ -209,7 +214,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   const proxyParsed: ProxyDiagnosisData | null = parseRequestBody(mainBody, agentName)
   const toolDetection = await detectToolsViaRegistry(fs, proxyParsed)
   const agentVersion = await detectCodeBuddyVersion(adapter.getConfigPaths().cliBinary)
-  const report = buildDiagnosisReport([mainBody], fs, toolDetection, agentVersion, agentName)
+  const report = buildDiagnosisReport([mainBody], fs, toolDetection, agentVersion, agentName, loadRules().rulesInfo)
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
   mkdirSync(outDir, { recursive: true })

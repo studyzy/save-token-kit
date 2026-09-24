@@ -9,6 +9,7 @@ import type {
   ToolDetection,
 } from '../types/index.js'
 import type { FsCollectResult } from '../collectors/fs-collector.js'
+import type { RulesInfo } from '../types/rules.js'
 
 /**
  * Build the structured DiagnosisReport from captured raw request bodies.
@@ -20,6 +21,7 @@ export function buildDiagnosisReport(
   toolDetection?: ToolDetection[],
   agentVersion?: string | null,
   agentName?: string,
+  rulesInfo?: RulesInfo,
 ): DiagnosisReport {
   if (rawBodies.length === 0 && !fs) {
     return emptyReport()
@@ -118,6 +120,7 @@ export function buildDiagnosisReport(
     toolDetection: (toolDetection ?? []).filter((t) => t.installed),
     headlessAvailable: false,
     dataSource: 'proxy',
+    rulesInfo,
     proxyDetails: {
       model: parsed.model,
       messageBreakdown: parsed.messages.breakdown,
@@ -233,6 +236,7 @@ export function renderMarkdown(report: DiagnosisReport): string {
   lines.push(`扫描时间: ${report.scanTimestamp}`)
   lines.push(`${versionLabel}: ${report.agentVersion}`)
   lines.push(`数据来源: Proxy 拦截 (最精确)`)
+  lines.push(`规则库: ${report.rulesInfo?.packVersion ?? 'builtin'}${report.rulesInfo?.fallbackInUse ? ' (兜底)' : ''}`)
   if (report.proxyDetails?.model) lines.push(`模型: ${report.proxyDetails.model}`)
   lines.push('')
   lines.push('上下文总览（估算）')

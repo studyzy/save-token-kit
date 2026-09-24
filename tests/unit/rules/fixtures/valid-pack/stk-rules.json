@@ -1,0 +1,1 @@
+{"schemaVersion":1,"packVersion":"1.1.0","releasedAt":"2026-09-25T00:00:00Z","engines":{"stk":">=0.6"},"data":{"low-frequency-plugins":["extra-lowfreq-plugin"],"mcp-alternatives":{"github":"my-cli","mcp-server-tapd":"my-tapd"},"thresholds":{"memoryMdMaxLines":120},"levels":{"headroom":"初级"}},"prompts":{}}

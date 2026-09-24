@@ -231,34 +231,10 @@ export interface DiagnosisReport {
   headlessAvailable?: boolean
   /** Where the diagnosis data came from */
   dataSource?: 'proxy' | 'headless' | 'fs-only'
+  /** Rules-pack snapshot info (FR-008: traceable experience baseline) */
+  rulesInfo?: import('./rules.js').RulesInfo
   /** Extra details captured from the intercepted proxy request */
   proxyDetails?: ProxyDetails
-}
-
-/** Plugins known to be low-frequency / rarely used. */
-export const LOW_FREQUENCY_PLUGINS = new Set<string>([
-  'pptx@codebuddy-plugins-official',
-  'docx@codebuddy-plugins-official',
-  'xlsx@codebuddy-plugins-official',
-  'agent-browser@codebuddy-plugins-official',
-  'playwright-cli@codebuddy-plugins-official',
-])
-
-/** CLI alternatives for common MCP servers. */
-export const MCP_CLI_ALTERNATIVES: Record<string, string> = {
-  Playwright: 'playwright',
-  playwright: 'playwright',
-  github: 'gh',
-  'github-mcp': 'gh',
-  slack: 'slack-cli',
-  filesystem: 'node fs',
-  notion: 'notion-cli',
-  linear: 'linear-cli',
-  jira: 'jira-cli',
-  tapd: 'tapd-cli',
-  'mcp-server-tapd': 'tapd-cli',
-  gongfeng: 'gongfeng',
-  'gongfeng-mcp': 'gongfeng',
 }
 
 /** Extra details captured from the intercepted proxy request body. */

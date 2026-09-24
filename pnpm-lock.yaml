@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@studyzy/stk-rules':
+        specifier: file:./rules
+        version: rules@file:rules
       ansis:
         specifier: ^3.3.2
         version: 3.17.0
@@ -1992,6 +1995,9 @@ packages:
     resolution: {integrity: sha512-RFnrW4lhXA3s3eqHDZvN654g8OTjzRfqpIRJYczCGB6HzphckVAi/Qh4tbPUbRuDi7s1Llv8g/NspLkttY3gTA==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
+
+  rules@file:rules:
+    resolution: {directory: rules, type: directory}
 
   run-parallel@1.2.0:
     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
@@ -4128,6 +4134,8 @@ snapshots:
       '@rollup/rollup-win32-x64-gnu': 4.62.2
       '@rollup/rollup-win32-x64-msvc': 4.62.2
       fsevents: 2.3.3
+
+  rules@file:rules: {}
 
   run-parallel@1.2.0:
     dependencies:

@@ -1,4 +1,7 @@
-import { existsSync, mkdirSync, copyFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { loadRules } from '../rules/loader.js'
+import { renderTemplate, renderHeader } from '../rules/render.js'
+import type { MergedRules } from '../types/rules.js'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { bold, green, red, yellow } from 'ansis'
@@ -66,20 +69,27 @@ export async function runInit(options: InitOptions): Promise<void> {
   const paths = adapter.resolveInstallPaths(!!options.local)
 
   const tpl = templatesDir()
+  const mergedRules = loadRules()
   let written = 0
 
   mkdirSync(paths.skillsDir, { recursive: true })
   for (const skill of SKILLS) {
     const src = join(tpl, 'skills', skill, 'SKILL.md')
     const dest = join(paths.skillsDir, skill, 'SKILL.md')
-    written += copyTemplate(src, dest, !!options.force)
+    written += copyTemplate(src, dest, !!options.force, mergedRules)
   }
 
-  console.log(bold(green(`\nstk init 完成：安装 ${written} 个 SKILL 文件到 ${paths.skillsDir}`)))
+  console.log(
+    bold(
+      green(
+        `\nstk init 完成：安装 ${written} 个 SKILL 文件到 ${paths.skillsDir}（规则库 v${mergedRules.rulesInfo.packVersion}）`,
+      ),
+    ),
+  )
 }
 
-/** Copy a template file, skipping on existing unless force is set. Returns 1 if written. */
-function copyTemplate(src: string, dest: string, force: boolean): number {
+/** Copy a template file, rendering rules-pack prompt fragments before write. Returns 1 if written. */
+function copyTemplate(src: string, dest: string, force: boolean, rules: MergedRules): number {
   if (!existsSync(src)) {
     console.error(red(`模板缺失: ${src}`))
     return 0
@@ -89,6 +99,9 @@ function copyTemplate(src: string, dest: string, force: boolean): number {
     return 0
   }
   mkdirSync(dirname(dest), { recursive: true })
-  copyFileSync(src, dest)
+  const raw = readFileSync(src, 'utf8')
+  const { content, warnings } = renderTemplate(raw, rules)
+  for (const w of warnings) console.error(yellow(`警告: ${w}`))
+  writeFileSync(dest, renderHeader(rules) + content)
   return 1
 }

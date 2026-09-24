@@ -19,6 +19,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@studyzy/stk-rules": "file:./rules",
     "ansis": "^3.3.2",
     "cac": "^6.7.14",
     "tinyexec": "^0.3.1"

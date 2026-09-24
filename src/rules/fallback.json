@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "packVersion": "1.0.0",
+  "releasedAt": "2026-09-24T00:00:00Z",
+  "engines": {
+    "stk": ">=0.6"
+  },
+  "data": {
+    "low-frequency-plugins": [
+      "pptx@codebuddy-plugins-official",
+      "docx@codebuddy-plugins-official",
+      "xlsx@codebuddy-plugins-official",
+      "agent-browser@codebuddy-plugins-official",
+      "playwright-cli@codebuddy-plugins-official"
+    ],
+    "mcp-alternatives": {
+      "Playwright": "playwright",
+      "playwright": "playwright",
+      "github": "gh",
+      "github-mcp": "gh",
+      "slack": "slack-cli",
+      "filesystem": "node fs",
+      "notion": "notion-cli",
+      "linear": "linear-cli",
+      "jira": "jira-cli",
+      "tapd": "tapd-cli",
+      "mcp-server-tapd": "tapd-cli",
+      "gongfeng": "gongfeng",
+      "gongfeng-mcp": "gongfeng"
+    },
+    "tools": [
+      {
+        "id": "rtk",
+        "type": "cli"
+      },
+      {
+        "id": "caveman",
+        "type": "plugin"
+      },
+      {
+        "id": "headroom",
+        "type": "cli"
+      },
+      {
+        "id": "lean-ctx",
+        "type": "cli"
+      },
+      {
+        "id": "graphify",
+        "type": "cli"
+      },
+      {
+        "id": "ponytail",
+        "type": "plugin"
+      },
+      {
+        "id": "karpathy-skills",
+        "type": "plugin"
+      },
+      {
+        "id": "gitnexus",
+        "type": "plugin"
+      },
+      {
+        "id": "tokenjuice",
+        "type": "cli"
+      },
+      {
+        "id": "codebase-memory",
+        "type": "mcp"
+      },
+      {
+        "id": "codegraph",
+        "type": "mcp"
+      },
+      {
+        "id": "context-mode",
+        "type": "plugin"
+      }
+    ],
+    "thresholds": {
+      "memoryMdMaxLines": 150,
+      "memoryMdSuggestLines": 200,
+      "userMemoryMaxLines": 50,
+      "ruleFileMaxLines": 30,
+      "totalMaxLines": 250,
+      "impactHighBytes": 5120,
+      "impactMediumBytes": 1024,
+      "diagnoseFreshMinutes": 5,
+      "contextReuseDays": 7
+    },
+    "levels": {
+      "rtk": "初级",
+      "headroom": "高级",
+      "graphify": "高级",
+      "codebase-memory-mcp": "高级",
+      "codegraph": "高级",
+      "gitnexus": "高级",
+      "*": "中级"
+    }
+  },
+  "prompts": {
+    "tool-opt.claude": "<!-- stk:prompt-version: 1 -->\n\n## Claude Code 平台落地机制（来自规则库）\n\n| 平台            | 机制                                            | 语义                                          | target                    |\n| --------------- | ----------------------------------------------- | --------------------------------------------- | ------------------------- |\n| **Claude Code** | `~/.claude/settings.json` 的 `permissions.deny` | 禁用/从上下文移除（模型不可见、不可按需加载） | `claude-permissions-deny` |\n\n**语义警告**：Claude 的 deny 是彻底禁用（与 CodeBuddy 的\"保留但延迟加载\"不等价），判定必须保守——**只对用户明确确认不使用**的工具建议 deny，且需经用户确认。\n\n幂等判定：读取 `~/.claude/settings.json` 的 `permissions.deny`，若候选低频工具均已 deny → 不启动（已就绪）。\n\n**CodeX**：无内置工具延迟/禁用统一开关（`mcp_servers.<id>.enabled_tools`/`disabled_tools` 仅 MCP 工具），**不产出**。\n",
+    "tool-opt.codebuddy": "<!-- stk:prompt-version: 1 -->\n\n## CodeBuddy / WorkBuddy 平台落地机制（来自规则库）\n\n按平台采用不同落地方式：\n\n| 平台            | 机制                                            | 语义                                          | target                    |\n| --------------- | ----------------------------------------------- | --------------------------------------------- | ------------------------- |\n| **CodeBuddy**   | `cblite` alias + `--tools \"Defer(...)\"`         | 延迟加载（工具保留，按需发现）                | `cblite`                  |\n| **WorkBuddy**   | `cblite` alias + `--tools \"Defer(...)\"`（同 CodeBuddy 内核） | 延迟加载（工具保留，按需发现）        | `cblite`                  |\n\n幂等判定：运行 `type cblite 2>/dev/null`（或 `alias cblite`），能解析到 → 已存在 `cblite` alias，不启动（已就绪）。\n\n**WorkBuddy**：基于 CodeBuddy CLI 内核，支持相同 `--tools` Defer 语法；判定失败/无法确认时按\"未就绪\"处理并启动（避免漏建议）。\n"
+  }
+}

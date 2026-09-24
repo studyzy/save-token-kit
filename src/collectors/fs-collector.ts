@@ -7,7 +7,8 @@ import type {
   RuleEntry,
   SkillEntry,
 } from '../types/index.js'
-import { MCP_CLI_ALTERNATIVES, LOW_FREQUENCY_PLUGINS } from '../types/index.js'
+import type { MergedRules } from '../types/rules.js'
+import { loadRules } from '../rules/loader.js'
 import type { PlatformAdapter } from '../adapters/platform-adapter.js'
 import {
   exists,
@@ -63,13 +64,14 @@ interface HookConfig {
 
 /**
  * Scan CodeBuddy config directory via filesystem and assemble structured results.
+ * `rules` defaults to the process-start rules snapshot when omitted.
  */
-export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
+export function scanFilesystem(adapter: PlatformAdapter, rules: MergedRules = loadRules()): FsCollectResult {
   const paths = adapter.getConfigPaths()
 
-  const mcpList = scanMcpConfig(paths.mcp)
+  const mcpList = scanMcpConfig(paths.mcp, rules)
   const settings = readSettings(paths.settings)
-  const pluginList = scanPlugins(settings)
+  const pluginList = scanPlugins(settings, rules)
   const hookList = scanHooks(settings)
   const skillList = scanSkills(paths.skillsDir, 'user')
   const projectSkills = scanSkills(paths.projectSkillsDir, 'project')
@@ -124,13 +126,13 @@ export function scanFilesystem(adapter: PlatformAdapter): FsCollectResult {
   }
 }
 
-function scanMcpConfig(path: string): McpEntry[] {
+function scanMcpConfig(path: string, rules: MergedRules): McpEntry[] {
   const config = readJsonSafe<McpConfigFile>(path)
   if (!config) return []
   const entries: McpEntry[] = []
   const disabled = new Set(config.disabledMcpServers ?? [])
   for (const [name, server] of Object.entries(config.mcpServers ?? {})) {
-    const cliAlt = MCP_CLI_ALTERNATIVES[name]
+    const cliAlt = rules.mcpAlternatives[name]
     const configStr = JSON.stringify(server)
     entries.push({
       name,
@@ -153,7 +155,7 @@ function readSettings(path: string): SettingsFile {
   return readJsonSafe<SettingsFile>(path) ?? {}
 }
 
-function scanPlugins(settings: SettingsFile): PluginEntry[] {
+function scanPlugins(settings: SettingsFile, rules: MergedRules): PluginEntry[] {
   const entries: PluginEntry[] = []
   for (const [id, enabled] of Object.entries(settings.enabledPlugins ?? {})) {
     const [pluginId, marketplace] = id.split('@')
@@ -163,7 +165,7 @@ function scanPlugins(settings: SettingsFile): PluginEntry[] {
       marketplace: marketplace ?? '',
       enabled: !!enabled,
       installedPath: null,
-      isLowFrequency: LOW_FREQUENCY_PLUGINS.has(id),
+      isLowFrequency: rules.lowFrequencyPlugins.has(id),
     })
   }
   return entries

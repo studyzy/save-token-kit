@@ -7,6 +7,7 @@ import { runInstall } from './commands/install.js'
 import { runRollback } from './commands/rollback.js'
 import { runProxy } from './commands/proxy.js'
 import { runVerify } from './commands/verify.js'
+import { runRulesUpdate, runRulesStatus } from './commands/rules.js'
 
 /**
  * CLI entry point for `stk`.
@@ -71,6 +72,26 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     .action(async (options: { file?: string }) => {
       await runVerify(options)
     })
+
+  cli
+    .command('rules <action>', '规则库管理 (update: 更新优化规则包 | status: 查看规则库状态)')
+    .option('--check', '仅检查新版本，不安装')
+    .option('--json', '机器可读输出')
+    .action(
+      async (
+        action: string,
+        options: { check?: boolean; json?: boolean },
+      ) => {
+        if (action === 'update') {
+          await runRulesUpdate(options)
+        } else if (action === 'status') {
+          await runRulesStatus(options)
+        } else {
+          console.error(`未知的 rules 子命令: ${action}（可用: update | status）`)
+          process.exitCode = 1
+        }
+      },
+    )
 
   cli.help()
   cli.version('0.1.0')

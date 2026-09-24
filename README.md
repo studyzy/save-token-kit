@@ -192,6 +192,20 @@ tests/
 - 不提供实时持续监控、云端同步、GUI 与自动回滚
 - `stk analyze` / `optimize` / `report` 等 CLI 命令由 AI Agent 的 SKILL 完成
 
+## 规则库（stk-rules）
+
+优化经验（低频插件名单、MCP 替代映射、工具目录、阈值、分级表、平台提示词）收敛为**单个规则文件** `rules/stk-rules.json`（独立版本化），引擎只负责加载与执行——**改经验不用升级 stk**。
+
+```bash
+stk rules update            # 下载最新 stk-rules.json 到 ~/.stk/rules/
+stk rules update --check    # 仅检查
+stk rules status [--json]   # 查看生效版本与各层加载结果
+```
+
+- 更新源默认为仓库 raw 地址，可用环境变量 `STK_RULES_URL` 指向任意 URL
+- 规则按「项目级 `./stk-rules/` > 全局用户 `~/.stk/rules.d/` > 已装文件 `~/.stk/rules/stk-rules.json` > 内置兜底」逐条覆盖合并；`"!条目"` 语法可显式移除下层名单条目
+- 每次诊断报告头部标注规则库版本，历史报告可追溯经验基线
+
 ## License
 
 MIT
