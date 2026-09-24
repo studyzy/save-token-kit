@@ -4,8 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+// 2026-09 单一入口重构：分析阶段执行细节迁至 stk/stages/analyze.md（单一事实源），
+// 旧 stk-analyze/SKILL.md 瘦身为指向该文档的高级单步入口。
 const SKILL = readFileSync(
-  resolve(__dirname, '../../../src/templates/skills/stk-analyze/SKILL.md'),
+  resolve(__dirname, '../../../src/templates/skills/stk/stages/analyze.md'),
   'utf-8',
 )
 

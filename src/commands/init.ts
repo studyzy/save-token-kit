@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, copyFileSync } from 'node:fs'
 import { loadRules } from '../rules/loader.js'
 import { renderTemplate, renderHeader } from '../rules/render.js'
 import type { MergedRules } from '../types/rules.js'
-import { join, dirname } from 'node:path'
+import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { bold, green, red, yellow } from 'ansis'
 import { getAdapter, ADAPTERS } from '../adapters/codebuddy-adapter.js'
@@ -13,7 +13,7 @@ export interface InitOptions {
   agent?: string
 }
 
-const SKILLS = ['stk-diagnose', 'stk-analyze', 'stk-optimize', 'stk-report'] as const
+const SKILLS = ['stk', 'stk-diagnose', 'stk-analyze', 'stk-optimize', 'stk-report'] as const
 
 /**
  * Templates base dir. Resolves to `src/templates` at dev time (next to src/)
@@ -33,7 +33,7 @@ function templatesDir(): string {
 }
 
 /**
- * Implement `stk init`: install the 4 SKILL templates for a chosen agent.
+ * Implement `stk init`: install the SKILL templates for a chosen agent.
  * Defaults to global install unless --local is given.
  */
 export async function runInit(options: InitOptions): Promise<void> {
@@ -74,9 +74,8 @@ export async function runInit(options: InitOptions): Promise<void> {
 
   mkdirSync(paths.skillsDir, { recursive: true })
   for (const skill of SKILLS) {
-    const src = join(tpl, 'skills', skill, 'SKILL.md')
-    const dest = join(paths.skillsDir, skill, 'SKILL.md')
-    written += copyTemplate(src, dest, !!options.force, mergedRules)
+    const src = join(tpl, 'skills', skill)
+    written += copySkillDir(src, join(paths.skillsDir, skill), !!options.force, mergedRules)
   }
 
   console.log(
@@ -88,20 +87,49 @@ export async function runInit(options: InitOptions): Promise<void> {
   )
 }
 
-/** Copy a template file, rendering rules-pack prompt fragments before write. Returns 1 if written. */
-function copyTemplate(src: string, dest: string, force: boolean, rules: MergedRules): number {
-  if (!existsSync(src)) {
-    console.error(red(`模板缺失: ${src}`))
+/** Recursively walk a directory, returning relative file paths (forward slashes). */
+function walkFiles(dir: string, base = ''): string[] {
+  const out: string[] = []
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.name.startsWith('.')) continue
+    const rel = base ? `${base}/${e.name}` : e.name
+    if (e.isDirectory()) out.push(...walkFiles(join(dir, e.name), rel))
+    else out.push(rel)
+  }
+  return out
+}
+
+/**
+ * Copy a skill template directory recursively. Markdown files get rules-pack
+ * prompt fragments rendered before write; other files are copied verbatim.
+ * Returns the number of files written.
+ */
+function copySkillDir(srcDir: string, destDir: string, force: boolean, rules: MergedRules): number {
+  if (!existsSync(srcDir)) {
+    console.error(red(`模板缺失: ${srcDir}`))
     return 0
   }
-  if (existsSync(dest) && !force) {
-    console.error(yellow(`已存在，跳过（使用 --force 覆盖）: ${dest}`))
-    return 0
+  let written = 0
+  for (const rel of walkFiles(srcDir)) {
+    const src = join(srcDir, rel)
+    const dest = join(destDir, rel)
+    if (existsSync(dest) && !force) {
+      console.error(yellow(`已存在，跳过（使用 --force 覆盖）: ${dest}`))
+      continue
+    }
+    mkdirSync(dirname(dest), { recursive: true })
+    if (rel.endsWith('.md')) {
+      const raw = readFileSync(src, 'utf8')
+      const { content, warnings } = renderTemplate(raw, rules)
+      for (const w of warnings) console.error(yellow(`警告: ${w}`))
+      writeFileSync(dest, renderHeader(rules) + content)
+    } else {
+      copyFileSync(src, dest)
+    }
+    written += 1
   }
-  mkdirSync(dirname(dest), { recursive: true })
-  const raw = readFileSync(src, 'utf8')
-  const { content, warnings } = renderTemplate(raw, rules)
-  for (const w of warnings) console.error(yellow(`警告: ${w}`))
-  writeFileSync(dest, renderHeader(rules) + content)
-  return 1
+  if (written === 0) {
+    console.error(red(`模板目录为空或全部跳过: ${relative(process.cwd(), srcDir) || srcDir}`))
+  }
+  return written
 }

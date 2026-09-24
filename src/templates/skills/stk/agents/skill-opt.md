@@ -22,9 +22,11 @@
 ## 输入
 
 - `skillList[]`（来自 `diagnosis-report.json`）：每项含 `name` / `source` / `sourcePath` / `estimatedTokens` / `loaded` / `usageFrequency`
+- `usage-report.json`（来自 `stk usage`，主流程在分析阶段步骤 1.5 生成）：`skillUsage.last30Days.ranking` + `filesScanned` 是形式一"30 天未使用"删除规则的**最终依据**
 - `toolDetection[]`：用于判定"与已装工具功能重复"
 - `context.json`：用户场景（`purpose` / `sameRepo` / `graphTool`）
 - 缺失或为空数组：返回 `skipped: true` + 空 `suggestions`
+- `usage-report.json` 缺失（非 CodeBuddy 平台或未生成）：跳过"30 天未使用"规则，其余规则照常
 
 ## 判定规则
 
@@ -32,10 +34,13 @@
 
 ### 形式一：禁用/移除（disable-skill）
 
-> **收紧原则**：默认**不建议删除**任何 Skill。仅当该 Skill 与用户的 `role` / `purpose` / 当前项目画像**完全不相关**（如 `pm` 角色的 `doc` 项目下出现后端/移动/AI 领域专用 Skill，无任何场景匹配）时，才建议禁用。所有"可能相关""低频但非无关""领域沾边"的 Skill，**一律不删**，改走形式三（斜杠调用）以保留能力并节省常驻 Context。
+> **收紧原则（默认不删）+ 使用数据例外**：默认**不建议删除**任何 Skill。仅当该 Skill 与用户的 `role` / `purpose` / 当前项目画像**完全不相关**（如 `pm` 角色的 `doc` 项目下出现后端/移动/AI 领域专用 Skill，无任何场景匹配）时，才建议禁用。所有"可能相关""低频但非无关""领域沾边"的 Skill，**一律不删**，改走形式三（斜杠调用）以保留能力并节省常驻 Context。
+>
+> **例外（最终依据 = 真实使用数据）**：`usage-report.json` 的 `filesScanned > 0`（确有会话历史可查）且该 Skill 在 `skillUsage.last30Days.ranking` 中无记录（最近 30 天 **0 次调用**）→ **即使场景描述沾边也建议移除**。安装配置的目的就是被使用，一个月真实零调用即为闲置；"低频但重要"的误杀风险由用户在优化阶段任务级确认兜底。
 
 | 条件 | 判定 | 输出 |
 | --- | --- | --- |
+| **`filesScanned > 0`** 且 `skillUsage.last30Days.ranking` 中无该 Skill 名（精确匹配，`<unknown>` 条目不参与匹配）且 `source !== 'bundled'` | 最近 30 天未使用，建议移除 | `action`: "移除 skill: <name>（最近 30 天 0 次调用）"，`operationType`: "disable-skill"，`reason`: "usage-report.json 显示最近 30 天真实调用为 0（filesScanned=<N>），闲置配置白占 <estimatedTokens> token"，`risk`: "medium"，`reversible`: true，`evidence`: "skillUsage.last30Days 无 <name>，filesScanned=<N>" |
 | Skill 与 `role` / `purpose` / 项目画像**完全不相关**（结合 `context.json` 与 Skill 描述语义判定，无任何使用场景） | 完全无关，建议禁用 | `action`: "禁用 skill: <name>"，`operationType`: "disable-skill"，`reason`: "与用户角色=<role> 及当前项目画像完全不相关，<estimatedTokens> token 可移除" |
 | `name` 与 `toolDetection[]` 中已启用的工具功能重复（见下方重复判定表） | 功能重复，建议禁用 | `action`: "禁用 skill: <name>（已被工具 <tool> 覆盖）"，`operationType`: "disable-skill"，`reason`: "与已启用工具 <tool> 功能重叠" |
 
@@ -110,7 +115,8 @@
 - Skill 为高频工具类（`usageFrequency !== 'low'` 且名含工具类关键词）→ 不产出禁用/迁移
 - Skill `source === 'bundled'`（内置不可禁用/迁移） → 不产出禁用/迁移；形式三/四对 bundled 仍需满足各自非高频/逻辑简单条件才产出
 - Skill `source === 'project'` 且 name 匹配 `stk-*` / `st-*` → 不产出（当前项目自身 skill）
-- 仅"与 `role`/`purpose`/项目画像完全不相关"才产出禁用；弱相关/低频但非完全无关 → 不产出禁用（改走形式三斜杠调用）
+- 仅"与 `role`/`purpose`/项目画像完全不相关"**或**"30 天零调用（filesScanned > 0）"才产出禁用/移除；弱相关且近 30 天有调用 → 不产出禁用（改走形式三斜杠调用）
+- **`filesScanned === 0` 或 `usage-report.json` 缺失** → "30 天未使用"规则整体跳过，**不得**以"无数据"充当"未使用"证据
 - `loaded === false` 且 `usageFrequency === 'low'` → 仍产出（未加载但可能被触发）
 - 重复判定表中无对应条目 → 不产出"功能重复"建议
 - 形式二要求 `source` 可迁移（user/bundled），plugin-marketplace 不产出迁移
@@ -135,6 +141,7 @@
 ## estimatedSavingTokens 估算口径
 
 - 禁用（disable-skill）：取该 Skill 的 `estimatedTokens`（完全移除 skill 描述注入）
+- 30 天未使用移除（disable-skill，数据驱动）：取该 Skill 的 `estimatedTokens`；`risk` 为 "medium"（数据真实但"低频但重要"的误杀由用户确认兜底），`reversible`: true
 - 迁移（migrate-skill）：取该 Skill 的 `estimatedTokens`（从全局常驻改为项目级按需，全局上下文移除该描述）
 - 改为斜杠调用（disable-model-invocation）：取该 Skill 的 `estimatedTokens`（描述不再自动注入，仅用户调用时加载）
 - 模型降级（skill-model-downgrade）：固定填 `0`（节省的是 API 成本与延迟，非上下文 token），`detail` 中说明"lite 模型降低成本"
