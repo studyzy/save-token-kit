@@ -36,6 +36,8 @@ describe('stk init', () => {
     }
     // agents/: 12 sub-agent rule docs (previously never installed — regression guard)
     expect(readdirSync(join(stk, 'agents')).length).toBe(12)
+    // agents-optimize/: 11 execution sub-agent docs (optimize stage)
+    expect(readdirSync(join(stk, 'agents-optimize')).length).toBe(11)
   })
 
   it('injects rules-pack header into installed markdown files', async () => {

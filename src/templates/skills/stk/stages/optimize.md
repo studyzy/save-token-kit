@@ -52,22 +52,22 @@
 
 | operationType | target 匹配 | 子 Agent | 说明 |
 |---|---|---|---|
-| `install-tool` | — | `@../agents/install-tool.md` | 执行 `stk install` 安装工具 |
-| `disable-skill` | — | `@../agents/skill-opt.md` | 修改 settings.json 禁用 Skill |
-| `migrate-skill` | — | `@../agents/skill-opt.md` | 修改 settings.json 迁移 Skill 作用域 |
-| `disable-mcp` | — | `@../agents/mcp-opt.md` | 修改 .mcp.json 禁用 MCP |
-| `defer-mcp` | — | `@../agents/mcp-opt.md` | 修改 .mcp.json 设置 defer_loading |
-| `replace-mcp-with-cli` | `tapd` / `mcp-server-tapd` | `@../agents/cli-replace-tapd.md` | 安装 tapd-ai-cli + 禁用 TAPD MCP |
-| `replace-mcp-with-cli` | `gongfeng` / `gongfeng-mcp` | `@../agents/cli-replace-gongfeng.md` | 安装 gongfeng-cli + 禁用工蜂 MCP |
-| `replace-mcp-with-cli` | `github` / `github-mcp` | `@../agents/cli-replace-gh.md` | 安装 gh CLI + 禁用 GitHub MCP |
-| `disable-plugin` | — | `@../agents/plugin-opt.md` | 修改 settings.json 禁用 Plugin |
-| `migrate-plugin` | — | `@../agents/plugin-opt.md` | 修改 settings.json 迁移 Plugin 作用域 |
-| `memory-md-review` | — | `@../agents/memory-md.md` | 精简/优化指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md） |
-| `rules-opt` | — | `@../agents/rules-opt.md` | 修改 rules 配置 |
-| `tool-opt` | `codebuddy` / `claude`（诊断 agentName） | `@../agents/tool-opt.md` | 收窄低频内置工具：CodeBuddy 建 cblite alias（Defer 延迟），Claude 写 permissions.deny（禁用，需用户确认） |
+| `install-tool` | — | `@../agents-optimize/install-tool.md` | 执行 `stk install` 安装工具 |
+| `disable-skill` | — | `@../agents-optimize/skill-opt.md` | 修改 settings.json 禁用 Skill |
+| `migrate-skill` | — | `@../agents-optimize/skill-opt.md` | 修改 settings.json 迁移 Skill 作用域 |
+| `disable-mcp` | — | `@../agents-optimize/mcp-opt.md` | 修改 .mcp.json 禁用 MCP |
+| `defer-mcp` | — | `@../agents-optimize/mcp-opt.md` | 修改 .mcp.json 设置 defer_loading |
+| `replace-mcp-with-cli` | `tapd` / `mcp-server-tapd` | `@../agents-optimize/cli-replace-tapd.md` | 安装 tapd-ai-cli + 禁用 TAPD MCP |
+| `replace-mcp-with-cli` | `gongfeng` / `gongfeng-mcp` | `@../agents-optimize/cli-replace-gongfeng.md` | 安装 gongfeng-cli + 禁用工蜂 MCP |
+| `replace-mcp-with-cli` | `github` / `github-mcp` | `@../agents-optimize/cli-replace-gh.md` | 安装 gh CLI + 禁用 GitHub MCP |
+| `disable-plugin` | — | `@../agents-optimize/plugin-opt.md` | 修改 settings.json 禁用 Plugin |
+| `migrate-plugin` | — | `@../agents-optimize/plugin-opt.md` | 修改 settings.json 迁移 Plugin 作用域 |
+| `memory-md-review` | — | `@../agents-optimize/memory-md.md` | 精简/优化指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md） |
+| `rules-opt` | — | `@../agents-optimize/rules-opt.md` | 修改 rules 配置 |
+| `tool-opt` | `codebuddy` / `claude`（诊断 agentName） | `@../agents-optimize/tool-opt.md` | 收窄低频内置工具：CodeBuddy 建 cblite alias（Defer 延迟），Claude 写 permissions.deny（禁用，需用户确认） |
 
 > **`tool-opt` 平台限制**：按诊断 `agentName` 分支——**CodeBuddy** 走 `cblite` alias（`--tools "Defer(...)"` 延迟加载），**Claude Code** 走 `~/.claude/settings.json` 的 `permissions.deny`（禁用语义，仅落地用户明确确认不使用的工具）；**CodeX 无此等价机制**，遇到 `tool-opt` 任务时回报跳过并标注原因。
-| 其他 | — | `@../agents/generic.md` | 兜底，按 detail 描述执行 |
+| 其他 | — | `@../agents-optimize/generic.md` | 兜底，按 detail 描述执行 |
 
 > **CLI 替代 Agent 说明**：`replace-mcp-with-cli` 按 `target` 名匹配到对应 CLI 安装 Agent。这些 Agent 会先安装 CLI 工具、引导用户认证、再禁用对应 MCP。安装与禁用解耦：安装失败不影响禁用操作。
 
@@ -107,5 +107,5 @@ id: "<task id>"
 - 单个任务失败：记录 `failed` 并继续下一任务（整体流程可见）；如需遇错即停，执行前与用户确认。
 - 本阶段仅指导修改，不自动回滚；回滚依赖用户侧备份手动恢复。
 - 支持 `codebuddy`/`claude`/`codex` 平台（`stk init`/`stk install --agent` 均生效）；`memory-md` 任务按当前平台实际指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md）处理。
-- 子 Agent 详细规则见本 skill 目录下 `../agents/` 对应文件，按需读取。
+- 子 Agent 详细规则见本 skill 目录下 `../agents-optimize/` 对应文件，按需读取（注意与 `../agents/` 的**分析**阶段子 Agent 同名不同职责：本目录为执行规则，直接修改配置）。
 - 输出执行摘要后本阶段结束：是否续跑「报告」阶段由调用方（`/stk` 停点确认）或用户决定，本文档不主动推进。
