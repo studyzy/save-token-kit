@@ -27,10 +27,8 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 
 - `agentList[]`（来自 `diagnosis-report.json`）：每项含 `name` / `estimatedTokens` / `source` / `description` / `tools`（工具名数组，可空）。
 - `builtinTools`（来自 `diagnosis-report.json`，`DiagnosisReport.builtinTools`）：每项含 `name` / `estimatedTokens` / `category`（`builtin` / `mcp`）。用于查每个工具的 token 体量。
-- `usage-report.json`（来自 `stk usage`，主流程在分析阶段步骤 1.5 生成）：`subagentUsage.last30Days.ranking` + `filesScanned` 是"30 天未使用 → 移除子代理"规则的**最终依据**。
 - `context.json`：用户场景（`purpose` / `sameRepo` / `graphTool`）。
 - 缺失或为空数组：`agentList` 为空 → 返回 `skipped: true` + 空 `suggestions`。
-- `usage-report.json` 缺失（非 CodeBuddy 平台或未生成）：跳过"30 天未使用"规则，工具收窄规则照常。
 
 ## 判定规则
 
@@ -46,16 +44,6 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 | 工具默认延迟加载但当前场景高频使用 | **NoDefer 拉回** | `action`: "为 <agentName> 添加 `NoDefer(<tool>)` 将工具拉回常驻"，`reason`: "该工具默认 defer 但场景高频使用" |
 
 **工具名来源**：`agentList[].tools` 已经给出该子代理实际挂载的工具名；同时用 `builtinTools` 查每个工具的 `estimatedTokens` 与 `category`，用于估算节省与区分 MCP 工具（整组 `Defer(mcp__<server>__*)` 通配）。
-
-### 附加规则：30 天未使用 → 移除子代理定义（disable-agent）
-
-工具收窄解决"子代理常驻工具太重"；若子代理本身已闲置，直接移除定义收益更大。判定依据 = `usage-report.json`（真实调用记录）：
-
-| 条件 | 判定 | 输出 |
-| --- | --- | --- |
-| **`filesScanned > 0`** 且 `subagentUsage.last30Days.ranking` 中无该子代理名（精确匹配，`<unknown>` 条目不参与匹配）且 `source` 为 `plugin` / `project`（有磁盘定义、用户可自行移除） | 最近 30 天未使用，建议移除 | `action`: "移除子代理定义: <agentName>（最近 30 天 0 次调用）"，`operationType`: "disable-agent"，`reason`: "usage-report.json 显示最近 30 天真实调用为 0（filesScanned=<N>），其定义与描述常驻 <estimatedTokens> token"，`estimatedSavingTokens`: 取该子代理 `estimatedTokens`，`risk`: "medium"，`reversible`: true，`evidence`: "subagentUsage.last30Days 无 <name>，filesScanned=<N>，source=<source>" |
-
-> 30 天未使用规则**优先于工具收窄**：同一子代理若已判定"建议移除"，不再重复产出该子代理的 Defer/NoDefer 建议（避免"先收窄再删除"的自相矛盾建议）。
 
 **每条 suggestion 的 `detail` 必须包含三段明确清单**：
 
@@ -89,9 +77,6 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 - 子代理仅挂载单个工具且该工具高频 → 不产出
 - `builtinTools` 缺失导致无法查得工具 token 体量 → 仍可按工具名产出清单，`estimatedSavingTokens` 用 80 兜底
 - 子代理 `name` 为系统内置 Agent（`Explore` / `statusline-setup` / `Plan`）→ 不产出（系统代理不开放 tools 配置，不可优化）
-- **`filesScanned === 0` 或 `usage-report.json` 缺失** → "30 天未使用 → 移除"规则整体跳过，**不得**以"无数据"充当"未使用"证据
-- `source` 为空 / 内置 / 无法定位磁盘定义的子代理 → 不产出移除建议（仅工具收窄路径适用）
-- 已命中"30 天未使用 → 移除"的子代理 → 不再产出其工具收窄建议（移除优先）
 
 ## 验收条件（Acceptance，与 `stk verify` 校验规则一致）
 

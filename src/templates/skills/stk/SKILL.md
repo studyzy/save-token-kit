@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # SKILL: stk
 
-Token 优化流水线的唯一主入口。启动时从 `save-token/` 产物推导当前进度，输出流水线状态图，从断点续跑。各阶段执行细节位于本 skill 目录下 `stages/`（diagnose.md / analyze.md / optimize.md / report.md），**按需读取对应文档执行**，本文件不重复其内容。
+Token 优化流水线的唯一编排入口。启动时从 `save-token/` 产物推导当前进度，输出流水线状态图，从断点续跑。四个阶段的**完整执行逻辑分别位于同级的 4 个 skill**（`../stk-diagnose/SKILL.md`、`../stk-analyze/SKILL.md`、`../stk-optimize/SKILL.md`、`../stk-report/SKILL.md`），本文件只做编排调度，**不复制其内容**——按需读取对应 SKILL.md 并按其执行。
 
 ## 核心原则
 
@@ -41,18 +41,21 @@ Token 优化流水线：诊断 ✓ → 分析 ✓ → 优化 ● 进行中 → �
 
 ### 步骤 4: 阶段执行与链式衔接
 
-读取并执行对应 `stages/<stage>.md`。每阶段结束用一次 `AskUserQuestion` 停点确认：
+读取并按对应阶段的 SKILL.md 执行：
 
-| 停点 | 询问 | 默认推荐 |
+| 阶段 | 读取 | 衔接 |
 |---|---|---|
-| 诊断完成（报告已展示） | 继续分析？ | 继续 |
-| 分析完成（tasks.md 已产出） | **进入优化：执行哪些任务？** → 读取 `stages/optimize.md` 阶段 2 的任务级选择 | 全部（推荐项，不自动执行） |
-| 优化完成（摘要已输出） | 生成前后对比报告？ | 继续 |
-| 报告完成（节省摘要已输出） | 开新一轮（重新诊断）/ 结束 | 结束 |
-| 任一停点 | 用户选「停在这里」 | — 立即停止，不执行后续阶段；下次 `/stk` 从断点续跑 |
+| 1 诊断 | `../stk-diagnose/SKILL.md` | 报告展示后 AskUserQuestion「继续分析？」（默认继续） |
+| 2 分析 | `../stk-analyze/SKILL.md` | tasks.md 产出后进入「优化」阶段的任务级选择 |
+| 3 优化 | `../stk-optimize/SKILL.md` | 摘要输出后 AskUserQuestion「生成前后对比报告？」（默认继续） |
+| 4 报告 | `../stk-report/SKILL.md` | AskUserQuestion「开新一轮（重新诊断）/ 结束」（默认结束） |
+
+任一停点用户选「停在这里」→ 立即停止，不执行后续阶段；下次 `/stk` 从断点续跑。
+
+> 路径回退：若相对路径不可达，尝试 `<skills 根目录>/stk-<stage>/SKILL.md`；仍找不到则提示用户重跑 `stk init`，停止。
 
 ## 边界
 
 - 状态误判的后果仅为重复某阶段（幂等：诊断覆盖写、优化跳过已勾选项），可接受。
-- 本 SKILL 不修改任何用户配置；修改仅发生在「优化」阶段且必须经任务级选择显式确认。
-- 各阶段细节（含 agent 判定、子 Agent 路由、任务归因规则）一律以 `stages/` 对应文档为准。
+- 本 SKILL 只编排不执行；各阶段细节一律以对应 SKILL.md 为准。
+- 4 个阶段 skill 仍可被用户单独调用（行为 = 流水线单步），单独调用时不触发链式衔接。

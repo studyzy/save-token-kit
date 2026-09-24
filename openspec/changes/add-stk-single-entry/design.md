@@ -23,13 +23,15 @@
 
 ## Decisions
 
-### D1: 薄分发器 + 共享 stage 文档，而非内容合并
+### D1: 编排与执行分离——/stk 只调度，逻辑留原位
 
-`stk/SKILL.md` 保持 ~2K（状态检测 + 路由 + 确认点矩阵），各阶段执行细节迁入 `stk/stages/{diagnose,analyze,optimize,report}.md`。旧 4 个 SKILL.md 各瘦身为 ~0.5K：frontmatter + 「本命令 = 流水线单步，完整流程用 /stk」+ 指向对应 stage 文档。
+`stk/SKILL.md` 保持 ~3K（状态推导 + 状态图 + 停点确认矩阵），四个阶段的完整执行逻辑**原位保留**在各自 SKILL.md（stk-diagnose / stk-analyze / stk-optimize / stk-report），`/stk` 按需读取对应 SKILL.md 调度执行，不复制内容。
+
+> 演进记录：曾实施"stages/ 单一事实源 + 旧 skill 瘦身为指针"方案（eed68a7），用户复盘后否决——逻辑副本造成双份维护心智，改为"逻辑留原位、编排在外"（本方案）。
 
 - 备选 A（4 合 1 巨型 SKILL）：40K+ 常驻风险，上下文成本不可接受。
 - 备选 B（CLI 侧 `stk flow` 编排命令）：analyze/optimize 本质是 AI 驱动（AskUserQuestion、子 Agent 派发），CLI 无法承载。
-- 选定理由：单一事实源，改逻辑只改 stage 文档一处；SKILL.md 仅按需读取，无常驻成本。
+- 选定理由：零逻辑复制；4 个 skill 仍是独立可用的执行单元；UX 改进直接落在对应 SKILL.md。
 
 ### D2: 状态推导读产物文件，不新增机制
 
@@ -49,7 +51,7 @@
 
 ### D6: 安装布局——init 升级为整目录递归复制
 
-现状：`src/commands/init.ts` 对每个 skill 仅复制单文件 `SKILL.md`（`join(tpl,'skills',skill,'SKILL.md')`），子目录不会被安装——存量 `stk-analyze/agents/` 12 个子 Agent 文档在 npm 全局安装场景下已缺失（仓库内因 symlink 开发目录而不可见）。本次将 `copyTemplate` 升级为递归复制整个 skill 目录（SKILL.md + stages/ + agents/），`stk/`（含 stages/）与旧 4 个 skill 平级安装。stage 文档的引用路径按「同 skill 目录相对路径」写在提示词里，兼容各平台 skills 根目录差异。
+现状：`src/commands/init.ts` 对每个 skill 仅复制单文件 `SKILL.md`（`join(tpl,'skills',skill,'SKILL.md')`），子目录不会被安装——存量 `stk-analyze/agents/` 12 个与 `stk-optimize/agents/` 11 个子 Agent 文档在 npm 全局安装场景下已缺失（仓库内因 symlink 开发目录而不可见）。本次将复制逻辑升级为递归复制整个 skill 目录（SKILL.md + agents/ 子目录），5 个 skill 平级安装。`/stk` 对 4 个阶段 skill 的引用按「skills 根目录下平级相对路径」写在提示词里，附路径回退说明。
 
 ## Risks / Trade-offs
 

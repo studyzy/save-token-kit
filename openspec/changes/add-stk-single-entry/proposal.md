@@ -6,12 +6,12 @@
 
 ## What Changes
 
-- 新增第 5 个 SKILL `/stk` 作为唯一主入口：薄状态机分发器（~2K SKILL.md），启动时从 `save-token/` 产物推导流水线状态（diagnosis-report.md / context.json / tasks.md / save-token-report.json），输出流水线状态图并从断点续跑。
-- 新增 `stages/` 目录 4 份阶段文档（diagnose / analyze / optimize / report），作为各阶段执行细节的单一事实源，由主入口按需读取。
-- **BREAKING**：旧 4 个 SKILL（stk-diagnose / stk-analyze / stk-optimize / stk-report）瘦身为"高级·单步"入口（~0.5K，指向对应 stage 文档），description 加"高级·单步"前缀；不再承载完整执行细节。
+- 新增第 5 个 SKILL `/stk` 作为编排入口（~3K）：从 `save-token/` 产物推导流水线状态（diagnosis-report.md / context.json / tasks.md / save-token-report.json），输出流水线状态图并从断点续跑。
+- 旧 4 个 SKILL **原位保留完整执行逻辑**（不复制到主入口）：`/stk` 按需读取对应 SKILL.md 调度执行，形成 5 skill 共存、1 编排 + 4 执行的结构。
+- **BREAKING**：完整流程默认入口从 4 个平级命令变为 `/stk`；4 个旧命令仍可单独调用（行为 = 流水线单步，不触发链式衔接）。
 - 优化阶段交互升级：从"按等级单选（初级/初级+中级/全部）"改为**任务级选择**——展示 tasks.md 编号清单，AskUserQuestion 选项"全部（推荐）/ 仅初级 / 初级+中级"，Other 支持输入编号（如 `1.1, 2.3`）圈定执行集合。
 - 每阶段结束设停点：AskUserQuestion 询问是否继续下一阶段（默认值驱动），无显式确认不落地任何修改。
-- `stk init` / `stk install --agent` 安装清单加入新 `stk/` skill。
+- `stk init` / `stk install --agent` 安装清单加入 `stk/`，并升级为递归复制 skill 目录（修复存量 agents/ 子目录从未被安装的 bug）。
 - analyze 第一轮 3 个必问问题合并为一次 AskUserQuestion 调用。
 
 ## Capabilities

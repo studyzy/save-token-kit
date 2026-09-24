@@ -29,15 +29,10 @@ describe('stk init', () => {
     tmp = mkdtempSync(join(tmpdir(), 'stk-init-'))
     process.env.HOME = tmp
     await runInit({ agent: 'codebuddy', force: true })
-    const stk = join(tmp, '.codebuddy', 'skills', 'stk')
-    // stages/: 4 pipeline stage docs
-    for (const stage of ['diagnose.md', 'analyze.md', 'optimize.md', 'report.md']) {
-      expect(existsSync(join(stk, 'stages', stage)), `missing stages/${stage}`).toBe(true)
-    }
-    // agents/: 12 sub-agent rule docs (previously never installed — regression guard)
-    expect(readdirSync(join(stk, 'agents')).length).toBe(12)
-    // agents-optimize/: 11 execution sub-agent docs (optimize stage)
-    expect(readdirSync(join(stk, 'agents-optimize')).length).toBe(11)
+    const base = join(tmp, '.codebuddy', 'skills')
+    // stk/ is the orchestrator; the 4 stage skills keep their own agents/ subdirs.
+    expect(readdirSync(join(base, 'stk-analyze', 'agents')).length).toBe(12)
+    expect(readdirSync(join(base, 'stk-optimize', 'agents')).length).toBe(11)
   })
 
   it('injects rules-pack header into installed markdown files', async () => {
@@ -72,16 +67,16 @@ describe('stk init', () => {
   it('skips existing files unless --force (including subdirectory files)', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'stk-init-'))
     process.env.HOME = tmp
-    const base = join(tmp, '.codebuddy', 'skills', 'stk')
-    mkdirSync(join(base, 'stages'), { recursive: true })
+    const base = join(tmp, '.codebuddy', 'skills', 'stk-analyze')
+    mkdirSync(join(base, 'agents'), { recursive: true })
     writeFileSync(join(base, 'SKILL.md'), 'OLD')
-    writeFileSync(join(base, 'stages', 'diagnose.md'), 'OLD-STAGE')
+    writeFileSync(join(base, 'agents', 'skill-opt.md'), 'OLD-AGENT')
     await runInit({ agent: 'codebuddy' })
     expect(readFileSync(join(base, 'SKILL.md'), 'utf8')).toBe('OLD')
-    expect(readFileSync(join(base, 'stages', 'diagnose.md'), 'utf8')).toBe('OLD-STAGE')
+    expect(readFileSync(join(base, 'agents', 'skill-opt.md'), 'utf8')).toBe('OLD-AGENT')
     // force overwrites
     await runInit({ agent: 'codebuddy', force: true })
     expect(readFileSync(join(base, 'SKILL.md'), 'utf8')).not.toBe('OLD')
-    expect(readFileSync(join(base, 'stages', 'diagnose.md'), 'utf8')).not.toBe('OLD-STAGE')
+    expect(readFileSync(join(base, 'agents', 'skill-opt.md'), 'utf8')).not.toBe('OLD-AGENT')
   })
 })

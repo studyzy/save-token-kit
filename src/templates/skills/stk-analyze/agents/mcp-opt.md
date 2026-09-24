@@ -7,10 +7,8 @@
 ## 输入
 
 - `mcpList[]`（来自 `diagnosis-report.json`）：每项含 `name` / `status` / `type` / `command` / `url` / `toolsCount` / `deferLoading` / `estimatedTokens` / `hasCliAlternative` / `cliAlternative` / `source`
-- `usage-report.json`（来自 `stk usage`，主流程在分析阶段步骤 1.5 生成）：`mcpServerUsage.last30Days.ranking` + `filesScanned` 是"30 天未使用"禁用规则的**最终依据**
 - `context.json`：用户场景（`purpose` / `sameRepo` / `graphTool`）
 - 缺失或为空数组：返回 `skipped: true` + 空 `suggestions`
-- `usage-report.json` 缺失（非 CodeBuddy 平台或未生成）：跳过"30 天未使用"规则，其余规则照常
 
 ## 判定规则
 
@@ -26,7 +24,6 @@
 | `status === "enabled"` 且 `name` 匹配 `gongfeng` / `gongfeng-mcp`（不区分大小写） | 工蜂 MCP → gongfeng CLI 替代 | `action`: "用 gongfeng CLI 替代 mcp: <name>"，`operationType`: "replace-mcp-with-cli"，`reason`: "gongfeng 命令行工具可覆盖工蜂 MCP 常见操作，移除工具定义节省上下文"，`estimatedSavingTokens`: 取 `estimatedTokens`，`risk`: "medium"（需确认 gongfeng CLI 已安装） |
 | `status === "enabled"` 且 `estimatedTokens` > 1500 且 `toolsCount` > 15 且 `deferLoading !== true` | 大型 MCP 未 defer | `action`: "为 <name> 设置 defer_loading: true"，`operationType`: "defer-mcp"，`reason`: "toolsCount=<N> estimatedTokens=<T>，defer 后仅保留 name+description（约省 40-60% token），且工具不参与 KV Cache key 计算，减少缓存失效"，`estimatedSavingTokens`: 取 `estimatedTokens` × 0.6（defer 后仍保留引用条目） |
 | `status === "enabled"` 且 `toolsCount === 0` | 异常空 MCP | `action`: "检查 mcp: <name>（启用但无工具加载）"，`operationType`: "other"，`reason`: "可能配置错误或 server 未正常启动"，`estimatedSavingTokens`: 0，`risk`: "medium" |
-| **`filesScanned > 0`** 且 `mcpServerUsage.last30Days.ranking` 中无该 server 名（精确匹配）且 `status === "enabled"` 且 name **不匹配** TAPD/工蜂/GitHub 等开发协作平台 | 最近 30 天未使用，建议禁用 | `action`: "禁用 mcp: <name>（最近 30 天 0 次调用）"，`operationType`: "disable-mcp"，`reason`: "usage-report.json 显示最近 30 天真实调用为 0（filesScanned=<N>），启用白占 <estimatedTokens> token"，`estimatedSavingTokens`: 取该 MCP `estimatedTokens`，`risk`: "medium"，`evidence`: "mcpServerUsage.last30Days 无 <name>，filesScanned=<N>" |
 
 > **CLI 替代规则优先级**：TAPD/GitHub/工蜂 的 name 匹配规则优先于通用 `hasCliAlternative` 规则。当 `name` 同时命中特定平台规则和通用 `hasCliAlternative` 时，使用特定平台规则输出（含更精确的 CLI 工具名和风险提示）。
 
@@ -37,11 +34,10 @@
 
 ## 关键约束：开发协作平台 MCP 禁止建议禁用
 
-TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具。**无论 purpose/role 如何，也无论"30 天未使用"数据如何，均不得建议禁用或移除**（低频不等于可删——此类平台往往低频但关键）。处理方式：
+TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具。**无论 purpose/role 如何，均不得建议禁用或移除**。处理方式：
 - **优先 CLI 替代**：已安装对应 CLI（`tapd-cli` / `gongfeng` / `gh`）→ 产出 `replace-mcp-with-cli` 建议
 - **CLI 未安装**：不产出禁用建议，跳过该 MCP（在 evidence 中注明"开发必备，CLI 未安装，跳过"）
 - **领域匹配判定不适用**：`purpose=code/role=backend` 等场景字段对开发协作平台无约束力
-- **"30 天未使用"数据规则同样不适用**：开发协作平台调用常集中在特定项目/阶段，30 天窗口不代表其价值
 
 ## 不输出的情况
 
@@ -50,8 +46,6 @@ TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`
 - `purpose === "office"` 且 MCP 为 office 类（playwright / browser 等） → 不建议 CLI 替代
 - `toolsCount === 0` 且 `estimatedTokens === 0` → 空壳配置，不产出
 - **TAPD/GitHub/工蜂 MCP 且对应 CLI 未安装** → 不产出（不因 CLI 未安装而降级为禁用建议）
-- **`filesScanned === 0` 或 `usage-report.json` 缺失** → "30 天未使用"规则整体跳过，**不得**以"无数据"充当"未使用"证据
-- **status === "disabled" 的 MCP 不适用"30 天未使用"规则**（已有独立的"死配置/禁用残留"规则覆盖）
 
 > **⚠️ 启动即必须优化**：只要 `mcpList[]` 中存在 `status === "enabled"` 的 MCP，`mcp-opt` 就必须真实运行优化逻辑，**不得因该 MCP 已 `deferLoading === true` 就整体跳过**。延迟加载仅消除"设置 defer"这一条建议，但 CLI 替代（TAPD/GitHub/工蜂 等）、异常空 MCP、禁用残留等规则与 defer 状态无关，仍须逐项判定并产出。若遍历后确无任何可优化维度，才返回 `skipped: true`。
 

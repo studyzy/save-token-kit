@@ -1,7 +1,16 @@
-import { describe, it, expect, afterEach } from 'vitest'
-import { detectToolsViaRegistry } from '@/commands/diagnose.js'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { detectToolsViaRegistry, attachUsageStats } from '@/commands/diagnose.js'
+import { collectUsageStats } from '@/collectors/usage-collector.js'
 import { contextModeTool } from '@/tools/impl/context-mode.js'
 import type { ToolDetection } from '@/types/index.js'
+
+vi.mock('@/collectors/usage-collector.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/collectors/usage-collector.js')>()
+  return { ...actual, collectUsageStats: vi.fn(actual.collectUsageStats) }
+})
 
 /**
  * 测试 detectToolsViaRegistry 中 context-mode MCP 检测段（diagnose.ts:176-182）。
@@ -152,5 +161,47 @@ describe('waitForCapture (manual-trigger agents)', () => {
     const start = Date.now()
     await waitForCapture(bodies, 1200) // 1200ms > 500ms poll interval
     expect(Date.now() - start).toBeGreaterThanOrEqual(1000)
+  })
+})
+
+describe('attachUsageStats (diagnosis integration)', () => {
+  let tmp: string
+  afterEach(() => {
+    vi.mocked(collectUsageStats).mockClear()
+    if (tmp) rmSync(tmp, { recursive: true, force: true })
+  })
+
+  it('attaches usageStats when the agent has a sessions dir with history', async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'stk-attach-'))
+    writeFileSync(
+      join(tmp, 's.jsonl'),
+      JSON.stringify({ type: 'function_call', name: 'Read', arguments: '{}', timestamp: Date.now() }),
+    )
+    const report: { usageStats?: unknown } = {}
+
+    await attachUsageStats(report, tmp)
+
+    const stats = report.usageStats as { filesScanned: number; toolUsage: { all: { total: number } } }
+    expect(stats).toBeDefined()
+    expect(stats.filesScanned).toBe(1)
+    expect(stats.toolUsage.all.total).toBe(1)
+  })
+
+  it('skips collection when the agent has no sessions dir', async () => {
+    const report: { usageStats?: unknown } = {}
+
+    await attachUsageStats(report, undefined)
+
+    expect(report.usageStats).toBeUndefined()
+    expect(vi.mocked(collectUsageStats)).not.toHaveBeenCalled()
+  })
+
+  it('degrades silently when the scan throws (diagnosis unaffected)', async () => {
+    vi.mocked(collectUsageStats).mockRejectedValueOnce(new Error('scan boom'))
+    const report: { usageStats?: unknown } = {}
+
+    await expect(attachUsageStats(report, '/some/dir')).resolves.toBeUndefined()
+
+    expect(report.usageStats).toBeUndefined()
   })
 })

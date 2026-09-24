@@ -96,9 +96,9 @@
 - **WHEN** 所有产物齐备，用户运行 `/stk`
 - **THEN** 输出上次节省摘要，询问开新一轮或结束，选择开新一轮则重跑诊断
 
-### Requirement: 旧命令保留为高级入口
+### Requirement: 旧命令保留为独立执行单元
 
-既有 4 个单步命令（/stk-diagnose、/stk-analyze、/stk-optimize、/stk-report）SHALL 继续可用，行为与各自对应的流水线阶段一致；其描述 SHALL 标注「高级·单步」前缀，与主入口 `/stk` 区分。二者 MUST 共享同一份阶段执行逻辑，单步命令的行为变化随之同步。
+既有 4 个单步命令（/stk-diagnose、/stk-analyze、/stk-optimize、/stk-report）SHALL 继续可用且**原位保留完整执行逻辑**（`/stk` 仅编排调度、不复制其内容）；单独调用时行为与各自对应的流水线阶段一致，不触发链式衔接。逻辑变更 MUST 直接发生在对应 SKILL.md，MUST NOT 在 `/stk` 内产生副本。
 
 #### Scenario: 高级用户单步重跑
 

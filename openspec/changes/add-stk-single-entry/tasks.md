@@ -22,3 +22,9 @@
 - [x] 4.1 更新/新增 `tests/` 中 init 安装相关用例：递归复制完整性（子目录文件计数）、rules 渲染头注入、`--force` 覆盖行为。验证：`pnpm vitest run tests/unit/commands` 通过
 - [x] 4.2 更新引用旧 SKILL 模板内容断言的既有用例（路径、文件名、description 前缀）。验证：`pnpm test` 全绿
 - [x] 4.3 全量回归：`pnpm build` + `pnpm lint` + `pnpm cover`（覆盖率 ≥ 60%）。验证：三命令均零错误退出
+
+## 5. 方案转向：stages 副本 → 编排调用（2026-09-24 用户复盘）
+
+- [x] 5.1 用户否决"stages/ 单一事实源 + 旧 skill 瘦身"方案，改为 5 skill 共存：`/stk` 编排调度、旧 4 个原位保留完整逻辑。验证：本组任务全部完成且 openspec 产出物（proposal/specs/design）同步更新
+- [x] 5.2 恢复旧 4 个 SKILL.md 与 agents/ 原版（git checkout 9f5384b），删除 `stk/stages|agents|agents-optimize` 副本；UX 改进（3 问合并、任务级选择）直接打进 `stk-analyze` / `stk-optimize` 原版。验证：grep 无 stages/ 残留引用
+- [x] 5.3 改写 `stk/SKILL.md` 为编排调度（指向 `../stk-<stage>/SKILL.md`，附路径回退），init.ts SKILLS 恢复 5 个，测试更新（agents 12+11 断言回归 stk-analyze/stk-optimize 原位）。验证：297 测试全过 + lint 零错误
