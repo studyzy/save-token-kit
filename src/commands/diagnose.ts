@@ -8,6 +8,7 @@ import { WorkBuddyAdapter } from '../adapters/workbuddy-adapter.js'
 import { detectCodeBuddyVersion } from '../utils/platform.js'
 import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
+import { scoreReport } from '../proxy/score.js'
 import { parseRequestBody } from '../proxy/parser.js'
 import { scanFilesystem } from '../collectors/fs-collector.js'
 import { collectUsageStats } from '../collectors/usage-collector.js'
@@ -33,9 +34,21 @@ export interface DiagnoseOptions {
   agent?: string
   port?: string
   reportPath?: string
+  /**
+   * Live mode: forward to the real API (no mock), record traces, and wait for
+   * the user's real session instead of firing a mock probe. Captures the
+   * accumulated context of actual work — the biggest cost — rather than a
+   * cold-start snapshot.
+   */
+  live?: boolean
+  /** Live-mode capture window in minutes (default DEFAULT_LIVE_DURATION_MINUTES). */
+  duration?: string
+  /** Render the full-detail report instead of the slim summary. */
+  detail?: boolean
 }
 
 const CAPTURE_TIMEOUT_MS = 60_000
+const DEFAULT_LIVE_DURATION_MINUTES = 10
 
 /**
  * Implement `stk diagnose`: start transparent HTTP proxy, redirect CodeBuddy
@@ -57,6 +70,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   }
 
   const preferredPort = Number(options.port ?? DEFAULT_PROXY_PORT)
+  const live = options.live === true
 
   // Resolve the upstream API base URL: some adapters read it from their own
   // config (e.g. CodeX provider base_url); others use the current env var value
@@ -65,121 +79,160 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     adapter.resolveUpstreamBaseUrl?.() ?? process.env[adapter.proxyEnvVar]
   const upstreamBaseUrl = originalBaseUrl || adapter.defaultApiBase
 
-  // 1. Start transparent proxy that forwards to the real API
+  // 1. Start transparent proxy. Live mode forwards to the real API and records
+  // request/response traces; mock mode (default) answers with a protocol mock
+  // so the probe completes without a reachable upstream.
   console.log(bold(green(`启动代理 (127.0.0.1:${preferredPort}) 拦截 ${agentName} 的请求...`)))
   const proxy = await startProxy({
     port: preferredPort,
     capturePathPrefix: adapter.capturePathPrefix,
     apiBaseUrl: upstreamBaseUrl,
-    // Mock the LLM API: diagnosis only needs the intercepted request bodies, so
-    // answer with a protocol "Hello" (selected by request URL path) instead of
-    // depending on a reachable upstream.
-    mock: true,
+    mock: !live,
+    traceDir: live ? join(process.cwd(), SAVE_TOKEN_DIR, 'trace') : undefined,
   })
 
-  // 2. Point agent at the proxy. Most agents append a base path (e.g. /v1) to
-  // the base URL; CodeX routes via `-c model_providers.<id>.base_url=` config
-  // overrides and ignores env vars, so it returns redirect args instead.
+  // 2. Point agent at the proxy and capture requests.
   const proxyBaseUrl = `http://127.0.0.1:${proxy.port}`
   const proxyUrl = `${proxyBaseUrl}${adapter.proxyBasePath}`
-  const redirectArgs = adapter.proxyRedirectArgs?.(proxyUrl) ?? []
-  // Manual-trigger agents (WorkBuddy desktop) must be redirected by the user
-  // restarting the app with an env var; stk setting its own process env is
-  // meaningless, so skip the env-based redirection path for them.
-  const usesEnvRedirect = !adapter.requiresManualTrigger && redirectArgs.length === 0
-
-  // For agents whose own config can override the proxy env var (e.g. Claude
-  // Code's `~/.claude/settings.json` env), isolate the config dir to a temp
-  // dir so the process-env redirection below actually takes effect.
-  const configDirVar = 'CLAUDE_CONFIG_DIR'
-  const originalConfigDir = process.env[configDirVar]
-  let isolatedConfigDir: string | undefined
-  // Track env vars we injected during isolation so we can delete them in finally.
-  const injectedEnvKeys = new Set<string>()
   // Prior models.json state when we inject the stk-diagnose custom model.
   let prevModels: Array<Record<string, unknown>> | null = null
-  if (usesEnvRedirect && adapter.needsIsolatedConfigDir) {
-    isolatedConfigDir = mkdtempSync(join(tmpdir(), 'stk-config-'))
-    process.env[configDirVar] = isolatedConfigDir
-    // Isolation hides settings.json env (credentials, model mappings). Preserve
-    // everything except the proxy env var so the probe can authenticate.
-    for (const [k, v] of Object.entries(adapter.configDirRetainedEnv?.() ?? {})) {
-      if (process.env[k] === undefined) {
-        process.env[k] = v
-        injectedEnvKeys.add(k)
-      }
-    }
-  }
-  if (usesEnvRedirect) {
-    process.env[adapter.proxyEnvVar] = proxyUrl
-  }
 
-  try {
-    // 3. Trigger a single LLM request through the proxy.
-    if (adapter.requiresManualTrigger) {
-      // WorkBuddy cannot be auto-triggered: its real prompt comes from its own
-      // desktop templates + SOUL/USER/IDENTITY, produced by the GUI+sidecar
-      // session, and it blocks CODEBUDDY_BASE_URL env redirection. The only way
-      // to capture its real requests is to inject a custom model whose url
-      // points at the proxy (WorkBuddy watches ~/.workbuddy/models.json), then
-      // have the user select it and send a message.
-      if (adapter instanceof WorkBuddyAdapter) {
-        // Custom-model url targets the proxy's /chat/completions path directly.
-        const customModelUrl = proxyBaseUrl
-        prevModels = adapter.injectDiagnoseModel(customModelUrl)
-        console.error(green(`  代理已就绪 (端口 ${proxy.port})，等待 WorkBuddy 桌面发起请求...`))
-        console.error(cyan(`  已注入自定义模型 "stk-diagnose" → ${customModelUrl}/chat/completions`))
-        console.error(
-          yellow(
-            `  请在 WorkBuddy 桌面选择 "stk-diagnose (token check)" 模型，然后发送一条消息：\n` +
-              `    1) 在 WorkBuddy 桌面切换模型为 "stk-diagnose (token check)"\n` +
-              `    2) 随便发一条消息（stk 将自动捕获请求体）\n` +
-              `    3) 诊断完成后自动移除该模型`,
-          ),
-        )
-      }
-      await waitForCapture(proxy.capturedBodies, CAPTURE_TIMEOUT_MS)
-      if (proxy.capturedBodies.length > 0) {
-        console.error(green(`  ✓ 已捕获请求，继续分析...`))
-      }
+  if (live) {
+    // Live: the user points their own agent at the proxy and works normally —
+    // stk neither mutates its own process env (meaningless for another
+    // terminal) nor auto-triggers a probe (the value is real accumulated
+    // sessions). WorkBuddy still uses the models.json injection, which works
+    // across processes.
+    if (adapter instanceof WorkBuddyAdapter) {
+      prevModels = adapter.injectDiagnoseModel(proxyBaseUrl)
+      console.error(green(`  代理已就绪 (端口 ${proxy.port})，等待 WorkBuddy 桌面发起真实会话...`))
+      console.error(cyan(`  已注入自定义模型 "stk-diagnose" → ${proxyBaseUrl}/chat/completions`))
+      console.error(
+        yellow(
+          `  请在 WorkBuddy 桌面选择 "stk-diagnose (token check)" 模型并正常工作；\n` +
+            `  捕获完成后按 Ctrl+C 结束（诊断完成后自动移除该模型）`,
+        ),
+      )
     } else {
-      console.log(green(`  代理已就绪 (端口 ${proxy.port})，触发探测请求...`))
-      if (usesEnvRedirect) {
-        console.error(cyan(`  重定向 ${adapter.proxyEnvVar}=${proxyUrl}${isolatedConfigDir ? ` (隔离配置目录 ${isolatedConfigDir})` : ''}`))
-      }
-      const [bin, ...args] = adapter.triggerCommand
-      await exec(bin!, [...args, ...redirectArgs], {
-        timeout: CAPTURE_TIMEOUT_MS,
-        nodeOptions: adapter.triggerNodeOptions,
-      })
-    }
-  } catch (err) {
-    console.error(yellow(`触发命令异常，仍会分析已捕获的数据: ${(err as Error).message}`))
-  } finally {
-    // Remove the injected stk-diagnose model (if any) so WorkBuddy config is restored.
-    if (adapter instanceof WorkBuddyAdapter && prevModels !== null) {
-      adapter.removeDiagnoseModel(prevModels)
-      console.error(green(`  已移除诊断用自定义模型 "stk-diagnose"`))
-    }
-    // 4. Restore original env (only when env-based redirection was used)
-    if (usesEnvRedirect) {
-      if (originalBaseUrl !== undefined) {
-        process.env[adapter.proxyEnvVar] = originalBaseUrl
+      console.error(cyan(`请将 ${agentName} 的请求指向代理后正常使用（将捕获真实会话）：`))
+      const redirectArgs = adapter.proxyRedirectArgs?.(proxyUrl) ?? []
+      if (redirectArgs.length > 0) {
+        console.error(cyan(`  ${[adapter.triggerCommand[0] ?? '', ...redirectArgs].join(' ')}`))
       } else {
-        delete process.env[adapter.proxyEnvVar]
+        console.error(cyan(`  export ${adapter.proxyEnvVar}=${proxyUrl}`))
       }
-      // Restore the original config dir and clean up the temp isolation dir.
-      if (isolatedConfigDir) {
-        if (originalConfigDir !== undefined) {
-          process.env[configDirVar] = originalConfigDir
-        } else {
-          delete process.env[configDirVar]
+    }
+    const durationMin = Number(options.duration ?? DEFAULT_LIVE_DURATION_MINUTES)
+    console.error(yellow(`  等待捕获（${durationMin} 分钟；提前结束按 Ctrl+C）...`))
+    try {
+      await waitLiveCapture(durationMin * 60_000)
+    } finally {
+      if (adapter instanceof WorkBuddyAdapter && prevModels !== null) {
+        adapter.removeDiagnoseModel(prevModels)
+        console.error(green(`  已移除诊断用自定义模型 "stk-diagnose"`))
+      }
+    }
+  } else {
+    // Probe mode (default): most agents append a base path (e.g. /v1) to the
+    // base URL; CodeX routes via `-c model_providers.<id>.base_url=` config
+    // overrides and ignores env vars, so it returns redirect args instead.
+    const redirectArgs = adapter.proxyRedirectArgs?.(proxyUrl) ?? []
+    // Manual-trigger agents (WorkBuddy desktop) must be redirected by the user
+    // restarting the app with an env var; stk setting its own process env is
+    // meaningless, so skip the env-based redirection path for them.
+    const usesEnvRedirect = !adapter.requiresManualTrigger && redirectArgs.length === 0
+
+    // For agents whose own config can override the proxy env var (e.g. Claude
+    // Code's `~/.claude/settings.json` env), isolate the config dir to a temp
+    // dir so the process-env redirection below actually takes effect.
+    const configDirVar = 'CLAUDE_CONFIG_DIR'
+    const originalConfigDir = process.env[configDirVar]
+    let isolatedConfigDir: string | undefined
+    // Track env vars we injected during isolation so we can delete them in finally.
+    const injectedEnvKeys = new Set<string>()
+    if (usesEnvRedirect && adapter.needsIsolatedConfigDir) {
+      isolatedConfigDir = mkdtempSync(join(tmpdir(), 'stk-config-'))
+      process.env[configDirVar] = isolatedConfigDir
+      // Isolation hides settings.json env (credentials, model mappings). Preserve
+      // everything except the proxy env var so the probe can authenticate.
+      for (const [k, v] of Object.entries(adapter.configDirRetainedEnv?.() ?? {})) {
+        if (process.env[k] === undefined) {
+          process.env[k] = v
+          injectedEnvKeys.add(k)
         }
-        rmSync(isolatedConfigDir, { recursive: true, force: true })
       }
-      // Restore any retained env vars we injected during isolation.
-      for (const k of injectedEnvKeys) {
-        delete process.env[k]
+    }
+    if (usesEnvRedirect) {
+      process.env[adapter.proxyEnvVar] = proxyUrl
+    }
+
+    try {
+      // 3. Trigger a single LLM request through the proxy.
+      if (adapter.requiresManualTrigger) {
+        // WorkBuddy cannot be auto-triggered: its real prompt comes from its own
+        // desktop templates + SOUL/USER/IDENTITY, produced by the GUI+sidecar
+        // session, and it blocks CODEBUDDY_BASE_URL env redirection. The only way
+        // to capture its real requests is to inject a custom model whose url
+        // points at the proxy (WorkBuddy watches ~/.workbuddy/models.json), then
+        // have the user select it and send a message.
+        if (adapter instanceof WorkBuddyAdapter) {
+          // Custom-model url targets the proxy's /chat/completions path directly.
+          const customModelUrl = proxyBaseUrl
+          prevModels = adapter.injectDiagnoseModel(customModelUrl)
+          console.error(green(`  代理已就绪 (端口 ${proxy.port})，等待 WorkBuddy 桌面发起请求...`))
+          console.error(cyan(`  已注入自定义模型 "stk-diagnose" → ${customModelUrl}/chat/completions`))
+          console.error(
+            yellow(
+              `  请在 WorkBuddy 桌面选择 "stk-diagnose (token check)" 模型，然后发送一条消息：\n` +
+                `    1) 在 WorkBuddy 桌面切换模型为 "stk-diagnose (token check)"\n` +
+                `    2) 随便发一条消息（stk 将自动捕获请求体）\n` +
+                `    3) 诊断完成后自动移除该模型`,
+            ),
+          )
+        }
+        await waitForCapture(proxy.capturedBodies, CAPTURE_TIMEOUT_MS)
+        if (proxy.capturedBodies.length > 0) {
+          console.error(green(`  ✓ 已捕获请求，继续分析...`))
+        }
+      } else {
+        console.log(green(`  代理已就绪 (端口 ${proxy.port})，触发探测请求...`))
+        if (usesEnvRedirect) {
+          console.error(cyan(`  重定向 ${adapter.proxyEnvVar}=${proxyUrl}${isolatedConfigDir ? ` (隔离配置目录 ${isolatedConfigDir})` : ''}`))
+        }
+        const [bin, ...args] = adapter.triggerCommand
+        await exec(bin!, [...args, ...redirectArgs], {
+          timeout: CAPTURE_TIMEOUT_MS,
+          nodeOptions: adapter.triggerNodeOptions,
+        })
+      }
+    } catch (err) {
+      console.error(yellow(`触发命令异常，仍会分析已捕获的数据: ${(err as Error).message}`))
+    } finally {
+      // Remove the injected stk-diagnose model (if any) so WorkBuddy config is restored.
+      if (adapter instanceof WorkBuddyAdapter && prevModels !== null) {
+        adapter.removeDiagnoseModel(prevModels)
+        console.error(green(`  已移除诊断用自定义模型 "stk-diagnose"`))
+      }
+      // 4. Restore original env (only when env-based redirection was used)
+      if (usesEnvRedirect) {
+        if (originalBaseUrl !== undefined) {
+          process.env[adapter.proxyEnvVar] = originalBaseUrl
+        } else {
+          delete process.env[adapter.proxyEnvVar]
+        }
+        // Restore the original config dir and clean up the temp isolation dir.
+        if (isolatedConfigDir) {
+          if (originalConfigDir !== undefined) {
+            process.env[configDirVar] = originalConfigDir
+          } else {
+            delete process.env[configDirVar]
+          }
+          rmSync(isolatedConfigDir, { recursive: true, force: true })
+        }
+        // Restore any retained env vars we injected during isolation.
+        for (const k of injectedEnvKeys) {
+          delete process.env[k]
+        }
       }
     }
   }
@@ -202,8 +255,9 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     return
   }
 
-  // 5. Find the main chat request among captures
-  const mainBody = findMainChatBody(capturedBodies)
+  // 5. Find the main chat request among captures. Live sessions accumulate:
+  // the largest matching body best represents the real context cost.
+  const mainBody = findMainChatBody(capturedBodies, live ? 'largest' : 'first')
   if (!mainBody) {
     console.error(red(`已捕获 ${capturedBodies.length} 个请求，但未找到主对话请求。`))
     process.exitCode = 1
@@ -218,6 +272,8 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   const agentVersion = await detectCodeBuddyVersion(adapter.getConfigPaths().cliBinary)
   const report = buildDiagnosisReport([mainBody], fs, toolDetection, agentVersion, agentName, loadRules().rulesInfo)
   await attachUsageStats(report, adapter.getConfigPaths().sessionsDir)
+  // Score after usage stats are attached so idle-object deductions can use them.
+  report.score = scoreReport(report)
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
   mkdirSync(outDir, { recursive: true })
@@ -233,7 +289,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   writeFileSync(join(outDir, 'proxy-raw-body.json'), JSON.stringify(mainBody, null, 2))
   writeFileSync(join(outDir, 'diagnosis-report.json'), JSON.stringify(report, null, 2))
 
-  const markdown = renderMarkdown(report)
+  const markdown = renderMarkdown(report, { detail: options.detail === true })
 
   if (options.reportPath) {
     // 指定 --report-path：写入该路径（覆盖），状态信息输出到 stderr 以免污染文件
@@ -378,4 +434,21 @@ export async function waitForCapture(
     if (capturedBodies.length > 0) return
     await new Promise((r) => setTimeout(r, 500))
   }
+}
+
+/**
+ * Live-mode wait: resolve after `timeoutMs`, or early on Ctrl+C (SIGINT).
+ * Unlike the probe path there is no early exit on first capture — the point
+ * is to cover a real working session.
+ */
+export async function waitLiveCapture(timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    const done = (): void => {
+      clearTimeout(timer)
+      process.off('SIGINT', done)
+      resolve()
+    }
+    const timer = setTimeout(done, timeoutMs)
+    process.once('SIGINT', done)
+  })
 }

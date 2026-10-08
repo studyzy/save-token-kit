@@ -111,6 +111,9 @@ export class ClaudeAdapter implements PlatformAdapter {
       historyFile: '',
       blobsDir: '',
       cliBinary: 'claude',
+      // Claude Code records sessions as JSONL under ~/.claude/projects
+      // (assistant/tool_use events), same collector format family as CodeBuddy.
+      sessionsDir: `${dir}/projects`,
       projectCodebuddyMd: `${process.cwd()}/CLAUDE.md`,
       projectSkillsDir: `${process.cwd()}/.claude/skills`,
       projectCommandsDir: `${process.cwd()}/.claude/commands`,

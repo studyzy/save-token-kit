@@ -6,6 +6,12 @@
  *
  *   {"type":"function_call","name":"Read","arguments":"{...}","timestamp":1727000000000}
  *
+ * Claude Code records `assistant` events with tool_use content blocks in
+ * `~/.claude/projects/<encoded-project>/*.jsonl`:
+ *
+ *   {"type":"assistant","timestamp":"2026-01-01T00:00:00Z",
+ *    "message":{"content":[{"type":"tool_use","name":"Read","input":{...}}]}}
+ *
  * The collector streams files line by line (long sessions can be tens of MB),
  * pre-filters with a substring check so most lines never reach JSON.parse,
  * and aggregates four dimensions per time bucket (all / last 90 days /
@@ -149,13 +155,80 @@ interface ScanState {
   mcpTool: BucketAcc
 }
 
+/** Normalize a timestamp (ms epoch number or ISO string) to epoch seconds. */
+function toEpochSec(ts: unknown): number | null {
+  if (typeof ts === 'number' && Number.isFinite(ts)) return ts / 1000
+  if (typeof ts === 'string') {
+    const parsed = Date.parse(ts)
+    if (Number.isFinite(parsed)) return parsed / 1000
+  }
+  return null
+}
+
+/** Record one tool invocation into every dimension it contributes to. */
+function recordInvocation(
+  state: ScanState,
+  name: string,
+  args: Record<string, unknown> | null,
+  tsSec: number | null,
+  cutoffs: Cutoffs,
+): void {
+  if (tsSec === null) state.missingTimestamp++
+
+  record(state.tool, name, tsSec, cutoffs)
+
+  if (name === 'Skill') {
+    const skillName = extractName(args, ['skill', 'command']) ?? UNKNOWN
+    record(state.skill, skillName, tsSec, cutoffs)
+  } else if (name === 'Task' || name === 'Agent') {
+    const agentName = extractName(args, ['subagent_type', 'name']) ?? UNKNOWN
+    record(state.subagent, agentName, tsSec, cutoffs)
+  }
+
+  const server = parseMcpServer(name)
+  if (server !== null) {
+    record(state.mcpServer, server, tsSec, cutoffs)
+    record(state.mcpTool, name, tsSec, cutoffs)
+  }
+}
+
+/** CodeBuddy line: {"type":"function_call","name","arguments","timestamp"(ms)} */
+function recordFunctionCall(
+  rec: Record<string, unknown>,
+  state: ScanState,
+  cutoffs: Cutoffs,
+): void {
+  const name = rec.name
+  if (typeof name !== 'string' || !name) return
+  recordInvocation(state, name, extractArgs(rec.arguments), toEpochSec(rec.timestamp), cutoffs)
+}
+
+/** Claude Code line: {"type":"assistant","timestamp"(ISO),"message":{"content":[tool_use]}} */
+function recordClaudeToolUses(
+  rec: Record<string, unknown>,
+  state: ScanState,
+  cutoffs: Cutoffs,
+): void {
+  const message = rec.message as Record<string, unknown> | undefined
+  const content = message?.content
+  if (!Array.isArray(content)) return
+  const tsSec = toEpochSec(rec.timestamp)
+  for (const item of content) {
+    const tool = item as Record<string, unknown>
+    if (tool?.type !== 'tool_use') continue
+    const name = tool.name
+    if (typeof name !== 'string' || !name) continue
+    recordInvocation(state, name, extractArgs(tool.input), tsSec, cutoffs)
+  }
+}
+
 async function scanFile(path: string, state: ScanState, cutoffs: Cutoffs): Promise<void> {
   const stream = createReadStream(path, { encoding: 'utf-8' })
   const rl = createInterface({ input: stream, crlfDelay: Infinity })
   for await (const line of rl) {
-    // Cheap pre-filter: skip lines that cannot be function_call events without
+    // Cheap pre-filter: skip lines that cannot be invocation events without
     // paying for JSON.parse. False positives are harmless (type check below).
-    if (!line.includes('"function_call"')) continue
+    if (!line.includes('"function_call"') && !line.includes('"tool_use"')) continue
     let rec: Record<string, unknown>
     try {
       rec = JSON.parse(line) as Record<string, unknown>
@@ -163,30 +236,10 @@ async function scanFile(path: string, state: ScanState, cutoffs: Cutoffs): Promi
       state.parseErrors++
       continue
     }
-    if (rec.type !== 'function_call') continue
-    const name = rec.name
-    if (typeof name !== 'string' || !name) continue
-
-    const ts = rec.timestamp
-    const tsSec = typeof ts === 'number' && Number.isFinite(ts) ? ts / 1000 : null
-    if (tsSec === null) state.missingTimestamp++
-
-    record(state.tool, name, tsSec, cutoffs)
-
-    if (name === 'Skill') {
-      const args = extractArgs(rec.arguments)
-      const skillName = extractName(args, ['skill', 'command']) ?? UNKNOWN
-      record(state.skill, skillName, tsSec, cutoffs)
-    } else if (name === 'Task' || name === 'Agent') {
-      const args = extractArgs(rec.arguments)
-      const agentName = extractName(args, ['subagent_type', 'name']) ?? UNKNOWN
-      record(state.subagent, agentName, tsSec, cutoffs)
-    }
-
-    const server = parseMcpServer(name)
-    if (server !== null) {
-      record(state.mcpServer, server, tsSec, cutoffs)
-      record(state.mcpTool, name, tsSec, cutoffs)
+    if (rec.type === 'function_call') {
+      recordFunctionCall(rec, state, cutoffs)
+    } else if (rec.type === 'assistant') {
+      recordClaudeToolUses(rec, state, cutoffs)
     }
   }
 }

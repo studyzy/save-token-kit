@@ -7,6 +7,7 @@ import { runInstall } from './commands/install.js'
 import { runProxy } from './commands/proxy.js'
 import { runUsage } from './commands/usage.js'
 import { runVerify } from './commands/verify.js'
+import { runDiff } from './commands/diff.js'
 import { runRulesUpdate, runRulesStatus } from './commands/rules.js'
 import { VERSION } from './version.js'
 
@@ -25,9 +26,24 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       '--report-path <path>',
       'Write Markdown report to <path> instead of printing to console',
     )
-    .action(async (options: { agent: string; port: string; reportPath?: string }) => {
-      await runDiagnose(options)
-    })
+    .option(
+      '--live',
+      'Live mode: forward to the real API and capture a real working session (Ctrl+C or --duration to stop)',
+    )
+    .option('--duration <minutes>', 'Live-mode capture window in minutes (default 10)')
+    .option('--detail', 'Write the full-detail report instead of the slim summary')
+    .action(
+      async (options: {
+        agent: string
+        port: string
+        reportPath?: string
+        live?: boolean
+        duration?: string
+        detail?: boolean
+      }) => {
+        await runDiagnose(options)
+      },
+    )
 
   cli
     .command('init', 'Install stk SKILL files for an AI agent')
@@ -64,10 +80,17 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     })
 
   cli
-    .command('usage', 'Scan CodeBuddy session history and rank Tool/Skill/SubAgent/MCP usage')
+    .command('usage', 'Scan agent session history and rank Tool/Skill/SubAgent/MCP usage')
+    .option('--agent <name>', 'Target AI agent (default: codebuddy)', { default: 'codebuddy' })
     .option('--json', 'Print the full usage report as JSON to stdout')
-    .action(async (options: { json?: boolean }) => {
+    .action(async (options: { agent?: string; json?: boolean }) => {
       await runUsage(options)
+    })
+
+  cli
+    .command('diff [before] [after]', 'Compare two diagnosis reports and write save-token/diff-report.md')
+    .action(async (before?: string, after?: string) => {
+      await runDiff({ before, after })
     })
 
   cli

@@ -1,4 +1,5 @@
 import { parseRequestBody } from './parser.js'
+import { quickWins, scoreReport } from './score.js'
 import { readFile } from '../utils/fs-operations.js'
 import type {
   DiagnosisReport,
@@ -228,8 +229,14 @@ export function rulesFileLabel(agentName?: string): string {
   }
 }
 
-/** Render a DiagnosisReport as terminal-friendly output matching save-token style. */
-export function renderMarkdown(report: DiagnosisReport): string {
+/**
+ * Render a DiagnosisReport as terminal-friendly output matching save-token style.
+ * Default output leads with the score + Quick Wins and slims heavy sections
+ * (per-tool definitions, descriptions, paths) so the report stays small for
+ * LLM consumption; `detail: true` renders the full breakdown appendix.
+ */
+export function renderMarkdown(report: DiagnosisReport, options?: { detail?: boolean }): string {
+  const detail = options?.detail ?? false
   const lines: string[] = []
   const agentLabel = agentDisplayName(report.agentName)
   const versionLabel = `${agentLabel} 版本`
@@ -241,6 +248,33 @@ export function renderMarkdown(report: DiagnosisReport): string {
   lines.push(`规则库: ${report.rulesInfo?.packVersion ?? 'builtin'}${report.rulesInfo?.fallbackInUse ? ' (兜底)' : ''}`)
   if (report.proxyDetails?.model) lines.push(`模型: ${report.proxyDetails.model}`)
   lines.push('')
+
+  // --- Score + Quick Wins (mechanical, no LLM) ---
+  const score = report.score ?? scoreReport(report)
+  lines.push(`综合评分: ${score.score}/100`)
+  lines.push('')
+  lines.push('Quick Wins（Top 5）')
+  lines.push('-'.repeat(40))
+  const wins = quickWins(score)
+  if (wins.length === 0) {
+    lines.push('  未发现明显浪费项')
+  } else {
+    wins.forEach((w, i) => {
+      lines.push(`  ${i + 1}. [−${w.points} 分] ${w.action}`)
+      lines.push(`     ${w.item}：${w.detail}`)
+    })
+  }
+  lines.push('')
+  if (detail && score.deductions.length > 0) {
+    lines.push('评分扣分明细')
+    lines.push('-'.repeat(40))
+    for (const d of score.deductions) {
+      lines.push(`  [−${d.points}] ${d.item} — ${d.detail}`)
+      lines.push(`      → ${d.action}`)
+    }
+    lines.push('')
+  }
+
   lines.push('上下文总览（估算）')
   lines.push('-'.repeat(40))
   lines.push(`总估算 Token: ${report.contextOverview.totalEstimatedTokens}`)
@@ -273,8 +307,10 @@ export function renderMarkdown(report: DiagnosisReport): string {
       const catLabel = cat === 'builtin' ? '内置工具' : 'MCP 工具'
       const catTokens = items.reduce((s, t) => s + t.estimatedTokens, 0)
       lines.push(`  [${catLabel}] ${items.length} 个, ~${catTokens} tok`)
-      for (const t of items) {
-        lines.push(`    ${t.name.padEnd(22)} ~${String(t.estimatedTokens).padStart(6)} tok`)
+      if (detail) {
+        for (const t of items) {
+          lines.push(`    ${t.name.padEnd(22)} ~${String(t.estimatedTokens).padStart(6)} tok`)
+        }
       }
       lines.push('')
     }
@@ -303,10 +339,10 @@ export function renderMarkdown(report: DiagnosisReport): string {
       lines.push(
         `  [${skill.source ?? 'bundled'}] ${skill.name.padEnd(20)} ~${skill.estimatedTokens} tok`,
       )
-      if (skill.sourcePath) {
+      if (detail && skill.sourcePath) {
         lines.push(`      ↳ ${skill.sourcePath}`)
       }
-      if (skill.description) {
+      if (detail && skill.description) {
         lines.push(`      ${skill.description}`)
       }
     }
@@ -322,10 +358,10 @@ export function renderMarkdown(report: DiagnosisReport): string {
   } else {
     for (const cmd of commands) {
       lines.push(`  [${cmd.source ?? 'command'}] ${cmd.name}`)
-      if (cmd.sourcePath) {
+      if (detail && cmd.sourcePath) {
         lines.push(`      ↳ ${cmd.sourcePath}`)
       }
-      if (cmd.description) {
+      if (detail && cmd.description) {
         lines.push(`      ${cmd.description}`)
       }
     }
@@ -342,10 +378,10 @@ export function renderMarkdown(report: DiagnosisReport): string {
     for (const a of agents) {
       const src = a.source ?? 'bundled'
       lines.push(`  [${src}] ${a.name.padEnd(22)} ~${a.estimatedTokens} tok`)
-      if (a.description) {
+      if (detail && a.description) {
         lines.push(`      ${a.description}`)
       }
-      if (a.tools && a.tools.length > 0) {
+      if (detail && a.tools && a.tools.length > 0) {
         lines.push(`      Tools: ${a.tools.join(', ')}`)
       }
     }

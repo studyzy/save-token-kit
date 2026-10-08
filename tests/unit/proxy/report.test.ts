@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { buildDiagnosisReport } from '@/proxy/report.js'
+import { buildDiagnosisReport, renderMarkdown } from '@/proxy/report.js'
 import type { FsCollectResult } from '@/collectors/fs-collector.js'
+import type { DiagnosisReport } from '@/types/index.js'
 
 describe('buildDiagnosisReport skill sources', () => {
   const body = {
@@ -77,7 +78,9 @@ describe('buildDiagnosisReport MCP tool categories', () => {
     // The mcp-tools category must be counted in the overview total.
     const sum = report.contextOverview.breakdown.reduce((s, c) => s + c.estimatedTokens, 0)
     expect(report.contextOverview.totalEstimatedTokens).toBe(sum)
-    expect(report.contextOverview.totalEstimatedTokens).toBeGreaterThanOrEqual(mcpItem!.estimatedTokens)
+    expect(report.contextOverview.totalEstimatedTokens).toBeGreaterThanOrEqual(
+      mcpItem!.estimatedTokens,
+    )
   })
 
   it('does not emit mcp-tools when no mcp-prefixed tools exist', () => {
@@ -90,5 +93,58 @@ describe('buildDiagnosisReport MCP tool categories', () => {
 
     const mcpItem = report.contextOverview.breakdown.find((c) => c.type === 'mcp-tools')
     expect(mcpItem).toBeUndefined()
+  })
+})
+
+describe('renderMarkdown', () => {
+  function reportWithWaste(): DiagnosisReport {
+    return {
+      scanTimestamp: '2026-01-01T00:00:00Z',
+      agentName: 'codebuddy',
+      agentVersion: '1.0.0',
+      contextOverview: { totalEstimatedTokens: 1000, breakdown: [] },
+      mcpList: [
+        {
+          name: 'github',
+          status: 'enabled',
+          toolsCount: 2,
+          estimatedTokens: 5000,
+          loadingMode: 'direct',
+        },
+      ],
+      skillList: [
+        {
+          name: 'commit',
+          estimatedTokens: 100,
+          source: 'user',
+          description: 'A commit helper skill',
+        },
+      ],
+      agentList: [],
+      builtinTools: [{ name: 'Read', estimatedTokens: 50, category: 'builtin' }],
+    }
+  }
+
+  it('default mode includes score and Quick Wins, hides per-tool lines and skill description', () => {
+    const md = renderMarkdown(reportWithWaste())
+    expect(md).toContain('综合评分:')
+    expect(md).toContain('Quick Wins')
+    // Per-tool lines only appear in detail mode.
+    expect(md).not.toContain('Read') // 内置工具名不应出现在默认模式
+    // Skill description only in detail mode.
+    expect(md).not.toContain('A commit helper skill')
+  })
+
+  it('default mode hides per-tool breakdown by not listing builtin tool names', () => {
+    const md = renderMarkdown(reportWithWaste())
+    // The builtin tool "Read" must not appear as a per-tool line.
+    expect(md).not.toMatch(/Read\s+~50/)
+  })
+
+  it('detail mode includes deduction detail and per-tool lines', () => {
+    const md = renderMarkdown(reportWithWaste(), { detail: true })
+    expect(md).toContain('评分扣分明细')
+    expect(md).toContain('Read')
+    expect(md).toContain('A commit helper skill')
   })
 })

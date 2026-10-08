@@ -9,17 +9,8 @@ const NOW = new Date('2026-09-24T12:00:00Z').getTime()
 const DAY_MS = 86_400_000
 
 /** Build one function_call JSONL line. */
-function fc(
-  name: string,
-  args?: unknown,
-  timestamp?: number,
-): string {
-  const rawArgs =
-    args === undefined
-      ? '{}'
-      : typeof args === 'string'
-        ? args
-        : JSON.stringify(args)
+function fc(name: string, args?: unknown, timestamp?: number): string {
+  const rawArgs = args === undefined ? '{}' : typeof args === 'string' ? args : JSON.stringify(args)
   const rec: Record<string, unknown> = { type: 'function_call', name, arguments: rawArgs }
   if (timestamp !== undefined) rec.timestamp = timestamp
   return JSON.stringify(rec)
@@ -43,7 +34,11 @@ describe('collectUsageStats', () => {
 
   it('ranks tool invocations across nested files', async () => {
     const dir = setup({
-      'proj-a/s1.jsonl': [fc('Read', undefined, NOW), fc('Read', undefined, NOW), fc('Bash', undefined, NOW)].join('\n'),
+      'proj-a/s1.jsonl': [
+        fc('Read', undefined, NOW),
+        fc('Read', undefined, NOW),
+        fc('Bash', undefined, NOW),
+      ].join('\n'),
       'proj-b/s2.jsonl': fc('Read', undefined, NOW),
     })
     const stats = await collectUsageStats({ sessionsDir: dir, now: NOW })
@@ -192,7 +187,12 @@ describe('collectUsageStats', () => {
 
       expect(stats.missingTimestamp).toBe(1)
       // 全部计数并列 1 时按名称字母序
-      expect(stats.toolUsage.all.ranking.map((r) => r.name)).toEqual(['Bash', 'Grep', 'Read', 'Write'])
+      expect(stats.toolUsage.all.ranking.map((r) => r.name)).toEqual([
+        'Bash',
+        'Grep',
+        'Read',
+        'Write',
+      ])
       expect(stats.toolUsage.last90Days.ranking.map((r) => r.name)).toEqual(['Grep', 'Read'])
       expect(stats.toolUsage.last30Days.ranking).toEqual([{ name: 'Read', count: 1 }])
       // 缺时间戳记录只进"全部"，细分维度同理
@@ -232,5 +232,91 @@ describe('collectUsageStats', () => {
     // Skill 参数中的标识字段允许出现，但用户消息正文绝不进入任何字段
     const serialized = JSON.stringify(stats)
     expect(serialized).not.toContain('SECRET-CONVERSATION-TEXT')
+  })
+
+  describe('claude assistant tool_use format', () => {
+    /** Build one Claude `assistant` line with tool_use content blocks. */
+    function claudeLine(
+      tools: Array<{ type: string; name: string; input?: Record<string, unknown> }>,
+      timestamp = '2026-01-01T00:00:00Z',
+    ): string {
+      return JSON.stringify({
+        type: 'assistant',
+        timestamp,
+        message: { content: tools },
+      })
+    }
+
+    it('counts tool_use blocks into the tool and mcpServer dimensions', async () => {
+      const dir = setup({
+        's.jsonl': [
+          claudeLine([
+            { type: 'tool_use', name: 'mcp__srv__tool', input: { a: 1 } },
+            { type: 'tool_use', name: 'Read', input: {} },
+          ]),
+        ].join('\n'),
+      })
+      const stats = await collectUsageStats({ sessionsDir: dir, now: NOW })
+
+      expect(stats.toolUsage.all.total).toBe(2)
+      expect(stats.mcpServerUsage.all.ranking).toEqual([{ name: 'srv', count: 1 }])
+      expect(stats.mcpToolUsage.all.ranking).toEqual([{ name: 'mcp__srv__tool', count: 1 }])
+    })
+
+    it('routes ISO timestamps into the 30-day bucket', async () => {
+      const dir = setup({
+        's.jsonl': [
+          // 落在 30 天内（NOW = 2026-09-24，即 2026-09-01 之前为 30 天外）
+          claudeLine([{ type: 'tool_use', name: 'Read', input: {} }], '2026-09-01T00:00:00Z'),
+          claudeLine([{ type: 'tool_use', name: 'Grep', input: {} }], '2026-08-01T00:00:00Z'),
+        ].join('\n'),
+      })
+      const stats = await collectUsageStats({ sessionsDir: dir, now: NOW })
+
+      expect(stats.toolUsage.all.total).toBe(2)
+      expect(stats.toolUsage.last30Days.total).toBe(1)
+      expect(stats.toolUsage.last30Days.ranking).toEqual([{ name: 'Read', count: 1 }])
+    })
+
+    it('counts Task tool_use input.subagent_type into the subagent dimension', async () => {
+      const dir = setup({
+        's.jsonl': [
+          claudeLine([{ type: 'tool_use', name: 'Task', input: { subagent_type: 'Explore' } }]),
+        ].join('\n'),
+      })
+      const stats = await collectUsageStats({ sessionsDir: dir, now: NOW })
+
+      expect(stats.subagentUsage.all.total).toBe(1)
+      expect(stats.subagentUsage.all.ranking).toEqual([{ name: 'Explore', count: 1 }])
+    })
+
+    it('coexists mixed function_call and assistant lines', async () => {
+      const dir = setup({
+        's.jsonl': [
+          fc('Read', undefined, NOW),
+          claudeLine([{ type: 'tool_use', name: 'Bash', input: {} }]),
+        ].join('\n'),
+      })
+      const stats = await collectUsageStats({ sessionsDir: dir, now: NOW })
+
+      expect(stats.toolUsage.all.total).toBe(2)
+      expect(stats.toolUsage.all.ranking.map((r) => r.name).sort()).toEqual(['Bash', 'Read'])
+    })
+
+    it('ignores assistant lines with no tool_use blocks', async () => {
+      const dir = setup({
+        's.jsonl': [
+          JSON.stringify({
+            type: 'assistant',
+            timestamp: '2026-01-01T00:00:00Z',
+            message: { content: [{ type: 'text', text: 'just a reply' }] },
+          }),
+        ].join('\n'),
+      })
+      const stats = await collectUsageStats({ sessionsDir: dir, now: NOW })
+
+      expect(stats.toolUsage.all.total).toBe(0)
+      expect(stats.mcpServerUsage.all.total).toBe(0)
+    })
   })
 })

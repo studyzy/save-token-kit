@@ -549,8 +549,16 @@ function buildMockResponse(protocol: MockProtocol): Record<string, unknown> {
  * Find the main chat/completions request from all captured bodies.
  * Heuristic: the body with messages (or Responses `input`) array that contains
  * at least one user message and has tools definitions (or many messages).
+ * `pick: 'largest'` (live mode) selects the matching body with the most
+ * messages — later requests in a real session carry the accumulated context.
  */
-export function findMainChatBody(bodies: unknown[]): Record<string, unknown> | null {
+export function findMainChatBody(
+  bodies: unknown[],
+  pick: 'first' | 'largest' = 'first',
+): Record<string, unknown> | null {
+  let firstMatch: Record<string, unknown> | null = null
+  let largest: Record<string, unknown> | null = null
+  let largestCount = 0
   for (const body of bodies) {
     if (typeof body !== 'object' || body === null) continue
     const b = body as Record<string, unknown>
@@ -561,22 +569,17 @@ export function findMainChatBody(bodies: unknown[]): Record<string, unknown> | n
     const hasTools = Array.isArray(b['tools']) && (b['tools'] as unknown[]).length > 0
     const hasManyMessages = messages.length > 2
     if (hasUser && (hasTools || hasManyMessages)) {
-      return b
+      if (!firstMatch) firstMatch = b
+      if (messages.length > largestCount) {
+        largestCount = messages.length
+        largest = b
+      }
     }
   }
+  if (pick === 'largest') return largest ?? firstMatch
+  if (firstMatch) return firstMatch
   // Fallback: return the body with the most messages
-  let best: Record<string, unknown> | null = null
-  let bestCount = 0
-  for (const body of bodies) {
-    if (typeof body !== 'object' || body === null) continue
-    const b = body as Record<string, unknown>
-    const messages = (b['messages'] ?? b['input']) as Array<unknown> | undefined
-    if (messages && messages.length > bestCount) {
-      bestCount = messages.length
-      best = b
-    }
-  }
-  return best
+  return largest
 }
 
 /**

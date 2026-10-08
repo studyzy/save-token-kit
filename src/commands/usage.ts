@@ -12,6 +12,8 @@ import { collectUsageStats } from '../collectors/usage-collector.js'
 import { SAVE_TOKEN_DIR, type UsageDimension, type UsageStats, type UsageTimeBucket } from '../types/index.js'
 
 export interface UsageOptions {
+  /** Target agent whose session history is scanned (default: codebuddy). */
+  agent?: string
   /** Print the full JSON report to stdout instead of the human-readable summary */
   json?: boolean
 }
@@ -19,9 +21,16 @@ export interface UsageOptions {
 const TOP_N = 10
 
 export async function runUsage(options: UsageOptions = {}): Promise<void> {
-  const sessionsDir = getAdapter('codebuddy')?.getConfigPaths().sessionsDir
+  const agentName = options.agent ?? 'codebuddy'
+  const adapter = getAdapter(agentName)
+  if (!adapter || !adapter.supported) {
+    console.error(red(`暂不支持的 Agent: ${agentName}`))
+    process.exitCode = 1
+    return
+  }
+  const sessionsDir = adapter.getConfigPaths().sessionsDir
   if (!sessionsDir) {
-    console.error(red('当前平台无会话历史目录，无法统计使用情况。'))
+    console.error(red(`${agentName} 平台无会话历史目录，无法统计使用情况。`))
     process.exitCode = 1
     return
   }

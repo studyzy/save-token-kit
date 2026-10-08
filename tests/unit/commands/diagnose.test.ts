@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,6 +6,7 @@ import { detectToolsViaRegistry, attachUsageStats } from '@/commands/diagnose.js
 import { collectUsageStats } from '@/collectors/usage-collector.js'
 import { contextModeTool } from '@/tools/impl/context-mode.js'
 import type { ToolDetection } from '@/types/index.js'
+import { startProxy } from '@/proxy/server.js'
 
 vi.mock('@/collectors/usage-collector.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/collectors/usage-collector.js')>()
@@ -13,9 +14,7 @@ vi.mock('@/collectors/usage-collector.js', async (importOriginal) => {
 })
 
 vi.mock('@/proxy/server.js', () => {
-  const capturedBodies: unknown[] = [
-    { messages: [{ role: 'user', content: 'hello' }], tools: [] },
-  ]
+  const capturedBodies: unknown[] = [{ messages: [{ role: 'user', content: 'hello' }], tools: [] }]
   return {
     startProxy: vi.fn(async () => ({
       port: 0,
@@ -230,13 +229,21 @@ describe('attachUsageStats (diagnosis integration)', () => {
     tmp = mkdtempSync(join(tmpdir(), 'stk-attach-'))
     writeFileSync(
       join(tmp, 's.jsonl'),
-      JSON.stringify({ type: 'function_call', name: 'Read', arguments: '{}', timestamp: Date.now() }),
+      JSON.stringify({
+        type: 'function_call',
+        name: 'Read',
+        arguments: '{}',
+        timestamp: Date.now(),
+      }),
     )
     const report: { usageStats?: unknown } = {}
 
     await attachUsageStats(report, tmp)
 
-    const stats = report.usageStats as { filesScanned: number; toolUsage: { all: { total: number } } }
+    const stats = report.usageStats as {
+      filesScanned: number
+      toolUsage: { all: { total: number } }
+    }
     expect(stats).toBeDefined()
     expect(stats.filesScanned).toBe(1)
     expect(stats.toolUsage.all.total).toBe(1)
@@ -261,7 +268,63 @@ describe('attachUsageStats (diagnosis integration)', () => {
   })
 })
 
-import { runDiagnose } from '@/commands/diagnose.js'
+import { runDiagnose, waitLiveCapture } from '@/commands/diagnose.js'
+
+describe('runDiagnose live mode', () => {
+  let cwd: string
+  let originalCwd: string
+
+  beforeEach(() => {
+    vi.mocked(collectUsageStats).mockResolvedValue(undefined as never)
+    vi.mocked(startProxy).mockClear()
+    originalCwd = process.cwd()
+    cwd = mkdtempSync(join(tmpdir(), 'stk-live-'))
+    process.chdir(cwd)
+  })
+
+  afterEach(() => {
+    process.chdir(originalCwd)
+    if (cwd) rmSync(cwd, { recursive: true, force: true })
+    vi.mocked(collectUsageStats).mockClear()
+  })
+
+  it('routes live mode through the non-mock branch (startProxy receives mock:false and traceDir)', async () => {
+    await runDiagnose({ live: true, duration: '0.01' })
+
+    expect(startProxy).toHaveBeenCalledTimes(1)
+    const call = vi.mocked(startProxy).mock.calls[0][0]
+    expect(call.mock).toBe(false)
+    expect(call.traceDir).toBeDefined()
+    expect(String(call.traceDir)).toContain('trace')
+  })
+
+  it('does not invoke tinyexec exec to trigger a probe in live mode', async () => {
+    const { exec } = await import('tinyexec')
+    vi.mocked(exec).mockClear()
+
+    await runDiagnose({ live: true, duration: '0.01' })
+
+    // The probe trigger (exec of the agent binary) must never run in live mode.
+    // Other exec calls (version detection, tool detection) may still occur.
+    const probeCalls = vi.mocked(exec).mock.calls.filter((c) => c[0] === 'codebuddy')
+    expect(probeCalls).toHaveLength(0)
+  })
+
+  it('still produces a report file in live mode', async () => {
+    await runDiagnose({ live: true, duration: '0.01' })
+
+    expect(existsSync(join(cwd, 'save-token', 'diagnosis-report.md'))).toBe(true)
+    expect(existsSync(join(cwd, 'save-token', 'diagnosis-report.json'))).toBe(true)
+  })
+})
+
+describe('waitLiveCapture', () => {
+  it('resolves immediately for a tiny timeout', async () => {
+    const start = Date.now()
+    await waitLiveCapture(1)
+    expect(Date.now() - start).toBeLessThan(1000)
+  })
+})
 
 describe('runDiagnose .gitignore write-once', () => {
   let cwd: string
