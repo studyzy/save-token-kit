@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { startProxy, stopProxy } from '@/proxy/server.js'
 
 describe('proxy server', () => {
@@ -306,5 +309,61 @@ describe('proxy server', () => {
     expect(JSON.parse(resBody).object).toBe('chat.completion')
     await stopProxy(proxy)
     await new Promise<void>((resolve) => upstream.close(() => resolve()))
+  }, 15000)
+})
+
+describe('proxy server trace redaction', () => {
+  let traceDir: string
+
+  afterEach(() => {
+    if (traceDir) rmSync(traceDir, { recursive: true, force: true })
+  })
+
+  it('redacts sensitive request headers in trace request.json', async () => {
+    traceDir = mkdtempSync(join(tmpdir(), 'stk-trace-'))
+    const proxy = await startProxy({ port: 0, capturePathPrefix: '/v1/', mock: true, traceDir })
+
+    const http = await import('node:http')
+    const body = JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] })
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port: proxy.port,
+          path: '/v1/messages',
+          method: 'POST',
+          headers: {
+            'content-length': Buffer.byteLength(body),
+            authorization: 'Bearer secret-token',
+            'x-api-key': 'sk-secret-key',
+            cookie: 'session=abc123',
+            'x-conversation-id': 'conv-42',
+          },
+        },
+        (res) => {
+          res.on('data', () => {})
+          res.on('end', () => resolve())
+        },
+      )
+      req.on('error', reject)
+      req.end(body)
+    })
+
+    await stopProxy(proxy)
+
+    // Find the written request.json under traceDir/<sessionId>/<timestamp>-request.json
+    const sessionDirs = readdirSync(traceDir)
+    expect(sessionDirs.length).toBeGreaterThan(0)
+    const sessionDir = join(traceDir, sessionDirs[0])
+    const files = readdirSync(sessionDir).filter((f) => f.endsWith('-request.json'))
+    expect(files.length).toBe(1)
+
+    const trace = JSON.parse(readFileSync(join(sessionDir, files[0]), 'utf8'))
+    const headers = trace.meta.requestHeaders as Record<string, string>
+    expect(headers['authorization']).toBe('[REDACTED]')
+    expect(headers['x-api-key']).toBe('[REDACTED]')
+    expect(headers['cookie']).toBe('[REDACTED]')
+    // Non-sensitive headers are preserved.
+    expect(headers['x-conversation-id']).toBe('conv-42')
   }, 15000)
 })

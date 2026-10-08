@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { detectToolsViaRegistry, attachUsageStats } from '@/commands/diagnose.js'
@@ -11,6 +11,61 @@ vi.mock('@/collectors/usage-collector.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/collectors/usage-collector.js')>()
   return { ...actual, collectUsageStats: vi.fn(actual.collectUsageStats) }
 })
+
+vi.mock('@/proxy/server.js', () => {
+  const capturedBodies: unknown[] = [
+    { messages: [{ role: 'user', content: 'hello' }], tools: [] },
+  ]
+  return {
+    startProxy: vi.fn(async () => ({
+      port: 0,
+      server: { close: (cb: () => void) => cb() },
+      capturedBodies,
+      captured: true,
+    })),
+    stopProxy: vi.fn(async () => {}),
+    findMainChatBody: vi.fn(() => capturedBodies[0]),
+  }
+})
+
+vi.mock('@/collectors/fs-collector.js', () => ({
+  scanFilesystem: vi.fn(() => ({
+    mcpList: [],
+    skillList: [],
+    commandList: [],
+    pluginList: [],
+    hookList: [],
+    ruleList: [],
+    memoryFiles: [],
+    configFiles: [],
+  })),
+}))
+
+vi.mock('@/utils/platform.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/platform.js')>()
+  return { ...actual, detectCodeBuddyVersion: vi.fn(async () => '1.0.0') }
+})
+
+vi.mock('@/rules/loader.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/rules/loader.js')>()
+  return {
+    ...actual,
+    loadRules: vi.fn(() => ({
+      rulesInfo: { packVersion: '0.0.0', fallbackInUse: false },
+      lowFrequencyPlugins: new Set(),
+      mcpAlternatives: new Map(),
+    })),
+  }
+})
+
+vi.mock('@/rules/update.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/rules/update.js')>()
+  return { ...actual, autoCheckLibraryUpdate: vi.fn(async () => {}) }
+})
+
+vi.mock('tinyexec', () => ({
+  exec: vi.fn(async () => ({ exitCode: 0, stdout: '', stderr: '' })),
+}))
 
 /**
  * 测试 detectToolsViaRegistry 中 context-mode MCP 检测段（diagnose.ts:176-182）。
@@ -203,5 +258,52 @@ describe('attachUsageStats (diagnosis integration)', () => {
     await expect(attachUsageStats(report, '/some/dir')).resolves.toBeUndefined()
 
     expect(report.usageStats).toBeUndefined()
+  })
+})
+
+import { runDiagnose } from '@/commands/diagnose.js'
+
+describe('runDiagnose .gitignore write-once', () => {
+  let cwd: string
+  let originalCwd: string
+
+  afterEach(() => {
+    process.chdir(originalCwd)
+    vi.mocked(collectUsageStats).mockClear()
+  })
+
+  it('creates save-token/.gitignore with content "*" when absent', async () => {
+    // Avoid scanning the real ~/.codebuddy/projects sessions dir.
+    vi.mocked(collectUsageStats).mockResolvedValue(undefined as never)
+    originalCwd = process.cwd()
+    cwd = mkdtempSync(join(tmpdir(), 'stk-diag-'))
+    process.chdir(cwd)
+
+    await runDiagnose({})
+
+    const gitignore = join(cwd, 'save-token', '.gitignore')
+    expect(existsSync(gitignore)).toBe(true)
+    expect(readFileSync(gitignore, 'utf8')).toBe('*\n')
+
+    rmSync(cwd, { recursive: true, force: true })
+  })
+
+  it('does not overwrite an existing .gitignore', async () => {
+    vi.mocked(collectUsageStats).mockResolvedValue(undefined as never)
+    originalCwd = process.cwd()
+    cwd = mkdtempSync(join(tmpdir(), 'stk-diag-'))
+    process.chdir(cwd)
+
+    // Pre-create the directory and a user-curated .gitignore.
+    const saveTokenDir = join(cwd, 'save-token')
+    const { mkdirSync } = await import('node:fs')
+    mkdirSync(saveTokenDir, { recursive: true })
+    writeFileSync(join(saveTokenDir, '.gitignore'), 'reports/\n')
+
+    await runDiagnose({})
+
+    expect(readFileSync(join(saveTokenDir, '.gitignore'), 'utf8')).toBe('reports/\n')
+
+    rmSync(cwd, { recursive: true, force: true })
   })
 })

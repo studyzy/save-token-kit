@@ -56,13 +56,15 @@ export function buildDiagnosisReport(
   const builtinTokens = parsed.tools.builtin.reduce((s, t) => s + t.estimatedTokens, 0)
   const builtinCount = parsed.tools.builtin.length
   const mcpToolCount = parsed.tools.mcp.length
+  // MCP tool definitions are a major context consumer and must be counted in
+  // the overview total (previously they were excluded, skewing percentages).
+  const mcpTokens = parsed.tools.mcp.reduce((s, t) => s + t.estimatedTokens, 0)
   categories.push(
-    makeItem(
-      'system-tools',
-      `Tool definitions (${builtinCount}内置 + ${mcpToolCount}MCP)`,
-      builtinTokens,
-    ),
+    makeItem('system-tools', `Tool definitions (${builtinCount}内置)`, builtinTokens),
   )
+  if (mcpTokens > 0) {
+    categories.push(makeItem('mcp-tools', `MCP 工具定义 (${mcpToolCount}个)`, mcpTokens))
+  }
 
   const skillsTokens = parsed.skills.reduce((s, t) => s + t.estimatedTokens, 0)
   if (skillsTokens > 0) {

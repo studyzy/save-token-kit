@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { exec } from 'tinyexec'
@@ -221,6 +221,14 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
   mkdirSync(outDir, { recursive: true })
+  // Artifacts here include the full request-body snapshot (proxy-raw-body.json),
+  // which embeds code and memory-file content — keep them out of version
+  // control by default. Only create when absent so a user-curated .gitignore
+  // (e.g. to track reports) is never overwritten.
+  const gitignorePath = join(outDir, '.gitignore')
+  if (!existsSync(gitignorePath)) {
+    writeFileSync(gitignorePath, '*\n')
+  }
 
   writeFileSync(join(outDir, 'proxy-raw-body.json'), JSON.stringify(mainBody, null, 2))
   writeFileSync(join(outDir, 'diagnosis-report.json'), JSON.stringify(report, null, 2))

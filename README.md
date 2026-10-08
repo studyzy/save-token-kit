@@ -134,10 +134,6 @@ stk diagnose --report-path ./save-token/diagnosis-report.md
 | `--upstream <url>`| 上游 API 地址（默认 `CODEBUDDY_API_BASE` 环境变量）|
 | `--trace-dir`     | 覆盖 trace 输出目录                              |
 
-### `stk rollback`
-
-预留命令。优化操作不自动备份，故 `rollback` 仅提示手动恢复。
-
 ## 架构
 
 ```
@@ -174,7 +170,7 @@ pnpm format     # Prettier 格式化
 ```
 src/
 ├── cli.ts                 # CLI 入口，注册命令
-├── commands/              # diagnose / init / install / proxy / rollback
+├── commands/              # diagnose / init / install / proxy / usage
 ├── proxy/                 # 透明代理、解析器、报告渲染
 ├── collectors/            # 磁盘采集（MCP / SKILL / hooks / rules 等）
 ├── adapters/              # Agent 适配器

@@ -4,7 +4,7 @@
 
 ## CLI 入口与命令
 
-`src/cli.ts`（cac）注册三个命令：`diagnose`、`init`、`rollback`（`rollback` 为预留，仅提示手动恢复）。代理支持 `codebuddy`、`claude`、`codex`。
+`src/cli.ts`（cac）注册命令：`diagnose`、`init`、`install`、`proxy`、`usage`、`verify`、`rules`。优化操作不自动备份，无 rollback 命令。代理支持 `codebuddy`、`claude`、`codex`。
 
 ## `stk diagnose` 数据流（核心路径）
 

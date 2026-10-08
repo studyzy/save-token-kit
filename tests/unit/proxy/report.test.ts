@@ -56,3 +56,39 @@ describe('buildDiagnosisReport skill sources', () => {
     expect(byName['superpowers:brainstorming']).toBe('skill')
   })
 })
+
+describe('buildDiagnosisReport MCP tool categories', () => {
+  it('counts mcp__-prefixed tool definitions in breakdown and total', () => {
+    const body = {
+      messages: [{ role: 'user', content: 'hello' }],
+      tools: [
+        { name: 'Read', description: 'read a file' },
+        { name: 'mcp__github__list_repos', description: 'list repos' },
+        { name: 'mcp__github__get_repo', description: 'get repo' },
+      ],
+    }
+
+    const report = buildDiagnosisReport([body], undefined, [], null, 'codebuddy')
+
+    const mcpItem = report.contextOverview.breakdown.find((c) => c.type === 'mcp-tools')
+    expect(mcpItem).toBeDefined()
+    expect(mcpItem!.estimatedTokens).toBeGreaterThan(0)
+
+    // The mcp-tools category must be counted in the overview total.
+    const sum = report.contextOverview.breakdown.reduce((s, c) => s + c.estimatedTokens, 0)
+    expect(report.contextOverview.totalEstimatedTokens).toBe(sum)
+    expect(report.contextOverview.totalEstimatedTokens).toBeGreaterThanOrEqual(mcpItem!.estimatedTokens)
+  })
+
+  it('does not emit mcp-tools when no mcp-prefixed tools exist', () => {
+    const body = {
+      messages: [{ role: 'user', content: 'hello' }],
+      tools: [{ name: 'Read', description: 'read a file' }],
+    }
+
+    const report = buildDiagnosisReport([body], undefined, [], null, 'codebuddy')
+
+    const mcpItem = report.contextOverview.breakdown.find((c) => c.type === 'mcp-tools')
+    expect(mcpItem).toBeUndefined()
+  })
+})

@@ -4,15 +4,15 @@ import { red, bold } from 'ansis'
 import { runDiagnose } from './commands/diagnose.js'
 import { runInit } from './commands/init.js'
 import { runInstall } from './commands/install.js'
-import { runRollback } from './commands/rollback.js'
 import { runProxy } from './commands/proxy.js'
 import { runUsage } from './commands/usage.js'
 import { runVerify } from './commands/verify.js'
 import { runRulesUpdate, runRulesStatus } from './commands/rules.js'
+import { VERSION } from './version.js'
 
 /**
  * CLI entry point for `stk`.
- * Registers the top-level commands: diagnose, init, rollback (rollback reserved), install, proxy, verify.
+ * Registers the top-level commands: diagnose, init, install, proxy, usage, verify, rules.
  */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const cli = cac('stk')
@@ -37,10 +37,6 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     .action(async (options: { local?: boolean; force?: boolean; agent?: string }) => {
       await runInit(options)
     })
-
-  cli.command('rollback', 'Restore configuration from backup (reserved)').action(async () => {
-    await runRollback()
-  })
 
   cli
     .command(
@@ -102,7 +98,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     )
 
   cli.help()
-  cli.version('0.1.0')
+  cli.version(VERSION)
 
   try {
     // cac expects argv shaped like process.argv (node, script, ...args).

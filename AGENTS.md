@@ -5,7 +5,7 @@ Contributor guide for **save-token-kit** (`stk`), a TypeScript CLI that helps AI
 ## Project Structure & Module Organization
 
 - `src/` — all source code (TS, ESM):
-  - `cli.ts` — CLI entry, registers `diagnose`/`init`/`install`/`rollback`/`proxy`.
+  - `cli.ts` — CLI entry, registers `diagnose`/`init`/`install`/`proxy`/`usage`.
   - `commands/`, `collectors/`, `proxy/`, `adapters/`, `templates/`, `tools/`, `types/`, `utils/`.
 - `tests/` — `unit/` (mirrors `src`) and `integration/`.
 - `save-token/` — runtime outputs (reports, `proxy-raw-body.json`).
@@ -49,4 +49,4 @@ Run a single test: `pnpm vitest run tests/unit/proxy/parser.test.ts -t "parseReq
 
 - Token estimates use a `length/4` heuristic, not a real tokenizer.
 - The proxy intercepts the live API request body; no extra agent calls are made.
-- Optimization never auto-edits user configs; `rollback` only suggests manual recovery.
+- Optimization never auto-edits user configs; there is no automatic backup or rollback command.

@@ -8,11 +8,11 @@ export const TOKENS_PER_MCP_TOOL = 200
 
 /**
  * Estimate the token count of a string.
- * Uses a simple characters/4 heuristic; accurate enough for relative comparison.
+ * Delegates to the CJK-aware `estimate` so Chinese/mixed content is not
+ * underestimated by the chars/4 heuristic (proxy parsers rely on this path).
  */
 export function estimateTokens(text: string): number {
-  if (!text) return 0
-  return Math.ceil(text.length / CHARS_PER_TOKEN)
+  return estimate(text)
 }
 
 function isCJK(ch: string): boolean {

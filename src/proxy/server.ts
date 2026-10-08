@@ -271,11 +271,23 @@ function extractSessionId(headers: http.IncomingHttpHeaders): string {
   return 'no-session'
 }
 
+/** Headers whose values must never be written to trace files. */
+const SENSITIVE_HEADERS = new Set([
+  'authorization',
+  'proxy-authorization',
+  'cookie',
+  'set-cookie',
+  'x-api-key',
+  'api-key',
+])
+
 function simplifyHeaders(headers: http.IncomingHttpHeaders): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(headers)) {
-    if (Array.isArray(v)) out[k] = v.join(', ')
-    else if (v !== undefined) out[k] = v
+    const val = Array.isArray(v) ? v.join(', ') : v
+    if (val === undefined) continue
+    // Trace files may be shared or committed; never persist credentials.
+    out[k] = SENSITIVE_HEADERS.has(k.toLowerCase()) ? '[REDACTED]' : val
   }
   return out
 }
