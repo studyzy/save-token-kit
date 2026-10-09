@@ -70,9 +70,9 @@ describe('stk install', () => {
 })
 
 describe('tool getConfigCommand', () => {
-  it('rtk injects -g and agent', () => {
+  it('rtk: 所有 agent 均返回 rtk init（codebuddy 的失败回退在 install() 内处理）', () => {
     expect(rtkTool.getConfigCommand('codebuddy', true)).toBe('rtk init -g --agent codebuddy')
-    expect(rtkTool.getConfigCommand('codebuddy', false)).toBe('rtk init --agent codebuddy')
+    expect(rtkTool.getConfigCommand('claude', true)).toBe('rtk init -g --agent claude')
   })
 
   it('headroom config command is agent-agnostic', () => {
