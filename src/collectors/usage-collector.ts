@@ -35,6 +35,9 @@ export interface CollectUsageOptions {
 const DAY_MS = 86_400_000
 const UNKNOWN = '<unknown>'
 const MCP_PREFIX = 'mcp__'
+/** Dispatcher tool: the real tool name and params are nested in arguments. */
+const DEFERRED_TOOL = 'DeferExecuteTool'
+const MAX_UNWRAP_DEPTH = 3
 
 /** Mutable per-dimension accumulator. */
 interface DimensionAcc {
@@ -168,11 +171,23 @@ function toEpochSec(ts: unknown): number | null {
 /** Record one tool invocation into every dimension it contributes to. */
 function recordInvocation(
   state: ScanState,
-  name: string,
-  args: Record<string, unknown> | null,
+  rawName: string,
+  rawArgs: Record<string, unknown> | null,
   tsSec: number | null,
   cutoffs: Cutoffs,
 ): void {
+  // Deferred dispatch (e.g. CodeBuddy DeferExecuteTool) nests the real tool
+  // name and params in arguments — unwrap so the target tool (most notably
+  // mcp__<server>__<tool>) is what gets counted, not the dispatcher itself.
+  let name = rawName
+  let args = rawArgs
+  for (let depth = 0; name === DEFERRED_TOOL && depth < MAX_UNWRAP_DEPTH; depth++) {
+    const inner = args?.toolName
+    if (typeof inner !== 'string' || !inner) break
+    name = inner
+    args = extractArgs(args.params)
+  }
+
   if (tsSec === null) state.missingTimestamp++
 
   record(state.tool, name, tsSec, cutoffs)

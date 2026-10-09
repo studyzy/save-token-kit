@@ -171,6 +171,50 @@ describe('collectUsageStats', () => {
       expect(stats.mcpServerUsage.all.total).toBe(0)
       expect(stats.toolUsage.all.total).toBe(2)
     })
+
+    it('counts deferred invocations by the toolName argument (CodeBuddy DeferExecuteTool)', async () => {
+      const dir = setup({
+        's.jsonl': [
+          fc(
+            'DeferExecuteTool',
+            { toolName: 'mcp__hindsight__hindsight_sync_status', params: {} },
+            NOW,
+          ),
+          fc('DeferExecuteTool', { toolName: 'mcp__hindsight__hindsight_diagnose' }, NOW),
+          fc('mcp__hindsight__hindsight_sync_status', undefined, NOW),
+        ].join('\n'),
+      })
+      const stats = await collectUsageStats({ sessionsDir: dir, now: NOW })
+
+      expect(stats.mcpServerUsage.all.ranking).toEqual([{ name: 'hindsight', count: 3 }])
+      expect(stats.mcpToolUsage.all.ranking).toEqual([
+        { name: 'mcp__hindsight__hindsight_sync_status', count: 2 },
+        { name: 'mcp__hindsight__hindsight_diagnose', count: 1 },
+      ])
+      // tool 维度按真实工具名计数，而非 DeferExecuteTool 本身
+      expect(stats.toolUsage.all.ranking).toEqual([
+        { name: 'mcp__hindsight__hindsight_sync_status', count: 2 },
+        { name: 'mcp__hindsight__hindsight_diagnose', count: 1 },
+      ])
+    })
+
+    it('unwraps deferred non-MCP tools and falls back to DeferExecuteTool when toolName is missing', async () => {
+      const dir = setup({
+        's.jsonl': [
+          fc('DeferExecuteTool', { toolName: 'ImageGen', params: { prompt: 'cat' } }, NOW),
+          fc('DeferExecuteTool', {}, NOW), // 缺 toolName → 按原名计
+          fc('DeferExecuteTool', 'not-json{', NOW), // arguments 不可解析 → 按原名计
+        ].join('\n'),
+      })
+      const stats = await collectUsageStats({ sessionsDir: dir, now: NOW })
+
+      expect(stats.toolUsage.all.ranking).toEqual([
+        { name: 'DeferExecuteTool', count: 2 },
+        { name: 'ImageGen', count: 1 },
+      ])
+      expect(stats.mcpServerUsage.all.total).toBe(0)
+      expect(stats.mcpToolUsage.all.total).toBe(0)
+    })
   })
 
   describe('time buckets', () => {
