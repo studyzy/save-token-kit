@@ -88,6 +88,23 @@ export interface PlatformAdapter {
    */
   readonly triggerNodeOptions?: Record<string, unknown>
   /**
+   * Allowlist of environment variable keys for the probe child process (the
+   * proxy redirect var is always included automatically). When set, the probe
+   * is spawned with ONLY these variables instead of the full inherited env.
+   * Reason: CodeBuddy's headless probe hangs silently before sending any
+   * request when spawned without a TTY under a full interactive-shell env
+   * (JetBrains/Fig terminal markers etc.); a minimal env completes in ~35s.
+   */
+  readonly probeEnvKeys?: readonly string[]
+  /**
+   * Extra env vars injected into the probe child process (over the allowlist,
+   * under the proxy redirect var). Used to neutralize known-slow hooks during
+   * probing: hooks add no diagnostic value (their data is collected from the
+   * filesystem instead) but a hook that blocks UserPromptSubmit prevents the
+   * probe from ever sending a request.
+   */
+  readonly probeEnv?: Readonly<Record<string, string>>
+  /**
    * Whether the agent's own config (e.g. `~/.claude/settings.json` env) can
    * override the proxy env var set by `diagnose`. When true, `diagnose` must
    * isolate the agent's config dir (Claude Code reads `CLAUDE_CONFIG_DIR`) so

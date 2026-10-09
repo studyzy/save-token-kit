@@ -62,9 +62,19 @@ vi.mock('@/rules/update.js', async (importOriginal) => {
   return { ...actual, autoCheckLibraryUpdate: vi.fn(async () => {}) }
 })
 
-vi.mock('tinyexec', () => ({
-  exec: vi.fn(async () => ({ exitCode: 0, stdout: '', stderr: '' })),
-}))
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>()
+  return {
+    ...actual,
+    // Probe trigger runs via native spawn; resolve immediately so tests never
+    // launch a real agent binary.
+    spawn: vi.fn(() => {
+      const emitter = new actual.EventEmitter()
+      queueMicrotask(() => emitter.emit('close', 0, null))
+      return emitter
+    }),
+  }
+})
 
 /**
  * 测试 detectToolsViaRegistry 中 context-mode MCP 检测段（diagnose.ts:176-182）。
@@ -298,15 +308,14 @@ describe('runDiagnose live mode', () => {
     expect(String(call.traceDir)).toContain('trace')
   })
 
-  it('does not invoke tinyexec exec to trigger a probe in live mode', async () => {
-    const { exec } = await import('tinyexec')
-    vi.mocked(exec).mockClear()
+  it('does not spawn the probe trigger in live mode', async () => {
+    const { spawn } = await import('node:child_process')
+    vi.mocked(spawn).mockClear()
 
     await runDiagnose({ live: true, duration: '0.01' })
 
-    // The probe trigger (exec of the agent binary) must never run in live mode.
-    // Other exec calls (version detection, tool detection) may still occur.
-    const probeCalls = vi.mocked(exec).mock.calls.filter((c) => c[0] === 'codebuddy')
+    // The probe trigger (spawn of the agent binary) must never run in live mode.
+    const probeCalls = vi.mocked(spawn).mock.calls.filter((c) => c[0] === 'codebuddy')
     expect(probeCalls).toHaveLength(0)
   })
 

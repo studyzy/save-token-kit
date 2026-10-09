@@ -23,6 +23,14 @@ export class CodeBuddyAdapter implements PlatformAdapter {
   readonly proxyEnvVar = 'CODEBUDDY_BASE_URL'
   readonly proxyBasePath = '/v1'
   readonly triggerCommand = ['codebuddy', '-p', 'Hello', '-y', '--max-turns', '1']
+  readonly probeEnvKeys = ['HOME', 'PATH'] as const
+  /**
+   * The Hindsight integration registers a UserPromptSubmit hook that takes
+   * ~15s (30s+ under load); a hook timeout BLOCKS the headless prompt, so the
+   * probe exits without ever sending an LLM request (verified in CLI logs).
+   * Disable it for the probe only — the user's real sessions keep it enabled.
+   */
+  readonly probeEnv = { HINDSIGHT_DISABLED: '1' } as const
   readonly capturePathPrefix = '/v1/'
   readonly defaultApiBase = 'https://tencent.sso.copilot.tencent.com'
 

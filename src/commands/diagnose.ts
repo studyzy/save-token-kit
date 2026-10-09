@@ -1,9 +1,11 @@
 import { writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { spawn, type SpawnOptions } from 'node:child_process'
 import { exec } from 'tinyexec'
 import { bold, cyan, green, red, yellow } from 'ansis'
 import { getAdapter } from '../adapters/codebuddy-adapter.js'
+import type { PlatformAdapter } from '../adapters/platform-adapter.js'
 import { WorkBuddyAdapter } from '../adapters/workbuddy-adapter.js'
 import { detectCodeBuddyVersion } from '../utils/platform.js'
 import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
@@ -199,11 +201,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
         if (usesEnvRedirect) {
           console.error(cyan(`  重定向 ${adapter.proxyEnvVar}=${proxyUrl}${isolatedConfigDir ? ` (隔离配置目录 ${isolatedConfigDir})` : ''}`))
         }
-        const [bin, ...args] = adapter.triggerCommand
-        await exec(bin!, [...args, ...redirectArgs], {
-          timeout: CAPTURE_TIMEOUT_MS,
-          nodeOptions: adapter.triggerNodeOptions,
-        })
+        await runTriggerCommand(adapter, adapter.triggerCommand, redirectArgs, CAPTURE_TIMEOUT_MS)
       }
     } catch (err) {
       console.error(yellow(`触发命令异常，仍会分析已捕获的数据: ${(err as Error).message}`))
@@ -301,6 +299,54 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     writeFileSync(join(outDir, 'diagnosis-report.md'), markdown)
     console.error(bold(green(`\n诊断完成：文件已写入 ./${SAVE_TOKEN_DIR}/`)))
   }
+}
+
+/**
+ * Spawn options for the probe child process. When the adapter declares
+ * `probeEnvKeys`, spawn with a minimal env (allowlist + the proxy redirect
+ * var) instead of the full inherited environment — a full interactive-shell
+ * env (JetBrains/Fig markers) without a TTY makes the CodeBuddy headless
+ * probe hang silently before sending any request. Native spawn is used for
+ * this because tinyexec always merges `process.env` under `nodeOptions.env`,
+ * so a clean env can never be expressed through it.
+ */
+function buildTriggerSpawnOptions(adapter: PlatformAdapter): SpawnOptions {
+  let env: NodeJS.ProcessEnv | undefined
+  if (adapter.probeEnvKeys) {
+    env = {}
+    for (const key of [...adapter.probeEnvKeys, ...Object.keys(adapter.probeEnv ?? {})]) {
+      const value = process.env[key]
+      if (value !== undefined) env[key] = value
+    }
+    Object.assign(env, adapter.probeEnv)
+    const proxyValue = process.env[adapter.proxyEnvVar]
+    if (proxyValue !== undefined) env[adapter.proxyEnvVar] = proxyValue
+  }
+  return { ...(adapter.triggerNodeOptions as SpawnOptions | undefined), env }
+}
+
+/**
+ * Run the adapter's probe trigger command via native spawn. The probe's
+ * stdout/stderr carry no diagnostic value (all data comes from the proxy
+ * capture), so output is ignored; the promise rejects on spawn errors or the
+ * timeout signal, matching the previous tinyexec semantics.
+ */
+function runTriggerCommand(
+  adapter: PlatformAdapter,
+  triggerCommand: readonly string[],
+  redirectArgs: string[],
+  timeoutMs: number,
+): Promise<void> {
+  const [bin, ...args] = triggerCommand
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin!, [...args, ...redirectArgs], {
+      ...buildTriggerSpawnOptions(adapter),
+      stdio: 'ignore',
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    child.once('error', reject)
+    child.once('close', () => resolve())
+  })
 }
 
 /**
