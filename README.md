@@ -124,6 +124,16 @@ stk diagnose --report-path ./save-token/diagnosis-report.md
 | `--local`       | 安装到项目级 `.codebuddy/`                                    |
 | `--agent <name>`| 目标 Agent（默认 `codebuddy`）                                |
 
+### `stk uninstall`
+
+删除 `stk init` 安装的 stk SKILL 文件。只删除 stk 自己的 5 个 SKILL 目录（`stk`、`stk-diagnose`、`stk-analyze`、`stk-optimize`、`stk-report`），不触碰同目录下的其他 SKILL。
+
+| 选项             | 说明                                                                       |
+| ---------------- | -------------------------------------------------------------------------- |
+| `--agent <name>` | 目标 Agent（默认 `codebuddy`）                                             |
+| `--local`        | 删除项目级 `.codebuddy/` 下的安装（默认全局 `~/.codebuddy/`）              |
+| `--force`        | 跳过确认直接删除；非交互环境（脚本/CI）下必须显式传 `--force` 才会执行     |
+
 ### `stk proxy`
 
 启动代理并记录所有 CodeBuddy API 请求/响应到磁盘。
@@ -187,6 +197,35 @@ tests/
 - `cursor` 等其他 AI Agent 平台暂不支持
 - 不提供实时持续监控、云端同步、GUI 与自动回滚
 - `stk analyze` / `optimize` / `report` 等 CLI 命令由 AI Agent 的 SKILL 完成
+
+## 卸载
+
+完全卸载 stk 分三步：
+
+1. **删除安装的 SKILL**（对应 `stk init` 的反向操作）：
+
+   ```bash
+   stk uninstall                 # 全局（~/.codebuddy/skills/）
+   stk uninstall --local         # 项目级（.codebuddy/skills/），按需执行
+   stk uninstall --agent claude  # 其他 Agent 同理
+   ```
+
+   未安装 `stk` CLI（如已手动删除）时，可直接删除对应目录下的 `stk`、`stk-diagnose`、`stk-analyze`、`stk-optimize`、`stk-report` 文件夹。
+
+2. **删除全局包**：
+
+   ```bash
+   npm uninstall -g @studyzy/save-token-kit
+   # 或
+   pnpm remove -g @studyzy/save-token-kit
+   ```
+
+3. **清理数据目录**（可选，按需保留）：
+
+   ```bash
+   rm -rf ~/.stk          # stk rules update 下载的规则库缓存
+   rm -rf ./save-token    # 诊断/分析报告产物（各项目目录下）
+   ```
 
 ## 规则库（stk-rules）
 

@@ -4,6 +4,7 @@ import { red, bold } from 'ansis'
 import { runDiagnose } from './commands/diagnose.js'
 import { runInit } from './commands/init.js'
 import { runInstall } from './commands/install.js'
+import { runUninstall } from './commands/uninstall.js'
 import { runProxy } from './commands/proxy.js'
 import { runUsage } from './commands/usage.js'
 import { runVerify } from './commands/verify.js'
@@ -13,7 +14,7 @@ import { VERSION } from './version.js'
 
 /**
  * CLI entry point for `stk`.
- * Registers the top-level commands: diagnose, init, install, proxy, usage, verify, rules.
+ * Registers the top-level commands: diagnose, init, install, uninstall, proxy, usage, verify, rules.
  */
 export async function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   const cli = cac('stk')
@@ -64,6 +65,15 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     .option('--agent <name>', 'Target AI agent (default: codebuddy)', { default: 'codebuddy' })
     .action(async (tool: string, options: { global?: boolean; local?: boolean; agent: string }) => {
       await runInstall(tool, options)
+    })
+
+  cli
+    .command('uninstall', 'Remove the stk SKILL files installed by `stk init`')
+    .option('--local', 'Remove from project-level .codebuddy/ instead of global ~/.codebuddy/')
+    .option('--force', 'Delete without confirmation (required in non-interactive shells)')
+    .option('--agent <name>', 'Target AI agent (default: codebuddy)')
+    .action(async (options: { local?: boolean; force?: boolean; agent?: string }) => {
+      await runUninstall(options)
     })
 
   cli

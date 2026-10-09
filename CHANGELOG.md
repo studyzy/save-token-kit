@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.2 (2026-10-09)
+
+### 新增：stk uninstall 卸载命令
+
+- **`stk uninstall`**：删除 `stk init` 安装的 5 个 SKILL 目录（`stk` / `stk-diagnose` / `stk-analyze` / `stk-optimize` / `stk-report`），选项与 init 对齐（`--agent` / `--local`）
+- **安全护栏**：只删除 stk 自有的 5 个 SKILL 目录，不触碰同目录下用户其他 SKILL；TTY 下交互确认，非交互环境（脚本/CI）必须显式 `--force` 才执行
+- **README**：命令参考新增 `stk uninstall` 小节；新增「卸载」章节（SKILL → 全局包 → `~/.stk/` 规则库缓存与 `./save-token/` 报告产物清理）
+
+### 质量
+
+- 369 测试全绿；lint 0 错误
+
 ## 0.7.1 (2026-10-09)
 
 ### 新增：i-have-adhd 工具检测与推荐
