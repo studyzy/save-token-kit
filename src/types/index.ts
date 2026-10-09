@@ -79,6 +79,7 @@ export type ToolId =
   | 'lean-ctx'
   | 'graphify'
   | 'ponytail'
+  | 'i-have-adhd'
   | 'karpathy-skills'
   | 'gitnexus'
   | 'tokenjuice'

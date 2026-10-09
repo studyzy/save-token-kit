@@ -54,6 +54,10 @@
         "type": "plugin"
       },
       {
+        "id": "i-have-adhd",
+        "type": "plugin"
+      },
+      {
         "id": "karpathy-skills",
         "type": "plugin"
       },

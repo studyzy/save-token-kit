@@ -8,7 +8,7 @@
 
 主 SKILL 将传入单条任务上下文：
 - `operationType`: `"install-tool"`
-- `target`: 工具名（如 `headroom`、`rtk`、`caveman`、`ponytail`）
+- `target`: 工具名（如 `headroom`、`rtk`、`caveman`、`ponytail`、`i-have-adhd`）
 - `title`: 任务标题（如 "启用 Headroom"）
 - `detail`: 任务详情
 - `id`: 任务 ID
@@ -19,6 +19,7 @@
    - "启用 Headroom" → `headroom`
    - "启用 RTK" → `rtk`
    - "安装 Ponytail" → `ponytail`
+   - "安装 i-have-adhd" → `i-have-adhd`
 2. 执行安装命令：
    ```bash
    stk install <工具名> -g --agent codebuddy

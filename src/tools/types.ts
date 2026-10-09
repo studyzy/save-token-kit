@@ -23,7 +23,7 @@ export interface InstallResult {
 
 /**
  * 省 Token 第三方工具接口。
- * 每个工具（rtk / caveman / headroom / lean-ctx / graphify / ponytail）实现此接口。
+ * 每个工具（rtk / caveman / headroom / lean-ctx / graphify / ponytail / i-have-adhd）实现此接口。
  */
 export interface SaveTokenTool {
   /** 工具唯一标识 */

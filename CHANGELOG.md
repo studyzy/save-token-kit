@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.7.1 (2026-10-09)
+
+### 新增：i-have-adhd 工具检测与推荐
+
+- **新工具注册**：接入 [i-have-adhd](https://github.com/ayghri/i-have-adhd)（ADHD 友好输出风格：行动优先、步骤编号、去冗余），与 Ponytail / Caveman 同为输出压缩类 plugin，`stk diagnose` 报告与 `/stk` 推荐流程自动覆盖
+- **检测**：`~/.codebuddy/plugins/marketplaces/i-have-adhd/` 目录 + `settings.json` 的 `enabledPlugins['i-have-adhd@i-have-adhd']`
+- **Proxy 标记**：codebuddy / codex parser 识别 `ADHD MODE ACTIVE` 标记，命中时覆盖 installed 状态
+- **推荐接入**：规则包 `stk-rules.json` / 内置兜底新增条目；tool-enable / install-tool 子 Agent 模板与 `docs/优化规则.md` 同步
+
+### 质量
+
+- 358 测试全绿；lint 0 错误
+
 ## 0.7.0 (2026-09-24)
 
 ### 新增：规则包 stk-rules（specs/005-stk-rules-pack）

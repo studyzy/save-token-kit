@@ -20,6 +20,7 @@ import {
   getAllTools,
   headroomTool,
   ponytailTool,
+  iHaveAdhdTool,
   gitnexusTool,
   codebaseMemoryTool,
   contextModeTool,
@@ -400,6 +401,12 @@ export async function detectToolsViaRegistry(
     if (proxyParsed.detectedPlugins?.includes('ponytail')) {
       const pIdx = detections.findIndex((d) => d.name === 'ponytail')
       if (pIdx !== -1) detections[pIdx] = ponytailTool.markInstalledFromProxy(detections[pIdx])
+    }
+
+    // i-have-adhd proxy marker override
+    if (proxyParsed.detectedPlugins?.includes('i-have-adhd')) {
+      const aIdx = detections.findIndex((d) => d.name === 'i-have-adhd')
+      if (aIdx !== -1) detections[aIdx] = iHaveAdhdTool.markInstalledFromProxy(detections[aIdx])
     }
 
     // GitNexus enabled detection via MCP

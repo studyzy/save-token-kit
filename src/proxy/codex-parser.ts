@@ -234,6 +234,7 @@ function detectPluginsFromMessages(messages: any[]): string[] {
   const markers: Record<string, string> = {
     caveman: 'CAVEMAN MODE ACTIVE',
     ponytail: 'PONYTAIL MODE ACTIVE',
+    'i-have-adhd': 'ADHD MODE ACTIVE',
   }
   const detected: string[] = []
   for (const msg of messages) {
