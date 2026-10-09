@@ -148,7 +148,7 @@ function isOperationType(value: string): boolean {
     'replace-mcp-with-cli',
     'trim-memory-md',
     'trim-file',
-    'install-tool',
+    'install-toolkit',
     'other',
     'agent-opt',
     'knowledge-base',

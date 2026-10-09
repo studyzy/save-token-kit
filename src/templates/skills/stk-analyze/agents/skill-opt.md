@@ -21,10 +21,13 @@
 
 ## 输入
 
-- `skillList[]`（来自 `diagnosis-report.json`）：每项含 `name` / `source` / `sourcePath` / `estimatedTokens` / `loaded` / `usageFrequency`
-- `toolDetection[]`：用于判定"与已装工具功能重复"
-- `context.json`：用户场景（`purpose` / `sameRepo` / `graphTool`）
+- `skillList[]`（来自 `diagnosis-report.json`）：每项含 `name` / `source` / `sourcePath` / `estimatedTokens` / `loaded`
+- `usageStats.skillUsage.last30Days.ranking` 与 `.last90Days.ranking`（来自 `diagnosis-report.json`，`UsageRankItem[]`：`name` / `count`）：Skill 调用频次的**精确依据**（替代粗粒度 `usageFrequency`）。**注意：`diagnosis-report.md` 不渲染 usage 数据，必须直读 `diagnosis-report.json`**；ranking 中未出现的 skill 按 `count = 0` 计
+- `repo-scan.json`：含 `topLanguages` / `docFileCount` / `codeFileCount`，用于领域相关性判定
+- `toolkitDetection[]`：用于判定"与已装工具功能重复"
 - 缺失或为空数组：返回 `skipped: true` + 空 `suggestions`
+
+**usage 缺失回退**：`usageStats` 缺失或 `skillUsage.last30Days` 为空时，形式一（禁用）**不产出**（无法确认零调用，宁漏不误杀）；形式二/三/四仅按名称特征 + `estimatedTokens` 判定，频次条件视为满足。
 
 ## 判定规则
 
@@ -32,21 +35,21 @@
 
 ### 形式一：禁用/移除（disable-skill）
 
-> **收紧原则**：默认**不建议删除**任何 Skill。仅当该 Skill 与用户的 `role` / `purpose` / 当前项目画像**完全不相关**（如 `pm` 角色的 `doc` 项目下出现后端/移动/AI 领域专用 Skill，无任何场景匹配）时，才建议禁用。所有"可能相关""低频但非无关""领域沾边"的 Skill，**一律不删**，改走形式三（斜杠调用）以保留能力并节省常驻 Context。
+> **收紧原则**：默认**不建议删除**任何 Skill。仅当该 Skill 在 `skillUsage` 中 **90 天与 30 天均为 `count === 0`（零调用）**，**且** Skill 领域词与 `topLanguages` / 仓库特征不匹配（双重确认）时，才建议禁用。仅频次为零但领域相关的 Skill **不删**，改走形式三（斜杠调用）以保留能力并节省常驻 Context。
 
-| 条件 | 判定 | 输出 |
-| --- | --- | --- |
-| Skill 与 `role` / `purpose` / 项目画像**完全不相关**（结合 `context.json` 与 Skill 描述语义判定，无任何使用场景） | 完全无关，建议禁用 | `action`: "禁用 skill: <name>"，`operationType`: "disable-skill"，`reason`: "与用户角色=<role> 及当前项目画像完全不相关，<estimatedTokens> token 可移除" |
-| `name` 与 `toolDetection[]` 中已启用的工具功能重复（见下方重复判定表） | 功能重复，建议禁用 | `action`: "禁用 skill: <name>（已被工具 <tool> 覆盖）"，`operationType`: "disable-skill"，`reason`: "与已启用工具 <tool> 功能重叠" |
+| 条件                                                                                                                                                                           | 判定                       | 输出                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skillUsage.last90Days` 与 `.last30Days` 中该 skill 均 `count === 0`（或均未出现），**且** Skill 领域词与 `topLanguages` / 仓库特征不匹配（如纯 Go 后端仓库的移动端 UI skill） | 零调用且领域无关，建议禁用 | `action`: "禁用 skill: <name>"，`operationType`: "disable-skill"，`reason`: "近 90 天 0 次调用且与仓库特征（topLanguages=<langs>）无关，<estimatedTokens> token 可移除" |
+| `name` 与 `toolkitDetection[]` 中已启用的工具功能重复（见下方重复判定表）                                                                                                      | 功能重复，建议禁用         | `action`: "禁用 skill: <name>（已被工具 <tool> 覆盖）"，`operationType`: "disable-skill"，`reason`: "与已启用工具 <tool> 功能重叠"                                      |
 
 > 删除"低频文档类直接禁用""低频大文件直接禁用""插件低频直接禁用"三条旧规则——这些 Skill 一律优先改形式三（斜杠调用）而非删除（除非同时满足"完全不相关"）。
 
 ### 形式二：user→project 迁移（migrate-skill）
 
-| 条件 | 判定 | 输出 |
-| --- | --- | --- |
-| `source === 'user'` 或 `source === 'bundled'` 且 Skill 明显项目相关（名含项目专属词、或 `sourcePath` 指向某项目约定）且 `usageFrequency !== 'high'` | 更适合项目级 | `action`: "将 skill <name> 从 user 层迁移到 project 层（`.codebuddy/skills/`）"，`operationType`: "migrate-skill"，`reason`: "该 skill 仅当前项目相关，全局启用浪费其他项目上下文" |
-| `source === 'user'` 且 `estimatedTokens` > 800 且 `purpose` 与该 skill 场景不匹配 | 跨项目无关，下沉项目级 | `action`: "迁移 skill <name> 到 project 层"，`operationType`: "migrate-skill"，`reason`: "user 级常驻但仅特定项目使用" |
+| 条件                                                                                                                                            | 判定                   | 输出                                                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `source === 'user'` 或 `source === 'bundled'` 且 Skill 明显项目相关（名含项目专属词、或 `sourcePath` 指向某项目约定）且 last30Days `count < 30` | 更适合项目级           | `action`: "将 skill <name> 从 user 层迁移到 project 层（`.codebuddy/skills/`）"，`operationType`: "migrate-skill"，`reason`: "该 skill 仅当前项目相关，全局启用浪费其他项目上下文" |
+| `source === 'user'` 且 `estimatedTokens` > 800 且 Skill 领域词与 `topLanguages` / 仓库特征不匹配                                                | 跨项目无关，下沉项目级 | `action`: "迁移 skill <name> 到 project 层"，`operationType`: "migrate-skill"，`reason`: "user 级常驻但仅特定项目使用"                                                             |
 
 > 迁移后 Skill 仍可用（项目内 `/name` 触发），只是不再全局常驻。仅当 `source` 允许迁移时产出（bundled/user 可迁；plugin-marketplace 不可迁，保持禁用或保留）。
 
@@ -54,11 +57,11 @@
 
 > **主推方式**：对所有"不删、但常驻注入浪费 Context"的 Skill，优先建议改为斜杠调用（在该 Skill 上设置 `disable-model-invocation: true`，使其不再被模型自动调用，仅用户主动 `/<name>` 触发）。保留能力同时省去常驻 Context token。凡不满足形式一"完全不相关"删除条件的 Skill，均应以本形式处理而非删除。
 
-| 条件 | 判定 | 输出 |
-| --- | --- | --- |
-| Skill 适合用户主动调用而非 AI 自动触发（如统计/查询/展示类，名含 `stats` / `gain` / `history` / `show` / `view` / `report`）且 `usageFrequency !== 'high'` | 斜杠优先 | `action`: "为 skill <name> 添加 `disable-model-invocation: true`"，`operationType`: "disable-model-invocation"，`reason`: "该 skill 更适合用户显式 /name 调用，AI 自动触发收益低且常驻描述" |
-| Skill 内容属"帮助/说明"性质（`name` 含 `help` / `guide` / `faq` / `doc`）且 `usageFrequency === 'low'` | 说明类斜杠优先 | `action`: "为 skill <name> 添加 `disable-model-invocation: true`"，`operationType`: "disable-model-invocation"，`reason`: "帮助类 skill 用户按需 /name 查阅即可，无需 AI 自动注入" |
-| 与 `role` / `purpose` 弱相关、非完全无关（不满足形式一删除条件） | 弱相关斜杠优先 | `action`: "为 skill <name> 添加 `disable-model-invocation: true`"，`operationType`: "disable-model-invocation"，`reason`: "与画像弱相关，保留能力但改为按需 /name 触发，省常驻 <estimatedTokens> token" |
+| 条件                                                                                                                                                   | 判定                  | 输出                                                                                                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Skill 适合用户主动调用而非 AI 自动触发（如统计/查询/展示类，名含 `stats` / `gain` / `history` / `show` / `view` / `report`）且 last30Days `count < 30` | 斜杠优先              | `action`: "为 skill <name> 添加 `disable-model-invocation: true`"，`operationType`: "disable-model-invocation"，`reason`: "该 skill 更适合用户显式 /name 调用，AI 自动触发收益低且常驻描述"                          |
+| Skill 内容属"帮助/说明"性质（`name` 含 `help` / `guide` / `faq` / `doc`）且 last30Days `count < 3`                                                     | 说明类斜杠优先        | `action`: "为 skill <name> 添加 `disable-model-invocation: true`"，`operationType`: "disable-model-invocation"，`reason`: "帮助类 skill 用户按需 /name 查阅即可，无需 AI 自动注入"                                   |
+| 零调用或弱相关、非"零调用且领域无关"（不满足形式一删除条件），如 30 天 `count === 0` 但领域相关                                                        | 零调用/弱相关斜杠优先 | `action`: "为 skill <name> 添加 `disable-model-invocation: true`"，`operationType`: "disable-model-invocation"，`reason`: "近 30 天仅 <count> 次调用，保留能力但改为按需 /name 触发，省常驻 <estimatedTokens> token" |
 
 > `disable-model-invocation: true` 后 Skill 描述不再自动注入上下文，仅用户 `/name` 时加载——这是降低常驻占用且保留能力的折中。
 
@@ -76,46 +79,47 @@
 - Skill 描述含"多步" / "综合判断" / "理解语义" / "推理" → 不降级
 - Skill 模型降级由本 agent 形式四统一处理（含历史白名单内 skill 如 `lint-check-fix` / `caveman-*` / `ut-writer`），不交其他 agent
 - 已声明 `model: lite` 或 `context: fork` → 不重复产出
-- `usageFrequency === 'high'` 且需复杂判断 → 不降级
+- last30Days `count ≥ 30`（高频）且需复杂判断 → 不降级
 
-| 条件 | 判定 | 输出 |
-| --- | --- | --- |
-| 命中正向特征且不在排除项内，且 `usageFrequency !== 'high'` | 适合便宜模型 | `action`: "为 skill <name> 添加 `context: fork` + `model: lite`"，`operationType`: "skill-model-downgrade"，`reason`: "该 skill 逻辑简单（规则驱动/模板化），lite 模型可胜任，fork 隔离上下文" |
+| 条件                                                   | 判定         | 输出                                                                                                                                                                                           |
+| ------------------------------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 命中正向特征且不在排除项内，且 last30Days `count < 30` | 适合便宜模型 | `action`: "为 skill <name> 添加 `context: fork` + `model: lite`"，`operationType`: "skill-model-downgrade"，`reason`: "该 skill 逻辑简单（规则驱动/模板化），lite 模型可胜任，fork 隔离上下文" |
 
 > `context: fork` 是 `model: lite` 生效的前提（非 fork 模式 Skill 由主对话模型执行，`model` 字段无效）。若 Skill 当前非 fork 模式且不适合 fork（如无明确任务指令），则不产出此建议。
 
 **Skill 分类表**（用于"文档类/帮助类"判定）：
 
-| 类别 | 典型 Skill 名特征 |
-| --- | --- |
-| 文档类 | 名含 `doc` / `help` / `readme` / `changelog` / `guide` / `tutorial` |
-| 帮助类 | 名含 `help` / `faq` / `stats` / `gain` / `history`（统计/查询类） |
+| 类别                      | 典型 Skill 名特征                                                                                                     |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 文档类                    | 名含 `doc` / `help` / `readme` / `changelog` / `guide` / `tutorial`                                                   |
+| 帮助类                    | 名含 `help` / `faq` / `stats` / `gain` / `history`（统计/查询类）                                                     |
 | 工具类（不轻易禁用/迁移） | 名含 `commit` / `review` / `fix` / `build` / `test` / `deploy` / `lint` / `writer` / `check` / `analyze` / `optimize` |
 
 **功能重复判定表**（Skill ↔ 已启用工具）：
 
-| Skill 名 | 重复的工具 | 判定依据 |
-| --- | --- | --- |
-| `caveman-stats` | `rtk`（`rtk gain` 覆盖） | rtk 已启用时 stats 功能重复 |
-| `caveman-compress` | `headroom` / `context-mode` | headroom/context-mode 已启用时压缩功能重叠 |
-| `ponytail-audit` | `ponytail` | 同插件族，ponytail 已启用时 audit 可由主 skill 触发 |
-| `st-*` / `stk-*` | `stk`（本工具） | stk 已安装时单独 skill 冗余 |
-| `ctx-stats` | `rtk`（`rtk gain`） | rtk 已启用时 token 统计功能重叠 |
+| Skill 名           | 重复的工具                  | 判定依据                                            |
+| ------------------ | --------------------------- | --------------------------------------------------- |
+| `caveman-stats`    | `rtk`（`rtk gain` 覆盖）    | rtk 已启用时 stats 功能重复                         |
+| `caveman-compress` | `headroom` / `context-mode` | headroom/context-mode 已启用时压缩功能重叠          |
+| `ponytail-audit`   | `ponytail`                  | 同插件族，ponytail 已启用时 audit 可由主 skill 触发 |
+| `st-*` / `stk-*`   | `stk`（本工具）             | stk 已安装时单独 skill 冗余                         |
+| `ctx-stats`        | `rtk`（`rtk gain`）         | rtk 已启用时 token 统计功能重叠                     |
 
 > 不在表中的 Skill **不产出"功能重复"建议**（避免误判）。
 
 ## 不输出的情况
 
 - `skillList` 为空或缺失 → `skipped: true`
-- Skill 为高频工具类（`usageFrequency !== 'low'` 且名含工具类关键词）→ 不产出禁用/迁移
-- Skill `source === 'bundled'`（内置不可禁用/迁移） → 不产出禁用/迁移；形式三/四对 bundled 仍需满足各自非高频/逻辑简单条件才产出
+- Skill 为高频工具类（last30Days `count ≥ 30` 且名含工具类关键词）→ 不产出禁用/迁移
+- Skill `source === 'bundled'`（内置不可禁用/迁移） → 不产出禁用/迁移；形式三/四对 bundled 仍需满足各自频次/逻辑简单条件才产出
 - Skill `source === 'project'` 且 name 匹配 `stk-*` / `st-*` → 不产出（当前项目自身 skill）
-- 仅"与 `role`/`purpose`/项目画像完全不相关"才产出禁用；弱相关/低频但非完全无关 → 不产出禁用（改走形式三斜杠调用）
-- `loaded === false` 且 `usageFrequency === 'low'` → 仍产出（未加载但可能被触发）
+- 仅"90 天零调用且领域无关"才产出禁用；仅零调用但领域相关、或低频非零 → 不产出禁用（改走形式三斜杠调用）
+- `loaded === false` 且 last30Days `count < 3` → 仍产出（未加载但可能被触发）
 - 重复判定表中无对应条目 → 不产出"功能重复"建议
 - 形式二要求 `source` 可迁移（user/bundled），plugin-marketplace 不产出迁移
 - 形式三要求 skill 非高频且适合斜杠场景，高频核心 skill 不产出
 - 形式四要求 skill 逻辑简单（规则驱动/模板化）；复杂推理类、已声明 fork+lite 的 skill 不产出
+- `usageStats` 缺失 → 形式一不产出（见输入节回退规则）
 
 ## 验收条件（Acceptance，与 `stk verify` 校验规则一致）
 
@@ -128,9 +132,9 @@
 
 ## level 判定
 
-| level | 命中条件 |
-| --- | --- |
-| 中级 | 全部 Skill 优化建议（SKILL 配置优化类，默认中级） |
+| level | 命中条件                                          |
+| ----- | ------------------------------------------------- |
+| 中级  | 全部 Skill 优化建议（SKILL 配置优化类，默认中级） |
 
 ## estimatedSavingTokens 估算口径
 
@@ -154,15 +158,15 @@
 
 ```json
 {
-      "agentName": "skill-opt",
-      "category": "Skill 优化",
+  "agentName": "skill-opt",
+  "category": "Skill 优化",
   "generatedAt": "2026-07-13T10:00:00Z",
   "skipped": false,
   "suggestions": [
     {
       "id": "S1",
       "title": "禁用 skill: caveman-stats",
-      "detail": "caveman-stats 为低频帮助类 skill（usageFrequency=low, estimatedTokens=420），且 rtk 已启用覆盖 gain 功能",
+      "detail": "caveman-stats 为低频帮助类 skill（last30Days count=0 且 last90Days count=0，estimatedTokens=420），且 rtk 已启用覆盖 gain 功能",
       "operationType": "disable-skill",
       "target": "caveman-stats",
       "estimatedSavingTokens": 420,
@@ -170,7 +174,7 @@
       "reversible": true,
       "scenario": "code",
       "level": "中级",
-      "evidence": "usageFrequency=low, docClass=help, overlap with rtk (enabled)"
+      "evidence": "skillUsage.last30Days count=0, last90Days count=0, docClass=help, overlap with rtk (enabled)"
     },
     {
       "id": "S2",
@@ -183,7 +187,7 @@
       "reversible": true,
       "scenario": "code",
       "level": "中级",
-      "evidence": "source=user, project-specific, usageFrequency=medium"
+      "evidence": "source=user, project-specific, last30Days count=12"
     },
     {
       "id": "S3",
@@ -196,7 +200,7 @@
       "reversible": true,
       "scenario": "code",
       "level": "中级",
-      "evidence": "name=ctx-stats, stats class, usageFrequency=low"
+      "evidence": "name=ctx-stats, stats class, last30Days count=1"
     },
     {
       "id": "S4",

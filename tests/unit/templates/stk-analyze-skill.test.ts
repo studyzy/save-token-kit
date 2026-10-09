@@ -17,8 +17,8 @@ const skillSections = () => {
 describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
   describe('T009: four-phase structure', () => {
     const sections = skillSections()
-    it('has phase: context & scenario collection', () => {
-      expect(sections.some((s) => s.includes('上下文') && s.includes('场景'))).toBe(true)
+    it('has phase: diagnosis data check (no user questioning)', () => {
+      expect(sections.some((s) => s.includes('诊断数据检查'))).toBe(true)
     })
     it('has phase: repo code/doc collection', () => {
       expect(sections.some((s) => s.includes('仓库') && s.includes('采集'))).toBe(true)
@@ -33,7 +33,7 @@ describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
 
   describe('T010/T029: eleven sub-agents with existence-based start conditions', () => {
     const agents = [
-      'tool-enable',
+      'toolkit-enable',
       'mcp-opt',
       'plugin-opt',
       'agent-opt',
@@ -82,18 +82,24 @@ describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
     })
   })
 
-  describe('T018: knowledge-graph tool preference question', () => {
-    it('lists the four graph tools plus "暂不需要" with recommendation marker', () => {
+  describe('T018: knowledge-base auto-inference (no user questioning)', () => {
+    it('infers the graph toolkit from toolkitDetection + repo-scan instead of asking', () => {
       for (const t of [
-        'Graphify',
-        'Codebase-Memory MCP',
-        'CodeGraph',
+        'enabled === true',
+        'installed === true',
+        'codeFileCount ≥ 100',
         'GitNexus',
-        '暂不需要',
-        '推荐',
+        'Codebase-Memory-MCP',
+        'Graphify',
       ]) {
-        expect(SKILL, `missing graph tool option: ${t}`).toContain(t)
+        expect(SKILL, `missing auto-inference keyword: ${t}`).toContain(t)
       }
+    })
+    it('no longer collects user scenario via context.json or AskUserQuestion rounds', () => {
+      expect(SKILL).not.toContain('context.json')
+      expect(SKILL).not.toContain('暂不需要')
+      expect(SKILL).not.toContain('第一轮')
+      expect(SKILL).toMatch(/不询问用户/)
     })
   })
 
@@ -113,7 +119,7 @@ describe('stk-analyze SKILL.md structure (002-rebuild)', () => {
       const rows = SKILL.match(/^\| .* \| .* \| .* \|$/gm) ?? []
       // at least the 8 sub-agent definition rows present in the start-condition table
       const fr4 = SKILL.split('启动条件表')[1] ?? ''
-      expect(fr4).toContain('tool-enable')
+      expect(fr4).toContain('toolkit-enable')
       expect(fr4).toContain('hook-audit')
       expect(rows.length).toBeGreaterThanOrEqual(8)
     })

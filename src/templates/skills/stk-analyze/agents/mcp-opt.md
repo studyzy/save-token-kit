@@ -7,23 +7,23 @@
 ## 输入
 
 - `mcpList[]`（来自 `diagnosis-report.json`）：每项含 `name` / `status` / `type` / `command` / `url` / `toolsCount` / `deferLoading` / `estimatedTokens` / `hasCliAlternative` / `cliAlternative` / `source`
-- `context.json`：用户场景（`purpose` / `sameRepo` / `graphTool`）
+- `usageStats.mcpServerUsage.last30Days.ranking`（来自 `diagnosis-report.json`，`UsageRankItem[]`：`name` / `count`，按 server 名计调用次数）：通用 CLI 替代规则的判定依据。**注意：`diagnosis-report.md` 不渲染 usage 数据，必须直读 `diagnosis-report.json`**；缺失时按下方回退规则处理
 - 缺失或为空数组：返回 `skipped: true` + 空 `suggestions`
 
 ## 判定规则
 
 逐项遍历 `mcpList[]`，按下表匹配（单条可命中多条规则，分别产出独立 suggestion）：
 
-| 条件 | 判定 | 输出 |
-| --- | --- | --- |
-| `status === "disabled"` 且 `toolsCount === 0` | 死配置 | `action`: "移除 mcp: <name>"，`operationType`: "disable-mcp"，`reason`: "已禁用且无工具，配置残留"，`estimatedSavingTokens`: 0（已无加载开销），`risk`: "low" |
-| `status === "disabled"` 且 `toolsCount > 0` | 禁用但仍有工具定义 | `action`: "移除 mcp: <name>（已禁用，工具定义仍占 token）"，`operationType`: "disable-mcp"，`reason`: "status=disabled 但 toolsCount=<N>，工具定义仍入上下文"，`estimatedSavingTokens`: 取该 MCP `estimatedTokens` |
-| `hasCliAlternative === true` 且 `status === "enabled"` 且 `purpose` 非 `office` | CLI 替代 | `action`: "用 CLI 替代 mcp: <name> → `<cliAlternative>`"，`operationType`: "replace-mcp-with-cli"，`reason`: "<cliAlternative> 可覆盖常见用法，工具定义 <estimatedTokens> token 可移除"，`estimatedSavingTokens`: 取 `estimatedTokens` |
-| `status === "enabled"` 且 `name` 匹配 `tapd` / `mcp-server-tapd`（不区分大小写） | TAPD MCP → CLI 替代 | `action`: "用 tapd CLI 替代 mcp: <name>"，`operationType`: "replace-mcp-with-cli"，`reason`: "tapd-cli 命令行工具可覆盖 TAPD MCP 常见操作，移除工具定义节省上下文"，`estimatedSavingTokens`: 取 `estimatedTokens`，`risk`: "medium"（需确认 tapd-cli 已安装） |
-| `status === "enabled"` 且 `name` 匹配 `github` / `github-mcp`（不区分大小写） | GitHub MCP → gh CLI 替代 | `action`: "用 gh CLI 替代 mcp: <name>"，`operationType`: "replace-mcp-with-cli"，`reason`: "GitHub CLI（gh）可覆盖仓库管理/PR/Issue 等操作，移除工具定义节省上下文"，`estimatedSavingTokens`: 取 `estimatedTokens`，`risk`: "low"（gh 为 GitHub 官方 CLI，生态成熟） |
-| `status === "enabled"` 且 `name` 匹配 `gongfeng` / `gongfeng-mcp`（不区分大小写） | 工蜂 MCP → gongfeng CLI 替代 | `action`: "用 gongfeng CLI 替代 mcp: <name>"，`operationType`: "replace-mcp-with-cli"，`reason`: "gongfeng 命令行工具可覆盖工蜂 MCP 常见操作，移除工具定义节省上下文"，`estimatedSavingTokens`: 取 `estimatedTokens`，`risk`: "medium"（需确认 gongfeng CLI 已安装） |
-| `status === "enabled"` 且 `estimatedTokens` > 1500 且 `toolsCount` > 15 且 `deferLoading !== true` | 大型 MCP 未 defer | `action`: "为 <name> 设置 defer_loading: true"，`operationType`: "defer-mcp"，`reason`: "toolsCount=<N> estimatedTokens=<T>，defer 后仅保留 name+description（约省 40-60% token），且工具不参与 KV Cache key 计算，减少缓存失效"，`estimatedSavingTokens`: 取 `estimatedTokens` × 0.6（defer 后仍保留引用条目） |
-| `status === "enabled"` 且 `toolsCount === 0` | 异常空 MCP | `action`: "检查 mcp: <name>（启用但无工具加载）"，`operationType`: "other"，`reason`: "可能配置错误或 server 未正常启动"，`estimatedSavingTokens`: 0，`risk`: "medium" |
+| 条件                                                                                                                                   | 判定                         | 输出                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status === "disabled"` 且 `toolsCount === 0`                                                                                          | 死配置                       | `action`: "移除 mcp: <name>"，`operationType`: "disable-mcp"，`reason`: "已禁用且无工具，配置残留"，`estimatedSavingTokens`: 0（已无加载开销），`risk`: "low"                                                                                                                                                   |
+| `status === "disabled"` 且 `toolsCount > 0`                                                                                            | 禁用但仍有工具定义           | `action`: "移除 mcp: <name>（已禁用，工具定义仍占 token）"，`operationType`: "disable-mcp"，`reason`: "status=disabled 但 toolsCount=<N>，工具定义仍入上下文"，`estimatedSavingTokens`: 取该 MCP `estimatedTokens`                                                                                              |
+| `hasCliAlternative === true` 且 `status === "enabled"` 且该 server 在 `mcpServerUsage.last30Days.ranking` 中 `count === 0`（或未出现） | 零调用 MCP → CLI 替代        | `action`: "用 CLI 替代 mcp: <name> → `<cliAlternative>`"，`operationType`: "replace-mcp-with-cli"，`reason`: "近 30 天 0 次调用，<cliAlternative> 可覆盖偶发用法，工具定义 <estimatedTokens> token 可移除"，`estimatedSavingTokens`: 取 `estimatedTokens`                                                       |
+| `status === "enabled"` 且 `name` 匹配 `tapd` / `mcp-server-tapd`（不区分大小写）                                                       | TAPD MCP → CLI 替代          | `action`: "用 tapd CLI 替代 mcp: <name>"，`operationType`: "replace-mcp-with-cli"，`reason`: "tapd-cli 命令行工具可覆盖 TAPD MCP 常见操作，移除工具定义节省上下文"，`estimatedSavingTokens`: 取 `estimatedTokens`，`risk`: "medium"（需确认 tapd-cli 已安装）                                                   |
+| `status === "enabled"` 且 `name` 匹配 `github` / `github-mcp`（不区分大小写）                                                          | GitHub MCP → gh CLI 替代     | `action`: "用 gh CLI 替代 mcp: <name>"，`operationType`: "replace-mcp-with-cli"，`reason`: "GitHub CLI（gh）可覆盖仓库管理/PR/Issue 等操作，移除工具定义节省上下文"，`estimatedSavingTokens`: 取 `estimatedTokens`，`risk`: "low"（gh 为 GitHub 官方 CLI，生态成熟）                                            |
+| `status === "enabled"` 且 `name` 匹配 `gongfeng` / `gongfeng-mcp`（不区分大小写）                                                      | 工蜂 MCP → gongfeng CLI 替代 | `action`: "用 gongfeng CLI 替代 mcp: <name>"，`operationType`: "replace-mcp-with-cli"，`reason`: "gongfeng 命令行工具可覆盖工蜂 MCP 常见操作，移除工具定义节省上下文"，`estimatedSavingTokens`: 取 `estimatedTokens`，`risk`: "medium"（需确认 gongfeng CLI 已安装）                                            |
+| `status === "enabled"` 且 `estimatedTokens` > 1500 且 `toolsCount` > 15 且 `deferLoading !== true`                                     | 大型 MCP 未 defer            | `action`: "为 <name> 设置 defer_loading: true"，`operationType`: "defer-mcp"，`reason`: "toolsCount=<N> estimatedTokens=<T>，defer 后仅保留 name+description（约省 40-60% token），且工具不参与 KV Cache key 计算，减少缓存失效"，`estimatedSavingTokens`: 取 `estimatedTokens` × 0.6（defer 后仍保留引用条目） |
+| `status === "enabled"` 且 `toolsCount === 0`                                                                                           | 异常空 MCP                   | `action`: "检查 mcp: <name>（启用但无工具加载）"，`operationType`: "other"，`reason`: "可能配置错误或 server 未正常启动"，`estimatedSavingTokens`: 0，`risk`: "medium"                                                                                                                                          |
 
 > **CLI 替代规则优先级**：TAPD/GitHub/工蜂 的 name 匹配规则优先于通用 `hasCliAlternative` 规则。当 `name` 同时命中特定平台规则和通用 `hasCliAlternative` 时，使用特定平台规则输出（含更精确的 CLI 工具名和风险提示）。
 
@@ -34,16 +34,19 @@
 
 ## 关键约束：开发协作平台 MCP 禁止建议禁用
 
-TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具。**无论 purpose/role 如何，均不得建议禁用或移除**。处理方式：
-- **优先 CLI 替代**：已安装对应 CLI（`tapd-cli` / `gongfeng` / `gh`）→ 产出 `replace-mcp-with-cli` 建议
+TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具。**无论调用频次如何，均不得建议禁用或移除**。处理方式：
+
+- **优先 CLI 替代**：已安装对应 CLI（`tapd-cli` / `gongfeng` / `gh`）→ 产出 `replace-mcp-with-cli` 建议（此类平台为开发必备，即使 `mcpServerUsage` 零调用也适用本条，不走"零调用才替代"的通用规则）
 - **CLI 未安装**：不产出禁用建议，跳过该 MCP（在 evidence 中注明"开发必备，CLI 未安装，跳过"）
-- **领域匹配判定不适用**：`purpose=code/role=backend` 等场景字段对开发协作平台无约束力
+- **usage 判定不适用**：`mcpServerUsage` 零调用不构成对开发协作平台的移除/禁用依据
+
+**usage 缺失回退**：`usageStats` 缺失或 `mcpServerUsage.last30Days` 为空时，通用 CLI 替代规则不触发，仅保留特定平台匹配（TAPD/GitHub/工蜂）与结构性规则（死配置/异常空/defer）。
 
 ## 不输出的情况
 
 - `mcpList` 为空或缺失 → `skipped: true`
 - MCP 已 enabled 且 `hasCliAlternative === false` 且 name 不匹配 TAPD/GitHub/工蜂 且体量小（`estimatedTokens` ≤ 1500 或 `toolsCount` ≤ 15） → 不产出
-- `purpose === "office"` 且 MCP 为 office 类（playwright / browser 等） → 不建议 CLI 替代
+- `hasCliAlternative === true` 但该 server 在 `mcpServerUsage.last30Days` 中调用次数 > 0 → 不走通用 CLI 替代（使用中，仅可 defer）
 - `toolsCount === 0` 且 `estimatedTokens === 0` → 空壳配置，不产出
 - **TAPD/GitHub/工蜂 MCP 且对应 CLI 未安装** → 不产出（不因 CLI 未安装而降级为禁用建议）
 
@@ -60,9 +63,9 @@ TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`
 
 ## level 判定
 
-| level | 命中条件 |
-| --- | --- |
-| 中级 | 全部 MCP 优化建议（配置优化类，默认中级） |
+| level | 命中条件                                  |
+| ----- | ----------------------------------------- |
+| 中级  | 全部 MCP 优化建议（配置优化类，默认中级） |
 
 > MCP 优化无"安装即用"工具，也无知识库类高级对象，统一中级。
 

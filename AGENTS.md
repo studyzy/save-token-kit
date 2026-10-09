@@ -6,7 +6,7 @@ Contributor guide for **save-token-kit** (`stk`), a TypeScript CLI that helps AI
 
 - `src/` — all source code (TS, ESM):
   - `cli.ts` — CLI entry, registers `diagnose`/`init`/`install`/`proxy`/`usage`.
-  - `commands/`, `collectors/`, `proxy/`, `adapters/`, `templates/`, `tools/`, `types/`, `utils/`.
+  - `commands/`, `collectors/`, `proxy/`, `adapters/`, `templates/`, `toolkits/`, `types/`, `utils/`.
 - `tests/` — `unit/` (mirrors `src`) and `integration/`.
 - `save-token/` — runtime outputs (reports, `proxy-raw-body.json`).
 - `docs/` — architecture and optimization rules.

@@ -17,7 +17,7 @@ stk（save-token-kit）的优化经验库：**一个 JSON 文件承载全部规�
     "mcp-alternatives": {               // MCP server → 更省 Token 的 CLI 替代
       "mcp-server-tapd": "tapd-cli"
     },
-    "tools": [                          // 第三方省 Token 工具目录（纯数据；探测/安装逻辑在引擎）
+    "toolkits": [                       // 第三方省 Token Toolkit 目录（纯数据；探测/安装逻辑在引擎）
       { "id": "rtk", "type": "cli" }   // type: cli | plugin | mcp
     ],
     "thresholds": {                     // 判定阈值（数值映射）

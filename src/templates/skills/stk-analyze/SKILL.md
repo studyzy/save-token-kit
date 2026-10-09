@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # SKILL: stk-analyze
 
-收集用户的使用场景与当前仓库的代码/文档情况，结合 `stk diagnose` 诊断报告，并行派发多个专注不同优化点的子 Agent，每个子 Agent 将统一 Schema 的 JSON 落盘到 `save-token/suggestions-<agent-name>.json` 并**自行用 `stk verify --file` 校验格式**（程序化死逻辑，失败则覆盖重写自纠），最后汇总为 `save-token/tasks.md` 待办清单。
+基于 `stk diagnose` 诊断报告（含 `usageStats` 真实调用数据）与当前仓库的代码/文档扫描结果，并行派发多个专注不同优化点的子 Agent——**全程不询问用户意图，所有判定均以 usage 数据与仓库特征为依据**。每个子 Agent 将统一 Schema 的 JSON 落盘到 `save-token/suggestions-<agent-name>.json` 并**自行用 `stk verify --file` 校验格式**（程序化死逻辑，失败则覆盖重写自纠），最后汇总为 `save-token/tasks.md` 待办清单。
 
 ## 编排模型（状态机）
 
@@ -18,7 +18,7 @@ PENDING → READY → RUNNING → SUCCESS
 ```
 
 - `PENDING`：对象存在性判定通过、尚未派发。
-- `READY`：输入产物（诊断字段 / `context.json` / `repo-scan.json`）齐备，可进入并行派发。
+- `READY`：输入产物（诊断字段 / `repo-scan.json`）齐备，可进入并行派发。
 - `RUNNING`：子 Agent 已派发、正在产出并落盘 `suggestions-<name>.json`。
 - `SUCCESS`：产物已落盘且通过 `stk verify --file`（或按对象为前置 `repo-analysis.json`）。
 - `FAILED`：达到重试上限仍失败 / 超时 → 跳过该维度，汇总其余，摘要标注。
@@ -28,7 +28,7 @@ PENDING → READY → RUNNING → SUCCESS
 
 ## 目标
 
-通过"收集场景 → 收集仓库 → 派发子 Agent → 汇总 tasks.md"四阶段，产出可一键执行的 Token 优化待办。每个子 Agent 仅关注一类对象，对象不存在则不启动该 Agent。
+通过"检查诊断 → 扫描仓库 → 派发子 Agent → 汇总 tasks.md"四阶段，产出可一键执行的 Token 优化待办。每个子 Agent 仅关注一类对象，对象不存在则不启动该 Agent。
 
 ## 执行流程
 
@@ -36,17 +36,17 @@ PENDING → READY → RUNNING → SUCCESS
 
 先判定当前 AI 平台，确定**项目级指令主文件**（下称 `memoryMd`，即每次会话自动全量加载到上下文的项目级记忆/指令文件）：
 
-| 平台 | 项目级指令主文件 |
-| --- | --- |
-| CodeBuddy | `CODEBUDDY.md` |
-| Claude Code | `CLAUDE.md` |
-| CodeX | `AGENTS.md` |
+| 平台        | 项目级指令主文件 |
+| ----------- | ---------------- |
+| CodeBuddy   | `CODEBUDDY.md`   |
+| Claude Code | `CLAUDE.md`      |
+| CodeX       | `AGENTS.md`      |
 
 判定方式：以当前运行平台为准（Agent 自知身份）；无法确定时检查项目根目录，存在 `./CODEBUDDY.md` 视为 CodeBuddy，存在 `./CLAUDE.md` 视为 Claude Code，存在 `./AGENTS.md` 视为 CodeX，多者并存时以当前平台为准。
 
 下文所有涉及主文件的分析（`repo-scan.json` 字段、`memory-md` 子 Agent 启动条件、建议 `target`、tasks.md 分组标题等）统一用 `memoryMd` 指代实际文件名，**不写死**为具体平台文件名。
 
-### 阶段 1: 上下文与场景收集
+### 阶段 1: 诊断数据检查
 
 **步骤 1: 检查诊断数据**
 
@@ -54,72 +54,16 @@ PENDING → READY → RUNNING → SUCCESS
 cat save-token/diagnosis-report.md 2>/dev/null || echo "NOT_FOUND"
 ```
 
-- 文件存在且其中 `扫描时间:` 行（即 `scanTimestamp`）距当前 ≤ 5 分钟 → 复用，跳到步骤 2。
+- 文件存在且其中 `扫描时间:` 行（即 `scanTimestamp`）距当前 ≤ 5 分钟 → 复用，跳到阶段 2。
 - 不存在或过期 → 提示用户先运行 `stk diagnose` 或 `/stk-diagnose`，**停止**，不产生任何输出文件。
 
-> 诊断以 `diagnosis-report.md`（由 `stk diagnose` 生成的终端友好 Markdown 摘要）为可读源，避免直接解析过长的 `diagnosis-report.json`。子 Agent 派发时仍从源报告读取所需字段；若某字段 Markdown 摘要未涵盖，回退读取 `diagnosis-report.json`。
-
-**步骤 2: 收集使用场景（含图谱工具倾向性）**
-
-检查 `./save-token/context.json`：存在且 `collectedAt` 在 7 天内 → 复用，跳到阶段 2。
-
-否则用 `AskUserQuestion` 分轮收集（不猜测，必须询问）：
-
-**第一轮（必问）— 使用场景与用户角色：3 个问题 MUST 合并为一次 `AskUserQuestion` 调用**（该工具单次最多支持 4 问，禁止拆成 3 次连续打断用户）：
-
-- 问题 1: 主要使用目的 → 代码编写 / 文档写作 / 通用办公 / 通用
-- 问题 2: 代码与文档是否在同一仓库 → 是（同仓）/ 否（独立仓库）/ 不适用（纯文档/办公）
-- 问题 3: 用户角色画像 → 前端开发 / 后端开发 / 测试 / 产品经理 / 全栈 / 其他
-
-> 用户角色（`role`）用于精准判定 Plugin 的适用性：特定领域 Plugin（如前端 UI 套件、移动端 SDK）仅对对应角色的项目有价值，跨角色全局启用即为浪费。角色与 `purpose`/`sameRepo` 共同构成推荐依据。
-
-**第二轮（条件触发）— 代码知识图谱工具倾向性：**
-
-- **触发条件**：仓库扫描已完成（`repo-scan.json` 存在）且 `codeFileCount >= 5`
-
-- **前置判定（决定是否询问）**：进入询问前，先读取 `diagnosis-report.md` / `diagnosis-report.json` 中的代码知识库对象（如 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` 等，对应 `knowledge-base` 维度字段），按以下规则判定：
-  1. **已启用** → 直接写入 `context.json` 的 `graphTool` 为该工具，**不再** `AskUserQuestion` 询问选哪个知识库。
-  2. **已安装但仅 1 个且未启用** → 默认使用该唯一已安装知识库，直接写入 `graphTool`，**不再** 询问是否使用。
-  3. **已安装但多个且均未启用 / 全部未安装 / 触发条件不满足但用户主动提及** → 才走下方 `AskUserQuestion` 询问。
-
-  > 判定依据一律取自诊断报告，不猜测；若报告字段缺失无法判定，降级为正常询问。
-
-- **询问内容（仅当前置判定不满足时触发）**：列出已知工具，附简要描述：
-  - `Graphify`（本地 CLI，轻量图谱）
-  - `Codebase-Memory MCP`（本地 MCP，跨语言图谱）
-  - `CodeGraph`（语义+历史层）
-  - `GitNexus`（monorepo/影响分析）
-  - `暂不需要`
-- **推荐标记**：基于仓库扫描特征在对应选项标注"（推荐）"：
-  - TypeScript/JavaScript 为主且有项目级指令主文件（`memoryMd` 存在）→ 推荐 **Graphify**
-  - 多语言大型仓库（codeFileCount > 50 且 topLanguages ≥ 3）→ 推荐 **Codebase-Memory MCP**
-  - monorepo 结构 → 推荐 **GitNexus**
-  - 规模达标但无上述特征 → 推荐 **Graphify**（默认）
-- 用户可选"暂不需要"跳过，或"其他"输入自定义工具。推荐仅供参考，用户自主决定。
-
-**第三轮（可选）— 模糊点澄清：**
-
-- 若存在边界情况（如多主流语言并存、上下文 Token 量临界、同名 marketplace/project Skill 并存），用额外 `AskUserQuestion` 确认倾向。
-
-将结果写入 `./save-token/context.json`：
-
-```json
-{
-  "collectedAt": "<ISO8601>",
-  "purpose": "code|doc|office|general",
-  "sameRepo": "same|separate",
-  "role": "frontend|backend|test|pm|fullstack|other",
-  "graphTool": "graphify|codebase-memory-mcp|codegraph|gitnexus|none|<自定义>"
-}
-```
-
-> `graphTool` 仅在第二轮相关时写入；仓库过小不触发则不写该字段（向后兼容）。若诊断报告显示已启用或仅 1 个已安装知识库，由前置判定直接写入，不触发询问。
+> 诊断以 `diagnosis-report.md`（由 `stk diagnose` 生成的终端友好 Markdown 摘要）为可读源。**注意：Markdown 摘要不渲染 `usageStats`**——各子 Agent 判定所需的调用频次数据必须直读 `diagnosis-report.json` 的 `usageStats` 字段（5 个维度 `toolUsage` / `skillUsage` / `subagentUsage` / `mcpServerUsage` / `mcpToolUsage`，各有 `all` / `last90Days` / `last30Days` 三个时间桶，`ranking` 为 `{name, count}[]`）。本 SKILL **不询问用户使用场景**（已废除用户场景收集文件），所有画像类判定（scenario / 领域 / 频次）均由 `usageStats` 与 `repo-scan.json` 推断。
 
 ### 阶段 2: 仓库代码/文档采集
 
 **步骤 3: 扫描仓库**
 
-在派发子 Agent 前（且在第二轮问答前）扫描当前工作目录：
+在派发子 Agent 前扫描当前工作目录：
 
 ```bash
 # 代码文件数（按扩展名）
@@ -138,27 +82,27 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 统计并写入 `./save-token/repo-scan.json`（字段见下方 RepoScan Schema）：
 
-| 字段             | 说明                            |
-| ---------------- | ------------------------------- |
-| `scannedAt`      | ISO 8601                        |
-| `codeFileCount`  | 代码文件数                      |
-| `docFileCount`   | 文档文件数                      |
-| `codeLineCount`  | 代码总行数（量级）              |
-| `docLineCount`   | 文档总行数（量级）              |
-| `topLanguages`   | Top 3 语言（按文件数降序，≤ 3） |
-| `hasDocsDir`     | 是否存在 `docs/` 或 `README*`   |
-| `hasMemoryMd`    | 是否存在项目级指令主文件（memoryMd） |
-| `memoryMd`       | 项目级指令主文件文件名（如 `CODEBUDDY.md` / `CLAUDE.md` / `AGENTS.md`），不存在时省略 |
-| `isMonorepo`     | 是否 monorepo                   |
-| `scanError`      | 失败信息；成功为 `null`         |
+| 字段            | 说明                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------- |
+| `scannedAt`     | ISO 8601                                                                              |
+| `codeFileCount` | 代码文件数                                                                            |
+| `docFileCount`  | 文档文件数                                                                            |
+| `codeLineCount` | 代码总行数（量级）                                                                    |
+| `docLineCount`  | 文档总行数（量级）                                                                    |
+| `topLanguages`  | Top 3 语言（按文件数降序，≤ 3）                                                       |
+| `hasDocsDir`    | 是否存在 `docs/` 或 `README*`                                                         |
+| `hasMemoryMd`   | 是否存在项目级指令主文件（memoryMd）                                                  |
+| `memoryMd`      | 项目级指令主文件文件名（如 `CODEBUDDY.md` / `CLAUDE.md` / `AGENTS.md`），不存在时省略 |
+| `isMonorepo`    | 是否 monorepo                                                                         |
+| `scanError`     | 失败信息；成功为 `null`                                                               |
 
 排除目录：`node_modules` `.git` `dist` `build` `coverage` `.cache`。
 
-**扫描失败处理**：`scanError` 非 null 时不阻塞问答；第二轮图谱询问降级为"无法推荐，请自行选择"；摘要标注扫描失败。
+**扫描失败处理**：`scanError` 非 null 时不阻塞流程；摘要标注扫描失败。
 
 **步骤 3.5: 前置仓库调研（单独调用，非并行）**
 
-扫描完成后、进入并行派发前，**单独调用一次**前置调研 Agent `repo-scan`（规则见 `@agents/repo-scan.md`），读取 `repo-scan.json` + `context.json`，产出 `save-token/repo-analysis.json`（含 `flags` 结构化结论 + `suggestions[]`）。
+扫描完成后、进入并行派发前，**单独调用一次**前置调研 Agent `repo-scan`（规则见 `@agents/repo-scan.md`），读取 `repo-scan.json`，产出 `save-token/repo-analysis.json`（含 `flags` 结构化结论 + `suggestions[]`）。
 
 - 此 Agent **不进入阶段 3 并行列表**，由主流程在步骤 3 后单发。
 - `flags`（如 `docsOverInjected` / `needsMonorepoSplit` / `needsIndex`）供并行子 Agent 按需读取，避免各 Agent 重复计算仓库特征。
@@ -171,7 +115,7 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 读取诊断报告，仅对**存在且非空**的对象启动对应子 Agent。对象为空 → 不启动，摘要标注跳过。
 
-在**单条消息**中并行发起所有需启动的子 Agent（多次 `Agent` 调用）。每个子 Agent 接收：诊断报告相关字段 + `context.json` + `repo-scan.json`（按需），并**自行落盘**统一 Schema JSON 到 `save-token/suggestions-<agent-name>.json`。
+在**单条消息**中并行发起所有需启动的子 Agent（多次 `Agent` 调用）。每个子 Agent 接收：诊断报告相关字段（**含 `usageStats`**）+ `repo-scan.json` + `repo-analysis.json` 的 `flags`（按需），并**自行落盘**统一 Schema JSON 到 `save-token/suggestions-<agent-name>.json`。
 
 **落盘与格式校验（子 Agent 自验，程序化死逻辑）**：
 
@@ -187,48 +131,50 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 **失败分类与处理**（任一子 Agent 失败/超时）：
 
-| 失败类型 | 判定 | 处理 |
-| --- | --- | --- |
-| `tool_error` | `stk verify` 报错/命令执行失败 | 重试一次 |
-| `context_missing` | 子 Agent 反馈缺少必要输入字段 | 补全输入后重派发该 Agent |
-| `impl_error` | `stk verify` 返回格式错误清单 | 子 Agent 按清单覆盖重写（见上"有限重试"） |
-| `plan_error` | 连续 3 次 `impl_error` 仍失败 | 放弃该维度，标记 `FAILED`，不重规划 |
-| `unknown` | 超时 / 未产出文件 | 跳过该维度，汇总其余 |
+| 失败类型          | 判定                           | 处理                                      |
+| ----------------- | ------------------------------ | ----------------------------------------- |
+| `tool_error`      | `stk verify` 报错/命令执行失败 | 重试一次                                  |
+| `context_missing` | 子 Agent 反馈缺少必要输入字段  | 补全输入后重派发该 Agent                  |
+| `impl_error`      | `stk verify` 返回格式错误清单  | 子 Agent 按清单覆盖重写（见上"有限重试"） |
+| `plan_error`      | 连续 3 次 `impl_error` 仍失败  | 放弃该维度，标记 `FAILED`，不重规划       |
+| `unknown`         | 超时 / 未产出文件              | 跳过该维度，汇总其余                      |
 
 **子 Agent 启动条件表**
 
-| # | 子 Agent         | 关注对象                          | 启动条件                                | 详细规则                  |
-|---|------------------|-----------------------------------|-----------------------------------------|---------------------------|
-| 1 | `tool-enable`    | `toolDetection[]`                 | 数组非空                                | @agents/tool-enable.md |
-| 2 | `mcp-opt`        | `mcpList[]`                       | 数组非空                                | @agents/mcp-opt.md     |
+| #   | 子 Agent         | 关注对象             | 启动条件 | 详细规则                  |
+| --- | ---------------- | -------------------- | -------- | ------------------------- |
+| 1   | `toolkit-enable` | `toolkitDetection[]` | 数组非空 | @agents/toolkit-enable.md |
+| 2   | `mcp-opt`        | `mcpList[]`          | 数组非空 | @agents/mcp-opt.md        |
 
-> **MCP 优化关键约束**：TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具，**不得建议禁用**。应建议用对应 CLI（`tapd-cli` / `gongfeng` / `gh`）替代 MCP，保留功能同时移除工具定义的 Token 开销。领域匹配判定（如 purpose=code/role=backend）不适用于此类开发协作平台——它们对所有开发角色均必要。
-| 3 | `plugin-opt`     | `pluginList[]`                    | 数组非空                                | @agents/plugin-opt.md  |
-| 4 | `agent-opt`      | `agentList[]`                     | 数组非空                                | @agents/agent-opt.md   |
-| 5 | `skill-opt`      | `skillList[]`                     | 数组非空                                | @agents/skill-opt.md   |
-| 6 | `knowledge-base` | `repo-scan.json` + `context.json` | 仓库超阈值 **且** `graphTool` 非 `none` | @agents/knowledge-base.md |
+> **MCP 优化关键约束**：TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具，**不得建议禁用**。应建议用对应 CLI（`tapd-cli` / `gongfeng` / `gh`）替代 MCP，保留功能同时移除工具定义的 Token 开销。调用频次判定（如 `mcpServerUsage` 零调用）不适用于此类开发协作平台——它们对所有开发场景均必要，零调用也仅走 CLI 替代。
+> | 3 | `plugin-opt` | `pluginList[]` | 数组非空 | @agents/plugin-opt.md |
+> | 4 | `agent-opt` | `agentList[]` | 数组非空 | @agents/agent-opt.md |
+> | 5 | `skill-opt` | `skillList[]` | 数组非空 | @agents/skill-opt.md |
+> | 6 | `knowledge-base` | `toolkitDetection[]` + `repo-scan.json` | 存在已装未启用的知识库 **或**（全部未装且 `codeFileCount ≥ 100`）；且无任何知识库 `enabled === true` | @agents/knowledge-base.md |
 
-> **`knowledge-base` 启动前置判定**（派发前执行，依据诊断报告）：
-> - 诊断报告显示某代码知识库 `enabled === true`（已启用）→ **不启动**该 Agent（已就绪，无需建议）。
-> - `graphTool` 指定某工具且诊断报告该工具 `installed === true` 但 `enabled === false` → **启动**，Agent 工作即产出"启用该知识库"建议。
-> - `graphTool` 指定某工具且未安装 / 用户主动选择 → 启动，按规模产出"启用"建议。
-> - `graphTool === 'none'` 或缺失 → 不启动。
-> 判定依据一律取自诊断报告，不猜测；报告字段缺失时降级为按原"仓库超阈值且 graphTool 非 none"条件启动。
-| 7 | `command-opt`    | `commandList[]`（主 Agent 从诊断报告提取后传入） | `commandList[]` 非空 | @agents/command-opt.md |
-| 8 | `rules-opt`      | `ruleList[]`                      | 数组非空                                | @agents/rules-opt.md   |
-| 9 | `memory-md`      | 项目级指令主文件（`memoryMd`） | `hasMemoryMd === true`                        | @agents/memory-md.md |
-| 10 | `hook-audit`     | `hookList[]`                      | 数组非空                                | @agents/hook-audit.md  |
-| 11 | `tool-opt`       | `builtinTools[]`                  | `agentName ∈ {codebuddy, workbuddy, claude}` **且** 数组非空 **且**（codebuddy/workbuddy：无 `cblite` alias；claude：无已 deny 候选） | @agents/tool-opt.md |
+> **`knowledge-base` 启动前置判定**（派发前执行，依据诊断报告 `toolkitDetection[]` + `repo-scan.json`，自动推断不询问用户）：
+>
+> - 任一知识库 `enabled === true`（已启用）→ **不启动**该 Agent（已就绪，无需建议）。
+> - 存在 `installed === true` 且 `enabled === false` 的知识库 → **启动**（恰 1 个即该工具；多个按 repo 特征选 1：isMonorepo→GitNexus，topLanguages≥3 且 codeFileCount>50→Codebase-Memory-MCP，否则→Graphify）。
+> - 全部知识库未安装且 `codeFileCount ≥ 100` → **启动**，按 repo 特征推荐安装（选法同上）。
+> - 其余（全未装且 `codeFileCount < 100`）→ 不启动。
+>   判定依据一律取自诊断报告与扫描结果，不猜测。
+>   | 7 | `command-opt` | `commandList[]`（主 Agent 从诊断报告提取后传入） | `commandList[]` 非空 | @agents/command-opt.md |
+>   | 8 | `rules-opt` | `ruleList[]` | 数组非空 | @agents/rules-opt.md |
+>   | 9 | `memory-md` | 项目级指令主文件（`memoryMd`） | `hasMemoryMd === true` | @agents/memory-md.md |
+>   | 10 | `hook-audit` | `hookList[]` | 数组非空 | @agents/hook-audit.md |
+>   | 11 | `tool-opt` | `builtinTools[]` | `agentName ∈ {codebuddy, workbuddy, claude}` **且** 数组非空 **且**（codebuddy/workbuddy：无 `cblite` alias；claude：无已 deny 候选） | @agents/tool-opt.md |
 
 > **`tool-opt` 启动前置判定**（派发前执行）：
+>
 > - **平台限制**：仅当诊断报告 `agentName` 为 `codebuddy`、`workbuddy` 或 `claude` 时启动；**CodeX 不启动**（无内置工具延迟/禁用统一开关；`mcp_servers.<id>.enabled_tools`/`disabled_tools` 仅 MCP 工具且为白/黑名单禁用）。
->   - **CodeBuddy / WorkBuddy**：走 `cblite` alias + `--tools "Defer(...)"`（延迟加载，低频批量收窄）。WorkBuddy 基于 CodeBuddy CLI 内核，支持相同 `--tools` Defer 语法。
->   - **Claude Code**：走 `~/.claude/settings.json` 的 `permissions.deny`（**禁用**语义），且**只对用户明确确认不使用**的工具建议 deny。
+>   - **CodeBuddy / WorkBuddy**：走 `cblite` alias + `--tools "Defer(...)"`（延迟加载，Top 20 常驻、其余收窄）。WorkBuddy 基于 CodeBuddy CLI 内核，支持相同 `--tools` Defer 语法。
+>   - **Claude Code**：走 `~/.claude/settings.json` 的 `permissions.deny`（**禁用**语义），候选由 `toolUsage.last30Days` 零调用筛选，**且只对用户明确确认不使用**的工具建议 deny。
 > - **CodeBuddy / WorkBuddy 幂等**：运行 `type cblite 2>/dev/null`（或 `alias cblite`），能解析到 → 已存在 `cblite` alias，**不启动**（已就绪）。
-> - **Claude 幂等**：读取 `~/.claude/settings.json` 的 `permissions.deny`，若候选低频工具均已 deny → **不启动**（已就绪）。
+> - **Claude 幂等**：读取 `~/.claude/settings.json` 的 `permissions.deny`，若零调用候选工具均已 deny → **不启动**（已就绪）。
 > - 判定失败/无法确认时，按"未就绪"处理并启动（避免漏建议）。
 
-> **注**：`repo-scan` 为前置调研 Agent，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`，其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。并行子 Agent 共 11 个：`tool-enable`、`mcp-opt`、`plugin-opt`、`agent-opt`、`skill-opt`、`knowledge-base`、`command-opt`、`rules-opt`、`memory-md`、`hook-audit`、`tool-opt`（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入）。各子 Agent 统一以表中**新名**（如 `plugin-opt`/`agent-opt`/`skill-opt`/`command-opt`/`tool-opt`）标识，禁止输出旧名别名。
+> **注**：`repo-scan` 为前置调研 Agent，在阶段 2 步骤 3.5 单独调用（非并行），产出 `repo-analysis.json`，其 `suggestions[]` 由汇总阶段直接消费，不占并行名额。并行子 Agent 共 11 个：`toolkit-enable`、`mcp-opt`、`plugin-opt`、`agent-opt`、`skill-opt`、`knowledge-base`、`command-opt`、`rules-opt`、`memory-md`、`hook-audit`、`tool-opt`（`command-opt` 由主 Agent 从 `diagnosis-report.json` 的 `commandList[]` 提取后作为参数传入）。各子 Agent 统一以表中**新名**（如 `plugin-opt`/`agent-opt`/`skill-opt`/`command-opt`/`tool-opt`）标识，禁止输出旧名别名。
 
 ### 阶段 4: 汇总生成 tasks.md
 
@@ -242,7 +188,7 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 各子 Agent 并行独立产出，可能对同一 `target` 产生重复或冲突建议。合并后必须先仲裁，再分组落盘：
 
-- **完全重复**：`agentName` 不同但 `operationType` + `target` + `action` 语义完全相同（如 `tool-enable` 与 `knowledge-base` 均建议"启用某知识库工具"）→ 仅保留一条，取两者中 `estimatedSavingTokens` 较大者，并在保留条目的 `evidence` 追加"来源：<agentName1> + <agentName2>"。
+- **完全重复**：`agentName` 不同但 `operationType` + `target` + `action` 语义完全相同（如 `toolkit-enable` 与 `knowledge-base` 均建议"启用某知识库工具"）→ 仅保留一条，取两者中 `estimatedSavingTokens` 较大者，并在保留条目的 `evidence` 追加"来源：<agentName1> + <agentName2>"。
 - **对象级冲突（同 `target` 操作互斥）**：同一 `target` 同时命中两条互斥建议（如某 Agent 建议"启用 X"而另一 Agent 建议"禁用 X"；或"迁移 X 到 project 层"与"移除 X"）→ 保留**优先级最高**的一条，其余丢弃，并在 `detail` 注明"已合并同 target 的冲突建议"。
 - **冲突优先级（从高到低）**：`启用/安装/就绪类` > `禁用/移除/迁移类` > `斜杠化/降级/收窄类` > `审查/检查类`。同一优先级内保留 `estimatedSavingTokens` 较大者。
 - **无法判定是否互斥**（`target` 相同但操作不构成互斥，如"精简 X"与"为 X 补索引"可并存）→ 两者都保留。
@@ -253,7 +199,7 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 按 `category` 分组，写入 `save-token/tasks.md`：
 
-- 顶部注释：`<!-- scenario: <purpose 中文> / <同仓|异仓> -->`
+- 顶部注释：`<!-- scenario: <仓库类型> -->`，仓库类型由 `repo-scan.json` **机械推断**（不询问用户）：`scanError != null` 或 `codeFileCount + docFileCount === 0` → `通用`；`docFileCount ≥ codeFileCount` → `文档仓库`；否则 → `代码仓库`。所有 suggestion 的 `scenario` 字段同源推断：对应取 `general` / `doc` / `code`
 - **一个 SKILL 一个 Task、一个工具一个 Task、一个 MCP 一个 Task，绝不合并**
 - 每条 Task 含可执行 `action`、预估节省 Token、原因
 - 已跳过的子 Agent 在摘要区列出
@@ -261,7 +207,7 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 **步骤 6: 输出摘要**
 
-控制台打印：总计预估节省 Token 与百分比、`tasks.md` 路径、场景标注、已跳过子 Agent 列表、失败子 Agent 列表。
+控制台打印：总计预估节省 Token 与百分比、`tasks.md` 路径、仓库类型标注、已跳过子 Agent 列表、失败子 Agent 列表。
 
 **⚠️ 必须提醒用户**：`save-token/tasks.md` 中的每条建议均需用户**仔细核对**。若某条不想执行，用户可直接在 `tasks.md` 中删除该行（或在执行 `stk-optimize` 前手动移除）。所有优化均为用户侧配置变更，工具不自动执行——确认无误后再调用 `stk-optimize` 执行选中的任务。
 
@@ -275,7 +221,7 @@ rm -f save-token/suggestions-*.json
 ```
 
 - 删除对象：阶段 3 并行子 Agent 的 `save-token/suggestions-<agent-name>.json`。
-- **保留**：`tasks.md`、`diagnosis-report.md` / `diagnosis-report.json`、`repo-scan.json`、`repo-analysis.json`、`context.json`、`proxy-raw-body.json`。
+- **保留**：`tasks.md`、`diagnosis-report.md` / `diagnosis-report.json`、`repo-scan.json`、`repo-analysis.json`、`proxy-raw-body.json`。
 - 前置调研 `repo-analysis.json` 同为中间产物，但其 `suggestions[]` 已并入 `tasks.md` 第 7 组，故一并删除：
 
 ```bash
@@ -292,8 +238,8 @@ rm -f save-token/repo-analysis.json
 
 ```json
 {
-  "agentName": "tool-enable",
-  "category": "第三方工具启用",
+  "agentName": "toolkit-enable",
+  "category": "第三方 Toolkit启用",
   "generatedAt": "2026-07-13T10:00:00Z",
   "skipped": false,
   "suggestions": [
@@ -301,14 +247,14 @@ rm -f save-token/repo-analysis.json
       "id": "S1",
       "title": "启用 Headroom",
       "detail": "headroom 已安装但未启用，可提供 47-92% 上下文压缩",
-      "operationType": "install-tool",
+      "operationType": "install-toolkit",
       "target": "headroom",
       "estimatedSavingTokens": 6200,
       "risk": "low",
       "reversible": true,
       "scenario": "code",
       "level": "高级",
-      "evidence": "toolDetection: installed=true, enabled=false"
+      "evidence": "toolkitDetection: installed=true, enabled=false"
     }
   ]
 }
@@ -335,17 +281,17 @@ rm -f save-token/repo-analysis.json
 
 **优化等级（`level`）字段**
 
-每条 `suggestion` **必须**填 `level`，取值 `初级` / `中级` / `高级`。等级按 `target`（或工具/对象名）判定，而非按子 Agent 固定——同一个子 Agent（如 `tool-enable`）可能同时产出初级（RTK）与高级（Headroom）的 task。
+每条 `suggestion` **必须**填 `level`，取值 `初级` / `中级` / `高级`。等级按 `target`（或工具/对象名）判定，而非按子 Agent 固定——同一个子 Agent（如 `toolkit-enable`）可能同时产出初级（RTK）与高级（Headroom）的 task。
 
 判定规则（按优先级匹配，命中即定级）：
 
-| 等级 | 命中条件（按 `target` / 对象名匹配） |
-| ---- | ------------------------------------- |
-| 初级 | `target` 或工具名为 `rtk` 之一（省 Token 工具类，安装即用、零配置）；或属于 Plugin 优化（子 Agent `plugin-opt` 产出，如 `disable-plugin` / `migrate-plugin` 类） |
-| 高级 | `target` 为 `headroom`，或属于代码知识库类（子 Agent `knowledge-base` 产出，如 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` 等） |
+| 等级 | 命中条件（按 `target` / 对象名匹配）                                                                                                                                                     |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 初级 | `target` 或工具名为 `rtk` 之一（省 Token 工具类，安装即用、零配置）；或属于 Plugin 优化（子 Agent `plugin-opt` 产出，如 `disable-plugin` / `migrate-plugin` 类）                         |
+| 高级 | `target` 为 `headroom`，或属于代码知识库类（子 Agent `knowledge-base` 产出，如 `graphify` / `codebase-memory-mcp` / `codegraph` / `gitnexus` 等）                                        |
 | 中级 | 其余所有：`caveman` / `caveman-*` / `ponytail` / `ponytail-*` / `karpathy-skills`、SKILL 优化、Agent 优化、MCP 优化、Rules 优化、Hook 审查、仓库专项、会话级工具延迟加载（`tool-opt`）等 |
 
-> 同一 Agent 内部混合示例：`tool-enable` 中"启用 RTK"→ 初级，"启用 Headroom"→ 高级。各子 Agent 在输出时**逐条**按上表判定 `level`，不得整组统一标级。
+> 同一 Agent 内部混合示例：`toolkit-enable` 中"启用 RTK"→ 初级，"启用 Headroom"→ 高级。各子 Agent 在输出时**逐条**按上表判定 `level`，不得整组统一标级。
 
 `operationType` 取值同 `src/types/index.ts` 的 `OperationType`，含扩展值 `plugin-opt`、`agent-opt`、`knowledge-base`、`disable-plugin`、`migrate-plugin`、`tool-opt`；既有 `defer-mcp` 语义 = 在 `.mcp.json` 中对该 MCP server 设置 `"defer_loading": true`，使其工具按需加载而非常驻上下文。
 
@@ -354,11 +300,11 @@ rm -f save-token/repo-analysis.json
 核心原则：一个 SKILL 一个 Task、一个工具一个 Task、一个 MCP 一个 Task，绝不合并。`action` 必须可直接执行。
 
 ```markdown
-<!-- scenario: 代码编写 / 同仓 -->
+<!-- scenario: 代码仓库 -->
 
-# 优化建议：代码编写 / 同仓
+# 优化建议：代码仓库
 
-## 1. 第三方工具启用
+## 1. 第三方 Toolkit启用
 
 - [ ] 1.1 [初级] 启用 RTK（预估节省 ~XXX Token）
       原因：已安装未启用，CLI 透明代理省 Token
@@ -373,9 +319,9 @@ rm -f save-token/repo-analysis.json
 ## 3. 插件优化
 
 - [ ] 3.1 [初级] 禁用 plugin: office-suite（预估节省 ~1000 Token）
-      原因：purpose=code 与办公领域不符，全局启用浪费上下文
+      原因：仓库 topLanguages=[TypeScript,Go] 与办公领域不符，全局启用浪费上下文
 - [ ] 3.2 [初级] 将 plugin: react-ui-kit 从 user 迁移到 project 层（预估节省 ~1000 Token）
-      原因：前端 UI 领域与当前前端项目强相关，全局常驻浪费其他项目
+      原因：前端 UI 领域与当前仓库 topLanguages=[TypeScript,Vue] 强相关，全局常驻浪费其他项目
 
 ## 4. 子代理工具优化
 
@@ -418,8 +364,8 @@ rm -f save-token/repo-analysis.json
 
 ## 11. 会话级工具延迟加载
 
-- [ ] 11.1 [中级] 建立 cblite alias，延迟加载低频内置工具（预估节省 ~10783 Token）
-      原因：Task*/Web*/Agent/SendMessage/WaitForMcpServers/*PlanMode 低频，收进 Defer 减少常驻工具定义
+- [ ] 11.1 [中级] 建立 cblite alias，仅 Top 20 常驻、其余内置工具延迟加载（预估节省 ~10783 Token）
+      原因：last30Days 调用数据显示 Task*/Web*/Agent/SendMessage/WaitForMcpServers/*PlanMode 零调用或低频，收进 Defer 减少常驻工具定义
 
 ---
 
@@ -427,7 +373,7 @@ rm -f save-token/repo-analysis.json
 总计：预估节省 ~XXXXX Token (XX.X%)
 ```
 
-每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方工具启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Command 优化 → 9.Rules 优化 → 10.<memoryMd> 审查 → 11.Hook 审查 → 12.会话级工具延迟加载。每条一行 `- [ ] <N.M> [等级] 描述` + 原因缩进两空格，总计行末尾用 `---` 分隔。其中 `<N.M>` 为该 Task 的全局唯一编号：`N` 取所属组标题编号（如 `## 8.` 组内为 `8.x`），`M` 为组内从 1 递增的序号，供用户精确指定要执行的 Task。
+每组标题对应实际启动的 Agent，跳过的 Agent 不出现。标题顺序固定：1.第三方 Toolkit启用 → 2.MCP 优化 → 3.插件优化 → 4.子代理工具优化 → 5.Skill 优化 → 6.知识图谱推荐 → 7.仓库专项 → 8.Command 优化 → 9.Rules 优化 → 10.<memoryMd> 审查 → 11.Hook 审查 → 12.会话级工具延迟加载。每条一行 `- [ ] <N.M> [等级] 描述` + 原因缩进两空格，总计行末尾用 `---` 分隔。其中 `<N.M>` 为该 Task 的全局唯一编号：`N` 取所属组标题编号（如 `## 8.` 组内为 `8.x`），`M` 为组内从 1 递增的序号，供用户精确指定要执行的 Task。
 
 ## 边界
 

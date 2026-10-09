@@ -1,10 +1,5 @@
-import { describe, it, expect, assertType, expectTypeOf } from 'vitest'
-import type {
-  OperationType,
-  AnalysisSuggestion,
-  RepoScan,
-  AnalysisContext,
-} from '../../../src/types/index.js'
+import { describe, it, expect, expectTypeOf } from 'vitest'
+import type { OperationType, AnalysisSuggestion, RepoScan } from '../../../src/types/index.js'
 
 describe('stk-analyze types (002-rebuild)', () => {
   describe('OperationType extensions', () => {
@@ -16,7 +11,7 @@ describe('stk-analyze types (002-rebuild)', () => {
         'replace-mcp-with-cli',
         'trim-codebuddy-md',
         'trim-file',
-        'install-tool',
+        'install-toolkit',
         'other',
         'defer-tools',
         'knowledge-base',
@@ -37,16 +32,16 @@ describe('stk-analyze types (002-rebuild)', () => {
         id: 'S1',
         title: '启用 Headroom',
         detail: '已安装未启用',
-        operationType: 'install-tool',
+        operationType: 'install-toolkit',
         target: 'headroom',
         estimatedSavingTokens: 0,
         risk: 'low',
         reversible: true,
         scenario: 'code',
-        evidence: 'toolDetection: installed=true, enabled=false',
+        evidence: 'toolkitDetection: installed=true, enabled=false',
       }
       expect(s.scenario).toBe('code')
-      expect(s.evidence).toContain('toolDetection')
+      expect(s.evidence).toContain('toolkitDetection')
     })
 
     it('works without scenario/evidence (backward compatible)', () => {
@@ -84,29 +79,6 @@ describe('stk-analyze types (002-rebuild)', () => {
     })
   })
 
-  describe('AnalysisContext', () => {
-    it('carries purpose, sameRepo and optional graphTool', () => {
-      const c: AnalysisContext = {
-        collectedAt: '2026-07-13T10:00:00Z',
-        purpose: 'code',
-        sameRepo: 'same',
-        graphTool: 'graphify',
-      }
-      expect(c.graphTool).toBe('graphify')
-    })
-
-    it('allows graphTool undefined when repo too small to ask', () => {
-      const c: AnalysisContext = {
-        collectedAt: '2026-07-13T10:00:00Z',
-        purpose: 'code',
-        sameRepo: 'same',
-      }
-      expect(c.graphTool).toBeUndefined()
-    })
-
-    it('accepts codegraph/gitnexus kebab storage values', () => {
-      assertType<AnalysisContext['graphTool']>('codegraph')
-      assertType<AnalysisContext['graphTool']>('gitnexus')
-    })
-  })
+  // AnalysisContext removed from the type contract — scenario is now inferred
+  // from repo-scan.json / usageStats instead of user questioning.
 })

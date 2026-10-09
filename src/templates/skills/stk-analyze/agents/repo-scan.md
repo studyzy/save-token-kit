@@ -2,7 +2,7 @@
 
 ## 角色与目标
 
-你是仓库级上下文优化**前置调研** Agent。在阶段 2 仓库扫描（`repo-scan.json` 生成）之后、并行派发各子 Agent **之前**单独调用，基于 `repo-scan.json` 的代码/文档规模、monorepo 结构，以及阶段 1 收集的 `context.json`，产出结构化仓库特征结论 `save-token/repo-analysis.json`。
+你是仓库级上下文优化**前置调研** Agent。在阶段 2 仓库扫描（`repo-scan.json` 生成）之后、并行派发各子 Agent **之前**单独调用，基于 `repo-scan.json` 的代码/文档规模与 monorepo 结构，产出结构化仓库特征结论 `save-token/repo-analysis.json`。
 
 **本 Agent 不进入并行列表**，由主流程在阶段 2 步骤 3 后单独调度一次。产出供并行子 Agent 按需读取（替代各 Agent 自行重算仓库特征），其 `suggestions[]` 由汇总阶段直接消费进 tasks.md 第 7 组"仓库专项"。
 
@@ -15,13 +15,13 @@
 3. **子目录主文件**：当 Agent 操作子目录文件时，按需加载该子目录的 `memoryMd`
 
 **`docs/` 目录不会被自动注入上下文**，除非：
+
 1. 在 `memoryMd` 中通过 `@docs/xxx.md` 显式导入
 2. `docs/` 子目录下有 `memoryMd`（操作 docs 文件时按需加载）
 
 ## 输入
 
 - `repo-scan.json`：含 `codeFileCount` / `docFileCount` / `codeLineCount` / `docLineCount` / `topLanguages` / `hasDocsDir` / `hasMemoryMd` / `memoryMd` / `isMonorepo` / `scanError`
-- `context.json`：含 `purpose` / `sameRepo` / `graphTool`
 - `scanError` 非 null：仅产出降级结论（`flags` 全 false、`suggestions` 含一条扫描失败说明），不阻塞流程
 - 文件缺失：返回 `skipped: true` + 空 `suggestions`
 
@@ -29,19 +29,18 @@
 
 按下表匹配，命中即置对应 `flag=true`（可多命中）：
 
-| 条件 | flag | 含义 |
-| --- | --- | --- |
-| `context.sameRepo === 'same'` 且 `docFileCount` ≥ 50 且 `hasDocsDir === true` 且 `purpose !== 'doc'` | `docsOverInjected` | 同仓文档量大，memoryMd 可能 @导入了 docs/，应检查 |
-| `isMonorepo === true` 且 `codeFileCount` ≥ 200 | `needsMonorepoSplit` | monorepo 应按子包加 memoryMd 实现按需加载 |
-| `codeFileCount` ≥ 200 且 `hasMemoryMd === false` | `needsIndex` | 大仓缺 memoryMd 资源地图索引 |
-| `hasMemoryMd === true` 且 `docFileCount` ≥ 50 且 `purpose !== 'doc'` | `docsOverInjected` | 有 memoryMd 但文档量大，可能大量 @导入 docs/ |
+| 条件                                                                                                                   | flag                 | 含义                                                        |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------- | ----------------------------------------------------------- |
+| `docFileCount / (docFileCount + codeFileCount) < 0.5`（非文档主导仓库）且 `docFileCount` ≥ 50 且 `hasDocsDir === true` | `docsOverInjected`   | 文档量大但代码仍占主导，memoryMd 可能 @导入了 docs/，应检查 |
+| `isMonorepo === true` 且 `codeFileCount` ≥ 200                                                                         | `needsMonorepoSplit` | monorepo 应按子包加 memoryMd 实现按需加载                   |
+| `codeFileCount` ≥ 200 且 `hasMemoryMd === false`                                                                       | `needsIndex`         | 大仓缺 memoryMd 资源地图索引                                |
+| `hasMemoryMd === true` 且 `docFileCount` ≥ 50 且 `docFileCount / (docFileCount + codeFileCount) < 0.5`（非文档主导）   | `docsOverInjected`   | 有 memoryMd 但文档量大，可能大量 @导入 docs/                |
 
 ## 不输出 suggestion 的情况
 
 - `repo-scan.json` 缺失 → `skipped: true`
-- `sameRepo === 'separate'` 且 `isMonorepo === false` → 无仓库级优化空间，`skipped: true`
 - `docFileCount` < 50 且 `codeFileCount` < 200 → 仓库规模小，不产出
-- `purpose === 'doc'` → 文档场景不需要排除文档
+- `docFileCount / (docFileCount + codeFileCount) ≥ 0.5`（文档主导仓库）→ `docsOverInjected` 不产出
 - 以上情况 `flags` 全 false，`suggestions` 为空数组
 
 ## 验收条件（Acceptance）
@@ -55,12 +54,12 @@
 
 ## suggestion 生成规则（flags → suggestions）
 
-| flag | action | operationType | reason | level |
-| --- | --- | --- | --- | --- |
-| `docsOverInjected` | 检查 memoryMd 是否 @导入了 docs/ 文件，如有则移除/精简 | `trim-memory-md` | `sameRepo=same 且 docFileCount=N，若通过 @导入 注入了文档会增加上下文占用` | 中级 |
-| `needsMonorepoSplit` | 在 monorepo 各子包下添加 memoryMd（如 CODEBUDDY.md / CLAUDE.md / AGENTS.md），实现按子包按需加载上下文 | `other` | `monorepo 含多 package，根 memoryMd 全量注入浪费上下文` | 中级 |
-| `needsIndex` | 添加项目级 memoryMd（如 CODEBUDDY.md / CLAUDE.md / AGENTS.md）作为资源地图索引 | `other` | `大仓无索引，AI 需自行探索文件系统` | 初级 |
-| `scanError` 非 null | （扫描失败，无法给出仓库级建议） | `other` | `scanError=<msg>` | 中级 |
+| flag                 | action                                                                                                 | operationType    | reason                                                                 | level |
+| -------------------- | ------------------------------------------------------------------------------------------------------ | ---------------- | ---------------------------------------------------------------------- | ----- |
+| `docsOverInjected`   | 检查 memoryMd 是否 @导入了 docs/ 文件，如有则移除/精简                                                 | `trim-memory-md` | `docFileCount=N 且代码占主导，若通过 @导入 注入了文档会增加上下文占用` | 中级  |
+| `needsMonorepoSplit` | 在 monorepo 各子包下添加 memoryMd（如 CODEBUDDY.md / CLAUDE.md / AGENTS.md），实现按子包按需加载上下文 | `other`          | `monorepo 含多 package，根 memoryMd 全量注入浪费上下文`                | 中级  |
+| `needsIndex`         | 添加项目级 memoryMd（如 CODEBUDDY.md / CLAUDE.md / AGENTS.md）作为资源地图索引                         | `other`          | `大仓无索引，AI 需自行探索文件系统`                                    | 初级  |
+| `scanError` 非 null  | （扫描失败，无法给出仓库级建议）                                                                       | `other`          | `scanError=<msg>`                                                      | 中级  |
 
 ## estimatedSavingTokens 估算口径
 
@@ -89,9 +88,7 @@
     "isMonorepo": false,
     "hasMemoryMd": true,
     "memoryMd": "CODEBUDDY.md",
-    "hasDocsDir": true,
-    "sameRepo": "same",
-    "purpose": "code"
+    "hasDocsDir": true
   },
   "flags": {
     "docsOverInjected": true,
@@ -103,7 +100,7 @@
     {
       "id": "S1",
       "title": "检查 memoryMd 的 @导入 是否包含大量文档",
-      "detail": "sameRepo=same 且 docFileCount=35，若 memoryMd（本例 CODEBUDDY.md）通过 @导入 注入了 docs/ 下的文档文件，会增加上下文占用。建议移除不常用的 @导入 或精简为索引",
+      "detail": "docFileCount=35 且代码占主导（doc 占比 < 0.5），若 memoryMd（本例 CODEBUDDY.md）通过 @导入 注入了 docs/ 下的文档文件，会增加上下文占用。建议移除不常用的 @导入 或精简为索引",
       "operationType": "trim-memory-md",
       "target": "CODEBUDDY.md",
       "estimatedSavingTokens": 1500,
@@ -111,7 +108,7 @@
       "reversible": true,
       "scenario": "code",
       "level": "中级",
-      "evidence": "sameRepo=same, docFileCount=35, purpose=code"
+      "evidence": "docFileCount=35, docRatio=0.45"
     }
   ]
 }

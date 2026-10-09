@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### 变更：第三方省 Token 工具统一改称 Toolkit（breaking）
+
+- **动机**：避免与 LLM 请求体中的 Tools（builtinTools / mcpTools）概念混淆，第三方省 Token 工具（rtk / caveman / headroom / lean-ctx / graphify / ponytail / i-have-adhd 等）统一改称 **Toolkit**
+- **CLI**：`stk install <tool>` → `stk install <toolkit>`；错误提示改为「未知 Toolkit / 可用 Toolkit」
+- **类型契约**：`ToolId`→`ToolkitId`、`ToolDetection`→`ToolkitDetection`、`DiagnosisReport.toolDetection`→`toolkitDetection`、`OperationType 'install-tool'`→`'install-toolkit'`、`AnalysisContext.graphTool`→`graphToolkit`（该字段所属的 `AnalysisContext` 已随下条 stk-analyze 重构一并移除）
+- **源码**：`src/tools/` → `src/toolkits/`（`SaveTokenToolkit` / `BaseSaveTokenToolkit` / `registerToolkit` / `getAllToolkits` 等），测试目录 `tests/unit/tools/` → `tests/unit/toolkits/`
+- **规则包**：数据集键 `data.tools` → `data.toolkits`（schemaVersion 仍为 1；旧用户覆盖文件用 `tools` 键将收到 unknown-dataset 警告，需改名为 `toolkits`）
+- **SKILL 模板**：stk-analyze 子 Agent `tool-enable` → `toolkit-enable`（产出 `suggestions-toolkit-enable.json`）、stk-optimize 子 Agent `install-tool` → `install-toolkit`；诊断报告展示「第三方 Toolkit 检测」
+- **不改**：LLM 语义的 tool 全部保留（`system-tools`、`builtinTools`、`mcpTools`、`tool-opt` 子 Agent 与 prompts 等）
+
+### 重构：stk-analyze 全面改为 usage 数据驱动，不再询问用户（breaking）
+
+- **移除用户意图收集**：删除阶段 1「收集使用场景」的三轮 `AskUserQuestion` 与 `save-token/context.json`（`AnalysisContext` 类型同步删除）；`scenario` 字段与 tasks.md 顶部注释改由 `repo-scan.json` 机械推断（`docFileCount ≥ codeFileCount` → doc，否则 code，异常 → general）
+- **判定依据切换**：各子 Agent 改以诊断报告 `usageStats`（`toolUsage` / `skillUsage` / `subagentUsage` / `mcpServerUsage`，各含 `last30Days.ranking` 调用计数）与 `repo-scan.json` 仓库特征判定；Markdown 摘要不渲染 `usageStats`，子 Agent 直读 `diagnosis-report.json`
+- **usage 缺失回退总则**：所有「零调用 → 禁用/移除」类规则不触发（宁漏不误杀），仅保留结构性规则；`agent-opt` 无 usage 数据时整体 `skipped: true`
+- **tool-opt（CodeBuddy/WorkBuddy）**：改为「Top 20 常驻、其余 Defer」——按 `toolUsage.last30Days` 调用排序，`builtinTools` 中不在 Top 20 的全部收进 `Defer(...)`；usage 缺失时仅保守 `Defer(*PlanMode)` + `Defer(SendMessage)`
+- **tool-opt（Claude Code）**：deny 候选改由 30 天零调用筛选（排除 Read/Write/Edit/Bash/Glob/Grep 安全兜底），**保留** `AskUserQuestion` 安全确认
+- **knowledge-base**：`graphToolkit` 用户选择改自动推断——已装未启用→建议启用（多个按 repo 特征选 1）；全未装且 `codeFileCount ≥ 100`→按特征推荐；其余不启动
+- **mcp-opt**：通用 CLI 替代改 `mcpServerUsage.last30Days` 零调用判定；TAPD / 工蜂 / GitHub 开发协作平台 MCP 仍**禁止建议禁用**（零调用也仅走 CLI 替代）
+- **plugin-opt / skill-opt**：`purpose`/`role` 画像改 `topLanguages` 领域特征；粗粒度 `usageFrequency` 改 `skillUsage.ranking` 精确计数（禁用需 90 天零调用且领域无关双重确认）
+- **stk-optimize**：无需结构性改动（仅路由表 tool-opt 措辞对齐），其任务级 `AskUserQuestion` 确认为执行安全机制，保留
+
 ## 0.7.2 (2026-10-09)
 
 ### 新增：stk uninstall 卸载命令

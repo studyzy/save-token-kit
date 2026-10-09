@@ -72,7 +72,7 @@ export interface McpEntry {
 }
 
 export type SkillSource = 'user' | 'project' | 'plugin' | 'plugin-marketplace' | 'bundled'
-export type ToolId =
+export type ToolkitId =
   | 'rtk'
   | 'caveman'
   | 'headroom'
@@ -165,8 +165,8 @@ export interface MemoryFileSummary {
   impactLevel: 'low' | 'medium' | 'high'
 }
 
-export interface ToolDetection {
-  name: ToolId
+export interface ToolkitDetection {
+  name: ToolkitId
   installed: boolean
   enabled: boolean
   version: string | null
@@ -228,8 +228,8 @@ export interface DiagnosisReport {
   ruleList?: RuleEntry[]
   /** Memory file summaries (CODEBUDDY.md / CLAUDE.md / AGENTS.md, user-level and project-level) */
   memoryFiles?: MemoryFileSummary[]
-  /** Third-party tool detection (rtk/caveman/headroom/graphify/ponytail/...) */
-  toolDetection?: ToolDetection[]
+  /** Third-party toolkit detection (rtk/caveman/headroom/graphify/ponytail/...) */
+  toolkitDetection?: ToolkitDetection[]
   /** Whether headless probing of the agent was available */
   headlessAvailable?: boolean
   /** Where the diagnosis data came from */
@@ -284,7 +284,7 @@ export type OperationType =
   | 'replace-mcp-with-cli'
   | 'trim-memory-md'
   | 'trim-file'
-  | 'install-tool'
+  | 'install-toolkit'
   | 'other'
   // Extensions for stk-analyze rebuild (002): parallel sub-agent optimization
   | 'agent-opt' // Declare Defer()/NoDefer() tool list for a subagent
@@ -353,25 +353,11 @@ export interface RepoScan {
   scanError?: string | null
 }
 
-/** User scenario context collected by /stk-analyze (persisted to save-token/context.json). */
-export interface AnalysisContext {
-  /** Collection timestamp (ISO 8601) */
-  collectedAt: string
-  /** Primary usage purpose */
-  purpose: 'code' | 'doc' | 'office' | 'general'
-  /** Whether code and docs live in the same repo */
-  sameRepo: 'same' | 'separate'
-  /** Selected code knowledge-graph tool (storage value, lower-kebab; undefined if not asked) */
-  graphTool?: 'graphify' | 'codebase-memory-mcp' | 'codegraph' | 'gitnexus' | 'none' | string
-}
-
 export interface AnalysisFile {
   /** Generation timestamp (ISO 8601) */
   generatedAt: string
   /** Source diagnosis file */
   sourceDiagnosis: string
-  /** User scenario context */
-  context: AnalysisContext
   /** Suggestions sorted by estimated saving (descending) */
   suggestions: AnalysisSuggestion[]
   /** Total estimated saving tokens (sum, may overlap — reference only) */

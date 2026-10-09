@@ -25,24 +25,23 @@ Hook 默认 60 秒超时自动终止。Hook 问题主要有六类：
 ## 输入
 
 - `hookList[]`（来自 `diagnosis-report.json`）：每项含 `event` / `matcher` / `command` / `timeout` / `source`
-- `context.json`：用户场景
 - 缺失或为空数组：返回 `skipped: true` + 空 `suggestions`
 
 ## 判定规则
 
 逐项遍历 `hookList[]`，并按事件维度聚合分析，按下表匹配（单条可命中多条规则，分别产出独立 suggestion）：
 
-| 条件 | 判定 | 输出 |
-| --- | --- | --- |
-| Hook `command` 含 `echo` / `cat` / `printf` 大段文本输出，或 matcher 为通配（每次触发） | 注入体量大 | `action`: "精简 hook: <matcher>（减少注入文本）"，`operationType`: "other"，`reason`: "每次 <event> 注入大块文本，持续占用上下文"，`estimatedSavingTokens`: 按 `command` 输出预估字符数 / 4 |
-| Hook `command` 含 `rtk` / `caveman` / `ponytail` 等已启用工具的提示注入（与已装工具功能重复） | 功能重复 | `action`: "移除 hook: <matcher>（已被工具 <name> 覆盖）"，`operationType`: "other"，`reason`: "hook 注入的提示与已启用工具 <name> 重复"，`risk`: "low" |
-| `timeout === null` 或 `timeout > 30000`，且 `command` 含网络调用（curl/wget）或可能长时间运行（find -exec / xargs 大范围） | 超时风险 | `action`: "为 hook <matcher> 设置合理 timeout（建议 ≤ 30000ms）"，`operationType`: "other"，`reason`: "timeout=<value> 且 command 可能长时间运行，会拖慢 <event>"，`risk`: "medium" |
-| Hook `matcher` 为 `*` 或空字符串，且 `event` 为 `PreToolUse`/`PostToolUse`/`tool-call` | matcher 可收窄 | `action`: "收窄 hook <matcher> 触发条件，限定到具体工具名"，`operationType`: "other"，`reason`: "matcher=* 导致所有工具调用均触发，建议限定到具体工具名"，`risk`: "low" |
-| Hook `command` 含明显危险操作（`rm -rf` / `git push --force` / `git push -f` / `sudo` / `curl \| sh` / `curl \| bash` / `DROP` / `DELETE` / `> /dev/` / `dd if=`）且无确认机制 | 高风险 hook | `action`: "审查 hook <matcher> 危险操作"，`operationType`: "other"，`reason`: "command 含 <危险操作>，hook 自动执行可能造成不可逆损失"，`risk`: "high" |
-| 同一 `event` 挂载 ≥ 3 个 hook | 链过长 | `action`: "合并同事件 hook（<event> 挂载 N 个）"，`operationType`: "other"，`reason`: "同事件 hook 过多，每次触发串行执行 N 次"，`risk`: "medium" |
-| Hook `command` 含明显危险操作（`rm -rf` / `git reset --hard` / `--force`）且无确认机制 | 高风险 hook | `action`: "审查 hook <matcher> 危险操作"，`operationType`: "other"，`reason`: "command 含 <危险操作>，hook 自动执行可能造成不可逆损失"，`risk`: "high" |
-| Hook `source === 'settings'` 且 `matcher` 极宽（如 `*` / 空字符串）且注入体量大 | 作用域过宽 | `action`: "收窄 hook <matcher> 作用域"，`operationType`: "other"，`reason`: "matcher 过宽导致每次都触发，建议限定具体 matcher" |
-| 重复 hook（`event` + `command` 完全相同的多个条目） | 完全重复 | `action`: "移除重复 hook: <matcher>"，`operationType`: "other"，`reason`: "存在 N 个完全相同的 hook 配置"，`risk`: "low" |
+| 条件                                                                                                                                                                           | 判定           | 输出                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hook `command` 含 `echo` / `cat` / `printf` 大段文本输出，或 matcher 为通配（每次触发）                                                                                        | 注入体量大     | `action`: "精简 hook: <matcher>（减少注入文本）"，`operationType`: "other"，`reason`: "每次 <event> 注入大块文本，持续占用上下文"，`estimatedSavingTokens`: 按 `command` 输出预估字符数 / 4 |
+| Hook `command` 含 `rtk` / `caveman` / `ponytail` 等已启用工具的提示注入（与已装工具功能重复）                                                                                  | 功能重复       | `action`: "移除 hook: <matcher>（已被工具 <name> 覆盖）"，`operationType`: "other"，`reason`: "hook 注入的提示与已启用工具 <name> 重复"，`risk`: "low"                                      |
+| `timeout === null` 或 `timeout > 30000`，且 `command` 含网络调用（curl/wget）或可能长时间运行（find -exec / xargs 大范围）                                                     | 超时风险       | `action`: "为 hook <matcher> 设置合理 timeout（建议 ≤ 30000ms）"，`operationType`: "other"，`reason`: "timeout=<value> 且 command 可能长时间运行，会拖慢 <event>"，`risk`: "medium"         |
+| Hook `matcher` 为 `*` 或空字符串，且 `event` 为 `PreToolUse`/`PostToolUse`/`tool-call`                                                                                         | matcher 可收窄 | `action`: "收窄 hook <matcher> 触发条件，限定到具体工具名"，`operationType`: "other"，`reason`: "matcher=* 导致所有工具调用均触发，建议限定到具体工具名"，`risk`: "low"                     |
+| Hook `command` 含明显危险操作（`rm -rf` / `git push --force` / `git push -f` / `sudo` / `curl \| sh` / `curl \| bash` / `DROP` / `DELETE` / `> /dev/` / `dd if=`）且无确认机制 | 高风险 hook    | `action`: "审查 hook <matcher> 危险操作"，`operationType`: "other"，`reason`: "command 含 <危险操作>，hook 自动执行可能造成不可逆损失"，`risk`: "high"                                      |
+| 同一 `event` 挂载 ≥ 3 个 hook                                                                                                                                                  | 链过长         | `action`: "合并同事件 hook（<event> 挂载 N 个）"，`operationType`: "other"，`reason`: "同事件 hook 过多，每次触发串行执行 N 次"，`risk`: "medium"                                           |
+| Hook `command` 含明显危险操作（`rm -rf` / `git reset --hard` / `--force`）且无确认机制                                                                                         | 高风险 hook    | `action`: "审查 hook <matcher> 危险操作"，`operationType`: "other"，`reason`: "command 含 <危险操作>，hook 自动执行可能造成不可逆损失"，`risk`: "high"                                      |
+| Hook `source === 'settings'` 且 `matcher` 极宽（如 `*` / 空字符串）且注入体量大                                                                                                | 作用域过宽     | `action`: "收窄 hook <matcher> 作用域"，`operationType`: "other"，`reason`: "matcher 过宽导致每次都触发，建议限定具体 matcher"                                                              |
+| 重复 hook（`event` + `command` 完全相同的多个条目）                                                                                                                            | 完全重复       | `action`: "移除重复 hook: <matcher>"，`operationType`: "other"，`reason`: "存在 N 个完全相同的 hook 配置"，`risk`: "low"                                                                    |
 
 ## 不输出的情况
 
@@ -61,9 +60,9 @@ Hook 默认 60 秒超时自动终止。Hook 问题主要有六类：
 
 ## level 判定
 
-| level | 命中条件 |
-| --- | --- |
-| 中级 | 全部 Hook 审查建议（Hook 配置优化类，默认中级） |
+| level | 命中条件                                        |
+| ----- | ----------------------------------------------- |
+| 中级  | 全部 Hook 审查建议（Hook 配置优化类，默认中级） |
 
 ## estimatedSavingTokens 估算口径
 

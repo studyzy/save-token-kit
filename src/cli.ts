@@ -57,14 +57,14 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
 
   cli
     .command(
-      'install <tool>',
-      'Install a third-party token-saving tool and register it with an AI agent',
+      'install <toolkit>',
+      'Install a third-party token-saving toolkit and register it with an AI agent',
     )
     .option('-g, --global', 'Install to global ~/.codebuddy/ (default)')
     .option('--local', 'Install to project-level .codebuddy/ instead of global')
     .option('--agent <name>', 'Target AI agent (default: codebuddy)', { default: 'codebuddy' })
-    .action(async (tool: string, options: { global?: boolean; local?: boolean; agent: string }) => {
-      await runInstall(tool, options)
+    .action(async (toolkit: string, options: { global?: boolean; local?: boolean; agent: string }) => {
+      await runInstall(toolkit, options)
     })
 
   cli

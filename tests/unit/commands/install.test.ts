@@ -1,12 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { runInstall } from '@/commands/install.js'
-import { registerTool, getTool } from '@/tools/index.js'
-import { rtkTool } from '@/tools/impl/rtk.js'
-import { headroomTool } from '@/tools/impl/headroom.js'
-import type { SaveTokenTool, InstallResult } from '@/tools/types.js'
+import { registerToolkit, getToolkit } from '@/toolkits/index.js'
+import { rtkToolkit } from '@/toolkits/impl/rtk.js'
+import { headroomToolkit } from '@/toolkits/impl/headroom.js'
+import type { SaveTokenToolkit, InstallResult } from '@/toolkits/types.js'
 
-// A fake tool whose install just records the args it received.
-function makeFakeTool(name: string): SaveTokenTool & { lastArgs: [boolean, string] | null } {
+// A fake toolkit whose install just records the args it received.
+function makeFakeToolkit(name: string): SaveTokenToolkit & { lastArgs: [boolean, string] | null } {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fake: any = {
     name,
@@ -32,7 +32,7 @@ function makeFakeTool(name: string): SaveTokenTool & { lastArgs: [boolean, strin
     getConfigCommand: () => '',
     install: async (global: boolean, agent: string): Promise<InstallResult> => {
       fake.lastArgs = [global, agent]
-      return { tool: name, ok: true, steps: [{ cmd: 'true', ok: true }] }
+      return { toolkit: name, ok: true, steps: [{ cmd: 'true', ok: true }] }
     },
   }
   return fake
@@ -48,39 +48,39 @@ describe('stk install', () => {
     expect(process.exitCode).toBe(1)
   })
 
-  it('exits with error for unknown tool', async () => {
+  it('exits with error for unknown toolkit', async () => {
     await runInstall('does-not-exist', { agent: 'codebuddy' })
     expect(process.exitCode).toBe(1)
   })
 
-  it('passes global=true and agent to the tool by default', async () => {
-    const fake = makeFakeTool('faketool')
-    registerTool(fake)
-    await runInstall('faketool', { agent: 'codebuddy' })
+  it('passes global=true and agent to the toolkit by default', async () => {
+    const fake = makeFakeToolkit('faketoolkit')
+    registerToolkit(fake)
+    await runInstall('faketoolkit', { agent: 'codebuddy' })
     expect(fake.lastArgs).toEqual([true, 'codebuddy'])
     expect(process.exitCode).toBeUndefined()
   })
 
   it('passes global=false when --local is set', async () => {
-    const fake = makeFakeTool('faketool2')
-    registerTool(fake)
-    await runInstall('faketool2', { local: true, agent: 'codebuddy' })
+    const fake = makeFakeToolkit('faketoolkit2')
+    registerToolkit(fake)
+    await runInstall('faketoolkit2', { local: true, agent: 'codebuddy' })
     expect(fake.lastArgs).toEqual([false, 'codebuddy'])
   })
 })
 
-describe('tool getConfigCommand', () => {
+describe('toolkit getConfigCommand', () => {
   it('rtk: 所有 agent 均返回 rtk init（codebuddy 的失败回退在 install() 内处理）', () => {
-    expect(rtkTool.getConfigCommand('codebuddy', true)).toBe('rtk init -g --agent codebuddy')
-    expect(rtkTool.getConfigCommand('claude', true)).toBe('rtk init -g --agent claude')
+    expect(rtkToolkit.getConfigCommand('codebuddy', true)).toBe('rtk init -g --agent codebuddy')
+    expect(rtkToolkit.getConfigCommand('claude', true)).toBe('rtk init -g --agent claude')
   })
 
   it('headroom config command is agent-agnostic', () => {
-    expect(headroomTool.getConfigCommand('codebuddy', true)).toBe('headroom mcp install')
+    expect(headroomToolkit.getConfigCommand('codebuddy', true)).toBe('headroom mcp install')
   })
 
-  it('getTool finds registered tools', () => {
-    expect(getTool('rtk')?.name).toBe('rtk')
-    expect(getTool('headroom')?.name).toBe('headroom')
+  it('getToolkit finds registered toolkits', () => {
+    expect(getToolkit('rtk')?.name).toBe('rtk')
+    expect(getToolkit('headroom')?.name).toBe('headroom')
   })
 })

@@ -10,7 +10,7 @@ import type {
   RuleLayer,
   RuleSource,
   SingleRulesFile,
-  ToolCatalogEntry,
+  ToolkitCatalogEntry,
 } from '../types/rules.js'
 import fallbackPack from './fallback.json'
 
@@ -53,13 +53,13 @@ function validateData(data: unknown): string | null {
   if (mcp !== undefined && (!isPlainObject(mcp) || !Object.values(mcp).every((v) => typeof v === 'string'))) {
     return 'mcp-alternatives 必须为字符串映射'
   }
-  const tools = data['tools']
+  const toolkits = data['toolkits']
   if (
-    tools !== undefined &&
-    (!Array.isArray(tools) ||
-      !tools.every((x) => isPlainObject(x) && typeof x.id === 'string' && typeof x.type === 'string'))
+    toolkits !== undefined &&
+    (!Array.isArray(toolkits) ||
+      !toolkits.every((x) => isPlainObject(x) && typeof x.id === 'string' && typeof x.type === 'string'))
   ) {
-    return 'tools 形态非法'
+    return 'toolkits 形态非法'
   }
   const thresholds = data['thresholds']
   if (thresholds !== undefined && (!isPlainObject(thresholds) || !Object.values(thresholds).every((v) => typeof v === 'number'))) {
@@ -82,7 +82,7 @@ function toDatasets(pack: SingleRulesFile): PackDatasets {
   return {
     'low-frequency-plugins': (d['low-frequency-plugins'] as string[]) ?? [],
     'mcp-alternatives': (d['mcp-alternatives'] as Record<string, string>) ?? {},
-    tools: (d['tools'] as ToolCatalogEntry[]) ?? [],
+    toolkits: (d['toolkits'] as ToolkitCatalogEntry[]) ?? [],
     thresholds: (d['thresholds'] as Record<string, number>) ?? {},
     levels: (d['levels'] as Record<string, Level>) ?? {},
     prompts: (pack.prompts ?? (d['prompts'] as Record<string, string>) ?? {}) as Record<string, string>,
@@ -141,7 +141,7 @@ function mergeInto(merged: MergedRules, pack: LoadedPack): void {
   Object.assign(merged.thresholds, pack.datasets.thresholds)
   Object.assign(merged.levels, pack.datasets.levels)
   Object.assign(merged.prompts, pack.datasets.prompts ?? {})
-  for (const t of pack.datasets.tools) merged.tools[t.id] = t
+  for (const t of pack.datasets.toolkits) merged.toolkits[t.id] = t
 }
 
 /** Validate a bare custom layer (~/.stk/rules.d or ./stk-rules): flat dataset JSON files. */
@@ -151,7 +151,7 @@ function readRawLayer(dir: string, layer: RuleLayer): { source: RuleSource; pack
   const datasets: PackDatasets = {
     'low-frequency-plugins': [],
     'mcp-alternatives': {},
-    tools: [],
+    toolkits: [],
     thresholds: {},
     levels: {},
     prompts: {},
@@ -160,7 +160,7 @@ function readRawLayer(dir: string, layer: RuleLayer): { source: RuleSource; pack
   for (const f of readdirSync(dir)) {
     if (!f.endsWith('.json')) continue
     const name = f.slice(0, -'.json'.length)
-    const known = ['low-frequency-plugins', 'mcp-alternatives', 'tools', 'thresholds', 'levels']
+    const known = ['low-frequency-plugins', 'mcp-alternatives', 'toolkits', 'thresholds', 'levels']
     if (!known.includes(name)) {
       base.warnings.push(`忽略未知数据集文件 ${f}`)
       continue
@@ -216,7 +216,7 @@ export function loadRules(options: LoadRulesOptions = {}): MergedRules {
   const merged: MergedRules = {
     lowFrequencyPlugins: new Set<string>(),
     mcpAlternatives: {},
-    tools: {},
+    toolkits: {},
     thresholds: {},
     levels: {},
     prompts: {},

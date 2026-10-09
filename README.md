@@ -114,9 +114,9 @@ stk diagnose --report-path ./save-token/diagnosis-report.md
 | `--local`        | 安装到项目级 `.codebuddy/`（默认全局 `~/.codebuddy/`）        |
 | `--force`        | 覆盖已存在的文件                                              |
 
-### `stk install <tool>`
+### `stk install <toolkit>`
 
-安装第三方省 Token 工具并注册到 AI Agent。
+安装第三方省 Token Toolkit 并注册到 AI Agent。
 
 | 选项            | 说明                                                          |
 | --------------- | ------------------------------------------------------------- |
@@ -229,7 +229,7 @@ tests/
 
 ## 规则库（stk-rules）
 
-优化经验（低频插件名单、MCP 替代映射、工具目录、阈值、分级表、平台提示词）收敛为**单个规则文件** `rules/stk-rules.json`（独立版本化），引擎只负责加载与执行——**改经验不用升级 stk**。
+优化经验（低频插件名单、MCP 替代映射、Toolkit 目录、阈值、分级表、平台提示词）收敛为**单个规则文件** `rules/stk-rules.json`（独立版本化），引擎只负责加载与执行——**改经验不用升级 stk**。
 
 ```bash
 stk rules update            # 下载最新 stk-rules.json 到 ~/.stk/rules/

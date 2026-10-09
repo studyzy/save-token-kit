@@ -17,18 +17,18 @@ import { collectUsageStats } from '../collectors/usage-collector.js'
 import { loadRules, RULES_HOME } from '../rules/loader.js'
 import { autoCheckLibraryUpdate, metaPath } from '../rules/update.js'
 import {
-  getAllTools,
-  headroomTool,
-  ponytailTool,
-  iHaveAdhdTool,
-  gitnexusTool,
-  codebaseMemoryTool,
-  contextModeTool,
-} from '../tools/index.js'
+  getAllToolkits,
+  headroomToolkit,
+  ponytailToolkit,
+  iHaveAdhdToolkit,
+  gitnexusToolkit,
+  codebaseMemoryToolkit,
+  contextModeToolkit,
+} from '../toolkits/index.js'
 import {
   DEFAULT_PROXY_PORT,
   SAVE_TOKEN_DIR,
-  type ToolDetection,
+  type ToolkitDetection,
   type ProxyDiagnosisData,
   type UsageStats,
 } from '../types/index.js'
@@ -264,12 +264,12 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   }
   console.error(green(`  ✓ 已捕获 ${capturedBodies.length} 个请求，识别出主对话请求`))
 
-  // 6. Build report: proxy body + filesystem scan + third-party tool detection
+  // 6. Build report: proxy body + filesystem scan + third-party toolkit detection
   const fs = scanFilesystem(adapter)
   const proxyParsed: ProxyDiagnosisData | null = parseRequestBody(mainBody, agentName)
-  const toolDetection = await detectToolsViaRegistry(fs, proxyParsed)
+  const toolkitDetection = await detectToolkitsViaRegistry(fs, proxyParsed)
   const agentVersion = await detectCodeBuddyVersion(adapter.getConfigPaths().cliBinary)
-  const report = buildDiagnosisReport([mainBody], fs, toolDetection, agentVersion, agentName, loadRules().rulesInfo)
+  const report = buildDiagnosisReport([mainBody], fs, toolkitDetection, agentVersion, agentName, loadRules().rulesInfo)
   await attachUsageStats(report, adapter.getConfigPaths().sessionsDir)
   // Score after usage stats are attached so idle-object deductions can use them.
   report.score = scoreReport(report)
@@ -368,14 +368,14 @@ export async function attachUsageStats(
 }
 
 /**
- * Detect third-party save-token tools via the tool registry, enriching with
+ * Detect third-party save-token toolkits via the toolkit registry, enriching with
  * context from the filesystem scan and the intercepted proxy request.
  */
-export async function detectToolsViaRegistry(
+export async function detectToolkitsViaRegistry(
   fs: ReturnType<typeof scanFilesystem>,
   proxyParsed: ProxyDiagnosisData | null,
-): Promise<ToolDetection[]> {
-  const detections = await Promise.all(getAllTools().map((t) => t.buildDetection()))
+): Promise<ToolkitDetection[]> {
+  const detections = await Promise.all(getAllToolkits().map((t) => t.buildDetection()))
 
   // RTK enabled detection via hook
   const hasRtkHook = fs.hookList.some((h) => h.event === 'PreToolUse' && h.command?.includes('rtk'))
@@ -392,29 +392,29 @@ export async function detectToolsViaRegistry(
       fs.mcpList.some((m) => m.name === 'headroom' && m.status === 'enabled') ||
       (proxyParsed.mcpServers?.some((m: { name: string }) => m.name === 'headroom') ?? false)
     if (headroomProxyRunning && mcpEnabled) {
-      headroomTool.setMcpEnabled(true)
+      headroomToolkit.setMcpEnabled(true)
       const hIdx = detections.findIndex((d) => d.name === 'headroom')
-      if (hIdx !== -1) detections[hIdx] = await headroomTool.buildDetection()
+      if (hIdx !== -1) detections[hIdx] = await headroomToolkit.buildDetection()
     }
 
     // Ponytail proxy marker override
     if (proxyParsed.detectedPlugins?.includes('ponytail')) {
       const pIdx = detections.findIndex((d) => d.name === 'ponytail')
-      if (pIdx !== -1) detections[pIdx] = ponytailTool.markInstalledFromProxy(detections[pIdx])
+      if (pIdx !== -1) detections[pIdx] = ponytailToolkit.markInstalledFromProxy(detections[pIdx])
     }
 
     // i-have-adhd proxy marker override
     if (proxyParsed.detectedPlugins?.includes('i-have-adhd')) {
       const aIdx = detections.findIndex((d) => d.name === 'i-have-adhd')
-      if (aIdx !== -1) detections[aIdx] = iHaveAdhdTool.markInstalledFromProxy(detections[aIdx])
+      if (aIdx !== -1) detections[aIdx] = iHaveAdhdToolkit.markInstalledFromProxy(detections[aIdx])
     }
 
     // GitNexus enabled detection via MCP
     const gitnexusEnabled = fs.mcpList.some((m) => m.name === 'gitnexus' && m.status === 'enabled')
     if (gitnexusEnabled) {
-      gitnexusTool.setMcpEnabled(true)
+      gitnexusToolkit.setMcpEnabled(true)
       const gIdx = detections.findIndex((d) => d.name === 'gitnexus')
-      if (gIdx !== -1) detections[gIdx] = await gitnexusTool.markInstalledFromMcp(detections[gIdx])
+      if (gIdx !== -1) detections[gIdx] = await gitnexusToolkit.markInstalledFromMcp(detections[gIdx])
     }
 
     // Codebase Memory MCP enabled detection via MCP
@@ -422,10 +422,10 @@ export async function detectToolsViaRegistry(
       (m) => m.name === 'codebase-memory' && m.status === 'enabled',
     )
     if (codebaseMemoryEnabled) {
-      codebaseMemoryTool.setMcpEnabled(true)
+      codebaseMemoryToolkit.setMcpEnabled(true)
       const cIdx = detections.findIndex((d) => d.name === 'codebase-memory')
       if (cIdx !== -1)
-        detections[cIdx] = await codebaseMemoryTool.markInstalledFromMcp(detections[cIdx])
+        detections[cIdx] = await codebaseMemoryToolkit.markInstalledFromMcp(detections[cIdx])
     }
 
     // Context Mode enabled detection via MCP.
@@ -441,9 +441,9 @@ export async function detectToolsViaRegistry(
       ) ??
         false)
     if (contextModeEnabled) {
-      contextModeTool.setMcpEnabled(true)
+      contextModeToolkit.setMcpEnabled(true)
       const cmIdx = detections.findIndex((d) => d.name === 'context-mode')
-      if (cmIdx !== -1) detections[cmIdx] = await contextModeTool.buildDetection()
+      if (cmIdx !== -1) detections[cmIdx] = await contextModeToolkit.buildDetection()
     }
   }
 

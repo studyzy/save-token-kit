@@ -7,7 +7,7 @@ import type {
   MemoryFileSummary,
   SkillEntry,
   ToolDef,
-  ToolDetection,
+  ToolkitDetection,
 } from '../types/index.js'
 import type { FsCollectResult } from '../collectors/fs-collector.js'
 import type { RulesInfo } from '../types/rules.js'
@@ -19,7 +19,7 @@ import type { RulesInfo } from '../types/rules.js'
 export function buildDiagnosisReport(
   rawBodies: unknown[],
   fs?: FsCollectResult,
-  toolDetection?: ToolDetection[],
+  toolkitDetection?: ToolkitDetection[],
   agentVersion?: string | null,
   agentName?: string,
   rulesInfo?: RulesInfo,
@@ -120,7 +120,7 @@ export function buildDiagnosisReport(
     ruleList: fs?.ruleList ?? [],
     // Only keep memory files whose content actually appears in the request body.
     memoryFiles: filterMemoryFilesInBody(fs?.memoryFiles ?? [], bodyText),
-    toolDetection: (toolDetection ?? []).filter((t) => t.installed),
+    toolkitDetection: (toolkitDetection ?? []).filter((t) => t.installed),
     headlessAvailable: false,
     dataSource: 'proxy',
     rulesInfo,
@@ -444,14 +444,14 @@ export function renderMarkdown(report: DiagnosisReport, options?: { detail?: boo
   }
   lines.push('')
 
-  // --- Third-party tool detection ---
-  const tools = report.toolDetection ?? []
-  lines.push('第三方工具检测')
+  // --- Third-party toolkit detection ---
+  const toolkits = report.toolkitDetection ?? []
+  lines.push('第三方 Toolkit 检测')
   lines.push('-'.repeat(40))
-  if (tools.length === 0) {
+  if (toolkits.length === 0) {
     lines.push('  (无)')
   } else {
-    for (const t of tools) {
+    for (const t of toolkits) {
       const mark = t.installed ? '✓' : '✗'
       const status = t.enabled ? '已启用' : t.installed ? '未启用' : '未安装'
       const saving = t.recommendedSaving ? `  (${t.recommendedSaving})` : ''

@@ -11,7 +11,7 @@ import {
 /** A minimal valid suggestion file object. */
 function validDoc(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    agentName: 'tool-enable',
+    agentName: 'toolkit-enable',
     category: '第三方工具启用',
     generatedAt: '2026-08-14T00:00:00Z',
     skipped: false,
@@ -20,7 +20,7 @@ function validDoc(overrides: Record<string, unknown> = {}): Record<string, unkno
         id: 'S1',
         title: '启用 RTK',
         detail: 'rtk 已安装未启用',
-        operationType: 'install-tool',
+        operationType: 'install-toolkit',
         target: 'rtk',
         estimatedSavingTokens: 50000,
         risk: 'low',
@@ -59,9 +59,9 @@ describe('stk verify: validateSuggestionObject (pure)', () => {
   })
 
   it('flags mismatched agentName vs filename', () => {
-    const { errors } = validateSuggestionObject(validDoc(), 'suggestions-tool-enable.json')
+    const { errors } = validateSuggestionObject(validDoc(), 'suggestions-toolkit-enable.json')
     expect(errors).toHaveLength(0)
-    const bad = validateSuggestionObject(validDoc({ agentName: 'mcp-opt' }), 'suggestions-tool-enable.json')
+    const bad = validateSuggestionObject(validDoc({ agentName: 'mcp-opt' }), 'suggestions-toolkit-enable.json')
     expect(bad.errors.some((e) => e.includes('不匹配'))).toBe(true)
   })
 

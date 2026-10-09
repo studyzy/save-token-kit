@@ -27,21 +27,24 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 
 - `agentList[]`（来自 `diagnosis-report.json`）：每项含 `name` / `estimatedTokens` / `source` / `description` / `tools`（工具名数组，可空）。
 - `builtinTools`（来自 `diagnosis-report.json`，`DiagnosisReport.builtinTools`）：每项含 `name` / `estimatedTokens` / `category`（`builtin` / `mcp`）。用于查每个工具的 token 体量。
-- `context.json`：用户场景（`purpose` / `sameRepo` / `graphTool`）。
+- `usageStats.subagentUsage.last30Days.ranking` 与 `usageStats.toolUsage.last30Days.ranking`（来自 `diagnosis-report.json`，`UsageRankItem[]`：`name` / `count`）：子代理与其挂载工具的调用频次依据。**注意：`diagnosis-report.md` 不渲染 usage 数据，必须直读 `diagnosis-report.json`**。
 - 缺失或为空数组：`agentList` 为空 → 返回 `skipped: true` + 空 `suggestions`。
 
 ## 判定规则
 
 本 Agent **必须**为每个命中的子代理给出**具体**的 `Defer()`/`NoDefer()` 工具清单，**禁止**只输出"声明最小 tools 列表"这类空泛建议。
 
-遍历 `agentList[]`，按以下规则逐项判定（仅当该 agent 的 `tools` 字段非空时才有可优化对象）：
+**usage 缺失回退**：`usageStats` 缺失、`toolUsage.last30Days.ranking` 为空或 `total === 0` 时，**返回 `skipped: true`**——本 Agent 全部规则依赖调用频次，无数据不猜测。
 
-| 条件 | 判定 | 输出 |
-| --- | --- | --- |
-| 子代理 `tools` 含多工具，部分在当前场景低频 | **部分 Defer**：常驻工具直列，其余包 `Defer()` | `action`: "为 <agentName> 子代理工具列表改写为 `tools: [X, Y, Defer(Z), Defer(W)]`"，`target`: "<agentName>" |
-| 子代理 `tools` 全部低频或场景完全不用 | **整组 Defer**：用通配 `Defer(mcp__<server>__*)` 或逐条 `Defer()` | `action`: "将 <agentName> 子代理工具列表改写为 `tools: [Defer(mcp__<server>__*)]`" |
-| 高频且场景需其全部工具 | **保持启用** | 不产出（见"不输出的情况"） |
-| 工具默认延迟加载但当前场景高频使用 | **NoDefer 拉回** | `action`: "为 <agentName> 添加 `NoDefer(<tool>)` 将工具拉回常驻"，`reason`: "该工具默认 defer 但场景高频使用" |
+遍历 `agentList[]`，按以下规则逐项判定（仅当该 agent 的 `tools` 字段非空时才有可优化对象；工具频次查 `toolUsage.last30Days.ranking`，未出现的工具按 `count = 0` 计）：
+
+| 条件                                                                         | 判定                                                              | 输出                                                                                                               |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 子代理 `tools` 含多工具，部分 `count === 0` 或未出现                         | **部分 Defer**：有调用的工具直列，零调用的包 `Defer()`            | `action`: "为 <agentName> 子代理工具列表改写为 `tools: [X, Y, Defer(Z), Defer(W)]`"，`target`: "<agentName>"       |
+| 子代理 `tools` 全部 `count === 0`（或未出现）                                | **整组 Defer**：用通配 `Defer(mcp__<server>__*)` 或逐条 `Defer()` | `action`: "将 <agentName> 子代理工具列表改写为 `tools: [Defer(mcp__<server>__*)]`"                                 |
+| 子代理全部工具有调用（`count > 0`）                                          | **保持启用**                                                      | 不产出（见"不输出的情况"）                                                                                         |
+| 工具默认延迟加载但 `count ≥ 10`（高频）                                      | **NoDefer 拉回**                                                  | `action`: "为 <agentName> 添加 `NoDefer(<tool>)` 将工具拉回常驻"，`reason`: "该工具默认 defer 但近 30 天调用 N 次" |
+| 子代理本身在 `subagentUsage.last30Days.ranking` 中 `count === 0`（或未出现） | **整组 Defer**（连同其全部工具）                                  | 同"整组 Defer"行输出，`reason` 注明"子代理本身近 30 天零调用"                                                      |
 
 **工具名来源**：`agentList[].tools` 已经给出该子代理实际挂载的工具名；同时用 `builtinTools` 查每个工具的 `estimatedTokens` 与 `category`，用于估算节省与区分 MCP 工具（整组 `Defer(mcp__<server>__*)` 通配）。
 
@@ -49,7 +52,7 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 
 1. **常驻启用工具 (NoDefer / 直列)**：逐一列出命中的工具名
 2. **改为延迟加载工具 (Defer)**：逐一列出命中的工具名，明确写成 `Defer(<tool>)`；MCP 整组用 `Defer(mcp__<server>__*)`
-3. **依据**：来自 `context.json` 的场景结论，或该工具在场景中属低频的判断
+3. **依据**：各工具在 `toolUsage.last30Days` 中的具体调用计数（如"Glob: 0 次、LSP: 0 次、Read: 42 次"）
 
 ## 语法约束（必须遵守，否则 CodeBuddy 报错）
 
@@ -59,11 +62,13 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 - `default` 表示全部内置工具，可与修饰符同用：`tools: [default, Defer(mcp__github__*)]`
 
 **优先级规则**（必须遵守）：
+
 - **NoDefer 永远胜过 Defer**：即使子代理写了 `Defer(X)`，CLI `--tools` 写 `NoDefer(X)` 后 X 仍不延迟加载
 - **同名重复时最后一次出现胜出**
 - CLI 与子代理配置平等参与合并，由 NoDefer 优先裁决
 
 **禁止语法**：
+
 - `Defer(NoDefer(X))`：嵌套修饰被拒
 - `Defer()`：空内容被拒
 - `defer(Read)`：小写不识别
@@ -72,9 +77,10 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 ## 不输出的情况
 
 - `agentList` 为空或缺失 → `skipped: true`
+- `usageStats` 缺失或 `toolUsage.last30Days.ranking` 为空 → `skipped: true`（全部规则依赖调用频次）
 - 子代理 `tools` 字段为空/未列（无法判定挂载哪些工具）→ 不产出（无可优化对象）
-- 子代理挂载的全部工具均高频且场景必需 → 不产出
-- 子代理仅挂载单个工具且该工具高频 → 不产出
+- 子代理挂载的全部工具均有调用（`count > 0`）→ 不产出
+- 子代理仅挂载单个工具且该工具有调用 → 不产出
 - `builtinTools` 缺失导致无法查得工具 token 体量 → 仍可按工具名产出清单，`estimatedSavingTokens` 用 80 兜底
 - 子代理 `name` 为系统内置 Agent（`Explore` / `statusline-setup` / `Plan`）→ 不产出（系统代理不开放 tools 配置，不可优化）
 
@@ -89,9 +95,9 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 
 ## level 判定
 
-| level | 命中条件 |
-| --- | --- |
-| 中级 | 全部 agent-opt 建议（子代理工具配置优化类） |
+| level | 命中条件                                    |
+| ----- | ------------------------------------------- |
+| 中级  | 全部 agent-opt 建议（子代理工具配置优化类） |
 
 ## estimatedSavingTokens 估算口径
 
@@ -113,15 +119,15 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
 
 ```json
 {
-      "agentName": "agent-opt",
-      "category": "子代理工具优化",
+  "agentName": "agent-opt",
+  "category": "子代理工具优化",
   "generatedAt": "2026-07-13T10:00:00Z",
   "skipped": false,
   "suggestions": [
     {
       "id": "S1",
       "title": "为 explorer 子代理部分工具延迟加载",
-      "detail": "常驻启用：Read, Grep；改为延迟加载：Defer(Glob), Defer(LSP)；依据：Glob/LSP 在 code 场景低频",
+      "detail": "常驻启用：Read, Grep；改为延迟加载：Defer(Glob), Defer(LSP)；依据：last30Days 调用计数 Glob: 0 次、LSP: 0 次、Read: 42 次、Grep: 17 次",
       "operationType": "agent-opt",
       "target": "explorer",
       "estimatedSavingTokens": 160,
@@ -129,12 +135,12 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
       "reversible": true,
       "scenario": "code",
       "level": "中级",
-      "evidence": "agentList.tools=[Read,Grep,Glob,LSP], deferred=[Glob,LSP]"
+      "evidence": "agentList.tools=[Read,Grep,Glob,LSP], toolUsage.last30Days: Glob=0,LSP=0, deferred=[Glob,LSP]"
     },
     {
       "id": "S2",
       "title": "将 github MCP 工具整组延迟加载",
-      "detail": "常驻启用：（无）；改为延迟加载：Defer(mcp__github__*)；依据：github 工具在当前场景低频使用",
+      "detail": "常驻启用：（无）；改为延迟加载：Defer(mcp__github__*)；依据：github 工具在 last30Days 中调用 0 次",
       "operationType": "agent-opt",
       "target": "code-reviewer",
       "estimatedSavingTokens": 960,
@@ -142,7 +148,7 @@ CodeBuddy 的延迟加载通过 **Defer(...)/NoDefer(...) 修饰符**作用于�
       "reversible": true,
       "scenario": "code",
       "level": "中级",
-      "evidence": "agentList.tools contains mcp__github__*, defer all"
+      "evidence": "agentList.tools contains mcp__github__*, toolUsage.last30Days mcp__github__*=0, defer all"
     }
   ]
 }

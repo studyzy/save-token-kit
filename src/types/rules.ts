@@ -29,8 +29,8 @@ export interface SingleRulesFile {
 /** Optimization level assigned per target in levels.json. */
 export type Level = '初级' | '中级' | '高级'
 
-/** Catalog entry for a third-party token-saving tool (data-only, registry stays in engine). */
-export interface ToolCatalogEntry {
+/** Catalog entry for a third-party token-saving toolkit (data-only, registry stays in engine). */
+export interface ToolkitCatalogEntry {
   id: string
   type: 'cli' | 'plugin' | 'mcp'
 }
@@ -39,7 +39,7 @@ export interface ToolCatalogEntry {
 export interface PackDatasets {
   'low-frequency-plugins': string[]
   'mcp-alternatives': Record<string, string>
-  tools: ToolCatalogEntry[]
+  toolkits: ToolkitCatalogEntry[]
   thresholds: Record<string, number>
   levels: Record<string, Level>
   /** Prompt fragments keyed by fragment name (no file extension). */
@@ -66,7 +66,7 @@ export interface RulesInfo {
 export interface MergedRules {
   lowFrequencyPlugins: Set<string>
   mcpAlternatives: Record<string, string>
-  tools: Record<string, ToolCatalogEntry>
+  toolkits: Record<string, ToolkitCatalogEntry>
   thresholds: Record<string, number>
   levels: Record<string, Level>
   prompts: Record<string, string>

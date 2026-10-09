@@ -28,7 +28,7 @@
       "gongfeng": "gongfeng",
       "gongfeng-mcp": "gongfeng"
     },
-    "tools": [
+    "toolkits": [
       {
         "id": "rtk",
         "type": "cli"
