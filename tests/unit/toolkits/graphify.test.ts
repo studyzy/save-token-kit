@@ -1,37 +1,52 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { graphifyToolkit } from '@/toolkits/impl/graphify.js'
-import { commandExists } from '@/utils/platform.js'
-import * as fsOps from '@/utils/fs-operations.js'
+import { describe, it, expect } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { loadRules } from '@/rules/loader.js'
+import { buildRegistry } from '@/toolkits/data-registry.js'
+import type { SpecContext } from '@/toolkits/spec.js'
 
-describe('graphifyToolkit', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
+const baseCtx: SpecContext = { home: '/nonexistent', mcpList: [], hookList: [], proxyParsed: null }
 
+function getTool(over: { commandExists?: (n: string) => Promise<boolean>; cwd?: string } = {}) {
+  return buildRegistry(loadRules(), over).find((x) => x.name === 'graphify')!
+}
+
+describe('graphify（数据驱动）', () => {
   it('has correct metadata', () => {
-    expect(graphifyToolkit.name).toBe('graphify')
-    expect(graphifyToolkit.type).toBe('cli')
-    expect(graphifyToolkit.installCommand).toContain('graphify')
-    expect(graphifyToolkit.getConfigCommand('codebuddy')).toContain('--platform codebuddy')
+    const t = getTool()
+    expect(t.name).toBe('graphify')
+    expect(t.type).toBe('cli')
+    expect(t.installCommand).toContain('graphify')
+    expect(loadRules().toolkits['graphify']?.install?.config?.default).toContain('--platform')
   })
 
   it('detect reflects command availability', async () => {
-    expect(await graphifyToolkit.detect()).toBe(await commandExists('graphify'))
+    expect(
+      (await getTool({ commandExists: async (n) => n === 'graphify' }).buildDetection(baseCtx))
+        .installed,
+    ).toBe(true)
+    expect(
+      (await getTool({ commandExists: async () => false }).buildDetection(baseCtx)).installed,
+    ).toBe(false)
   })
 
-  it('isEnabled is false when graphify-out is absent', async () => {
-    vi.spyOn(fsOps, 'exists').mockReturnValue(false)
-    expect(await graphifyToolkit.isEnabled()).toBe(false)
+  it('enabled is false when graphify-out is absent', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'stk-graphify-'))
+    expect((await getTool({ cwd }).buildDetection(baseCtx)).enabled).toBe(false)
+    rmSync(cwd, { recursive: true, force: true })
   })
 
-  it('isEnabled is true when graphify-out is present', async () => {
-    vi.spyOn(fsOps, 'exists').mockReturnValue(true)
-    expect(await graphifyToolkit.isEnabled()).toBe(true)
+  it('enabled is true when graphify-out is present', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'stk-graphify-'))
+    mkdirSync(join(cwd, 'graphify-out'), { recursive: true })
+    expect((await getTool({ cwd }).buildDetection(baseCtx)).enabled).toBe(true)
+    rmSync(cwd, { recursive: true, force: true })
   })
 
   it('buildDetection reflects state', async () => {
-    const det = await graphifyToolkit.buildDetection()
+    const det = await getTool().buildDetection(baseCtx)
     expect(det.name).toBe('graphify')
-    expect(det.recommendedSaving).toBe(graphifyToolkit.savingEstimate)
+    expect(det.recommendedSaving).toBe(loadRules().toolkits['graphify']?.saving)
   })
 })

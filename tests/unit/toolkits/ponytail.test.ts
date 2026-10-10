@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { ponytailToolkit } from '@/toolkits/impl/ponytail.js'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { ToolkitDetection } from '@/types/index.js'
+import { loadRules } from '@/rules/loader.js'
+import { buildRegistry } from '@/toolkits/data-registry.js'
+import type { SpecContext } from '@/toolkits/spec.js'
 
 const HOME = join(process.cwd(), 'tests', '.tmp-ponytail-home')
 
@@ -13,7 +14,27 @@ function writeSettings(enabledPlugins: Record<string, boolean>): void {
   writeFileSync(settingsPath(), JSON.stringify({ enabledPlugins }))
 }
 
-describe('ponytailToolkit', () => {
+function makeCtx(proxyPlugins: string[] = []): SpecContext {
+  let settingsJson: SpecContext['settingsJson'] = null
+  try {
+    settingsJson = JSON.parse(readFileSync(settingsPath(), 'utf8')) as SpecContext['settingsJson']
+  } catch {
+    // 无 settings.json
+  }
+  return { home: HOME, mcpList: [], hookList: [], proxyParsed: proxyPlugins.length > 0 ? { detectedPlugins: proxyPlugins } : null, settingsJson }
+}
+
+function getPonytail() {
+  return buildRegistry(loadRules(), {}).find((t) => t.name === 'ponytail')!
+}
+
+function makeMarketplaceDir(): void {
+  mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'ponytail'), {
+    recursive: true,
+  })
+}
+
+describe('ponytail（数据驱动）', () => {
   const originalHome = process.env.HOME
 
   beforeEach(() => {
@@ -27,63 +48,44 @@ describe('ponytailToolkit', () => {
   })
 
   it('has correct metadata', () => {
-    expect(ponytailToolkit.name).toBe('ponytail')
-    expect(ponytailToolkit.type).toBe('plugin')
-    expect(ponytailToolkit.getConfigCommand()).toBe('')
+    const t = getPonytail()
+    expect(t.name).toBe('ponytail')
+    expect(t.type).toBe('plugin')
+    expect(loadRules().toolkits['ponytail']?.install?.config).toBeUndefined()
   })
 
   it('detect false when marketplace dir missing', async () => {
-    expect(await ponytailToolkit.detect()).toBe(false)
+    expect((await getPonytail().buildDetection(makeCtx())).installed).toBe(false)
   })
 
   it('detect true when marketplace dir present', async () => {
-    mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'ponytail'), {
-      recursive: true,
-    })
-    expect(await ponytailToolkit.detect()).toBe(true)
+    makeMarketplaceDir()
+    expect((await getPonytail().buildDetection(makeCtx())).installed).toBe(true)
   })
 
-  it('isEnabled false when plugin not enabled in settings', async () => {
-    mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'ponytail'), {
-      recursive: true,
-    })
-    expect(await ponytailToolkit.isEnabled()).toBe(false)
-  })
-
-  it('isEnabled true only when plugin enabled in settings', async () => {
-    mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'ponytail'), {
-      recursive: true,
-    })
+  it('enabled false when plugin not enabled in settings', async () => {
+    makeMarketplaceDir()
     writeSettings({ 'ponytail@ponytail': false })
-    expect(await ponytailToolkit.isEnabled()).toBe(false)
+    expect((await getPonytail().buildDetection(makeCtx())).enabled).toBe(false)
+  })
+
+  it('enabled true only when plugin enabled in settings', async () => {
+    makeMarketplaceDir()
     writeSettings({ 'ponytail@ponytail': true })
-    expect(await ponytailToolkit.isEnabled()).toBe(true)
+    expect((await getPonytail().buildDetection(makeCtx())).enabled).toBe(true)
   })
 
-  it('markInstalledFromProxy marks installed when not installed', () => {
-    const base: ToolkitDetection = {
-      name: 'ponytail',
-      installed: false,
-      enabled: false,
-      version: null,
-      installPath: null,
-      codebuddyIntegrated: false,
-    }
-    const result = ponytailToolkit.markInstalledFromProxy(base)
-    expect(result.installed).toBe(true)
-    expect(result.codebuddyIntegrated).toBe(true)
+  it('proxy marker marks installed when not installed（原 markInstalledFromProxy 语义）', async () => {
+    const det = await getPonytail().buildDetection(makeCtx(['ponytail']))
+    expect(det.installed).toBe(true)
+    expect(det.codebuddyIntegrated).toBe(true)
   })
 
-  it('markInstalledFromProxy keeps detection when already installed', () => {
-    const base: ToolkitDetection = {
-      name: 'ponytail',
-      installed: true,
-      enabled: true,
-      version: null,
-      installPath: null,
-      codebuddyIntegrated: true,
-    }
-    const result = ponytailToolkit.markInstalledFromProxy(base)
-    expect(result).toBe(base)
+  it('proxy marker keeps detection true when already installed', async () => {
+    makeMarketplaceDir()
+    writeSettings({ 'ponytail@ponytail': true })
+    const det = await getPonytail().buildDetection(makeCtx(['ponytail']))
+    expect(det.installed).toBe(true)
+    expect(det.enabled).toBe(true)
   })
 })

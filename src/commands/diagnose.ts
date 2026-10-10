@@ -2,12 +2,11 @@ import { writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawn, type SpawnOptions } from 'node:child_process'
-import { exec } from 'tinyexec'
 import { bold, cyan, green, red, yellow } from 'ansis'
 import { getAdapter } from '../adapters/codebuddy-adapter.js'
 import type { PlatformAdapter } from '../adapters/platform-adapter.js'
 import { WorkBuddyAdapter } from '../adapters/workbuddy-adapter.js'
-import { detectCodeBuddyVersion } from '../utils/platform.js'
+import { detectCodeBuddyVersion, getHomeDir } from '../utils/platform.js'
 import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
 import { scoreReport } from '../proxy/score.js'
@@ -18,12 +17,7 @@ import { loadRules, RULES_HOME } from '../rules/loader.js'
 import { autoCheckLibraryUpdate, metaPath } from '../rules/update.js'
 import {
   getAllToolkits,
-  headroomToolkit,
-  ponytailToolkit,
-  iHaveAdhdToolkit,
-  gitnexusToolkit,
-  codebaseMemoryToolkit,
-  contextModeToolkit,
+  type SpecContext,
 } from '../toolkits/index.js'
 import {
   DEFAULT_PROXY_PORT,
@@ -368,108 +362,35 @@ export async function attachUsageStats(
 }
 
 /**
- * Detect third-party save-token toolkits via the toolkit registry, enriching with
- * context from the filesystem scan and the intercepted proxy request.
+ * Detect third-party save-token toolkits via the data-driven registry, enriching
+ * with context from the filesystem scan and the intercepted proxy request.
+ * All per-tool special cases (rtk hook / headroom process+MCP / ponytail &
+ * i-have-adhd proxy markers / gitnexus、codebase-memory、context-mode MCP) live in
+ * the declarative detect/enabled specs from the rules pack (data.toolkits).
  */
 export async function detectToolkitsViaRegistry(
   fs: ReturnType<typeof scanFilesystem>,
   proxyParsed: ProxyDiagnosisData | null,
 ): Promise<ToolkitDetection[]> {
-  const detections = await Promise.all(getAllToolkits().map((t) => t.buildDetection()))
-
-  // RTK enabled detection via hook
-  const hasRtkHook = fs.hookList.some((h) => h.event === 'PreToolUse' && h.command?.includes('rtk'))
-  if (hasRtkHook) {
-    const rtkDet = detections.find((d) => d.name === 'rtk')
-    if (rtkDet) rtkDet.enabled = true
-  }
-
-  // Headroom enabled detection: requires BOTH a running `headroom`/`headroom.cli`
-  // proxy process AND the headroom MCP server to be active.
-  if (proxyParsed) {
-    const headroomProxyRunning = await isHeadroomProxyRunning()
-    const mcpEnabled =
-      fs.mcpList.some((m) => m.name === 'headroom' && m.status === 'enabled') ||
-      (proxyParsed.mcpServers?.some((m: { name: string }) => m.name === 'headroom') ?? false)
-    if (headroomProxyRunning && mcpEnabled) {
-      headroomToolkit.setMcpEnabled(true)
-      const hIdx = detections.findIndex((d) => d.name === 'headroom')
-      if (hIdx !== -1) detections[hIdx] = await headroomToolkit.buildDetection()
-    }
-
-    // Ponytail proxy marker override
-    if (proxyParsed.detectedPlugins?.includes('ponytail')) {
-      const pIdx = detections.findIndex((d) => d.name === 'ponytail')
-      if (pIdx !== -1) detections[pIdx] = ponytailToolkit.markInstalledFromProxy(detections[pIdx])
-    }
-
-    // i-have-adhd proxy marker override
-    if (proxyParsed.detectedPlugins?.includes('i-have-adhd')) {
-      const aIdx = detections.findIndex((d) => d.name === 'i-have-adhd')
-      if (aIdx !== -1) detections[aIdx] = iHaveAdhdToolkit.markInstalledFromProxy(detections[aIdx])
-    }
-
-    // GitNexus enabled detection via MCP
-    const gitnexusEnabled = fs.mcpList.some((m) => m.name === 'gitnexus' && m.status === 'enabled')
-    if (gitnexusEnabled) {
-      gitnexusToolkit.setMcpEnabled(true)
-      const gIdx = detections.findIndex((d) => d.name === 'gitnexus')
-      if (gIdx !== -1) detections[gIdx] = await gitnexusToolkit.markInstalledFromMcp(detections[gIdx])
-    }
-
-    // Codebase Memory MCP enabled detection via MCP
-    const codebaseMemoryEnabled = fs.mcpList.some(
-      (m) => m.name === 'codebase-memory' && m.status === 'enabled',
-    )
-    if (codebaseMemoryEnabled) {
-      codebaseMemoryToolkit.setMcpEnabled(true)
-      const cIdx = detections.findIndex((d) => d.name === 'codebase-memory')
-      if (cIdx !== -1)
-        detections[cIdx] = await codebaseMemoryToolkit.markInstalledFromMcp(detections[cIdx])
-    }
-
-    // Context Mode enabled detection via MCP.
-    // context-mode is enabled through the CodeBuddy plugin mechanism, so it
-    // may not appear in the on-disk .mcp.json — fall back to the proxy-parsed
-    // MCP list (both the `context-mode` and `plugin_context-mode_context-mode`
-    // namespace forms count as enabled).
-    const contextModeEnabled =
-      fs.mcpList.some((m) => m.name === 'context-mode' && m.status === 'enabled') ||
-      (proxyParsed.mcpServers?.some(
-        (m: { name: string }) =>
-          m.name === 'context-mode' || m.name === 'plugin_context-mode_context-mode',
-      ) ??
-        false)
-    if (contextModeEnabled) {
-      contextModeToolkit.setMcpEnabled(true)
-      const cmIdx = detections.findIndex((d) => d.name === 'context-mode')
-      if (cmIdx !== -1) detections[cmIdx] = await contextModeToolkit.buildDetection()
-    }
-  }
-
-  return detections
+  const ctx = buildSpecContext(fs, proxyParsed)
+  return Promise.all(getAllToolkits().map((t) => t.buildDetection(ctx)))
 }
 
-/**
- * Headroom is considered enabled when a `headroom` or `headroom.cli` process is
- * running with the `proxy` subcommand.
- */
-async function isHeadroomProxyRunning(): Promise<boolean> {
+/** Build the spec-evaluator context from the filesystem scan + intercepted request. */
+function buildSpecContext(
+  fs: ReturnType<typeof scanFilesystem>,
+  proxyParsed: ProxyDiagnosisData | null,
+): SpecContext {
+  const home = getHomeDir()
+  let settingsJson: { enabledPlugins?: Record<string, boolean> } | null = null
   try {
-    // `pgrep -af` may omit the command line on macOS, so list full command
-    // lines via `ps` and match both the binary name and the `proxy` subcommand.
-    const res = await exec('ps', ['-eo', 'pid=,args='])
-    if (res.exitCode !== 0) return false
-    return res.stdout
-      .split('\n')
-      .some(
-        (line) =>
-          /(?:^|\s)(?:python[0-9.\s-]*\s+-m\s+)?headroom(?:\.cli)?(\s|$)/.test(line) &&
-          /\bproxy\b/.test(line),
-      )
+    settingsJson = JSON.parse(
+      readFileSync(join(home, '.codebuddy', 'settings.json'), 'utf8'),
+    ) as { enabledPlugins?: Record<string, boolean> }
   } catch {
-    return false
+    // 无 settings.json → plugin-enabled 原语按 false 处理
   }
+  return { home, mcpList: fs.mcpList, hookList: fs.hookList, proxyParsed, settingsJson }
 }
 
 /**

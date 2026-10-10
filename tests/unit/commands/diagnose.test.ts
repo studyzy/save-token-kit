@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { detectToolkitsViaRegistry, attachUsageStats } from '@/commands/diagnose.js'
 import { collectUsageStats } from '@/collectors/usage-collector.js'
-import { contextModeToolkit } from '@/toolkits/impl/context-mode.js'
+import { loadRules } from '@/rules/loader.js'
 import type { ToolkitDetection } from '@/types/index.js'
 import { startProxy } from '@/proxy/server.js'
 
@@ -50,9 +50,10 @@ vi.mock('@/rules/loader.js', async (importOriginal) => {
   return {
     ...actual,
     loadRules: vi.fn(() => ({
+      ...actual.loadRules(),
       rulesInfo: { packVersion: '0.0.0', fallbackInUse: false },
       lowFrequencyPlugins: new Set(),
-      mcpAlternatives: new Map(),
+      mcpAlternatives: {},
     })),
   }
 })
@@ -77,12 +78,8 @@ vi.mock('node:child_process', async (importOriginal) => {
 })
 
 /**
- * 测试 detectToolkitsViaRegistry 中 context-mode MCP 检测段（diagnose.ts:176-182）。
- *
- * 该段逻辑（位于 if (proxyParsed) 条件块内）：
- * 1. 从 fs.mcpList 中查找 name === 'context-mode' 的 MCP 条目
- * 2. 如果找到，调用 contextModeToolkit.setMcpEnabled(status !== 'disabled')
- * 3. 在 detections 中找到 context-mode 条目，用 buildDetection() 更新
+ * 测试 detectToolkitsViaRegistry 的 context-mode 检测（数据驱动 enabled 规格：
+ * mcp 原语 names=[context-mode, plugin_context-mode_context-mode] source=any）。
  */
 
 /** 构造一个简化的 FsCollectResult 用于测试 context-mode ���测段 */
@@ -115,9 +112,7 @@ const proxyParsed = {
 }
 
 describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
-  afterEach(() => {
-    contextModeToolkit.setMcpEnabled(false)
-  })
+  const dataSaving = (): string | undefined => loadRules().toolkits['context-mode']?.saving
 
   it('detects context-mode as enabled when MCP entry status is "enabled"', async () => {
     const fs = mockFs([{ name: 'context-mode', status: 'enabled' }])
@@ -162,7 +157,7 @@ describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
     const cm = detections.find((d: ToolkitDetection) => d.name === 'context-mode')
     expect(cm).toBeDefined()
     expect(cm!.name).toBe('context-mode')
-    expect(cm!.recommendedSaving).toBe(contextModeToolkit.savingEstimate)
+    expect(cm!.recommendedSaving).toBe(dataSaving())
   })
 
   // --- proxyParsed.mcpServers 回退路径 ---

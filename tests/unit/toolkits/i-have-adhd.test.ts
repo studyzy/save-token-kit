@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { iHaveAdhdToolkit } from '@/toolkits/impl/i-have-adhd.js'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { ToolkitDetection } from '@/types/index.js'
+import { loadRules } from '@/rules/loader.js'
+import { buildRegistry } from '@/toolkits/data-registry.js'
+import type { SpecContext } from '@/toolkits/spec.js'
 
 const HOME = join(process.cwd(), 'tests', '.tmp-i-have-adhd-home')
 
@@ -14,13 +15,35 @@ function writeSettings(enabledPlugins: Record<string, boolean>): void {
   )
 }
 
+function makeCtx(proxyPlugins: string[] = []): SpecContext {
+  let settingsJson: SpecContext['settingsJson'] = null
+  try {
+    settingsJson = JSON.parse(
+      readFileSync(join(HOME, '.codebuddy', 'settings.json'), 'utf8'),
+    ) as SpecContext['settingsJson']
+  } catch {
+    // 无 settings.json
+  }
+  return {
+    home: HOME,
+    mcpList: [],
+    hookList: [],
+    proxyParsed: proxyPlugins.length > 0 ? { detectedPlugins: proxyPlugins } : null,
+    settingsJson,
+  }
+}
+
 function makeMarketplaceDir(): void {
   mkdirSync(join(HOME, '.codebuddy', 'plugins', 'marketplaces', 'i-have-adhd'), {
     recursive: true,
   })
 }
 
-describe('iHaveAdhdToolkit', () => {
+function getTool() {
+  return buildRegistry(loadRules(), {}).find((t) => t.name === 'i-have-adhd')!
+}
+
+describe('i-have-adhd（数据驱动）', () => {
   const originalHome = process.env.HOME
 
   beforeEach(() => {
@@ -34,57 +57,44 @@ describe('iHaveAdhdToolkit', () => {
   })
 
   it('has correct metadata', () => {
-    expect(iHaveAdhdToolkit.name).toBe('i-have-adhd')
-    expect(iHaveAdhdToolkit.type).toBe('plugin')
-    expect(iHaveAdhdToolkit.getConfigCommand()).toBe('')
+    const t = getTool()
+    expect(t.name).toBe('i-have-adhd')
+    expect(t.type).toBe('plugin')
+    expect(loadRules().toolkits['i-have-adhd']?.install?.config).toBeUndefined()
   })
 
   it('detect false when marketplace dir missing', async () => {
-    expect(await iHaveAdhdToolkit.detect()).toBe(false)
+    expect((await getTool().buildDetection(makeCtx())).installed).toBe(false)
   })
 
   it('detect true when marketplace dir present', async () => {
     makeMarketplaceDir()
-    expect(await iHaveAdhdToolkit.detect()).toBe(true)
+    expect((await getTool().buildDetection(makeCtx())).installed).toBe(true)
   })
 
-  it('isEnabled false when plugin not enabled in settings', async () => {
-    makeMarketplaceDir()
-    expect(await iHaveAdhdToolkit.isEnabled()).toBe(false)
-  })
-
-  it('isEnabled true only when plugin enabled in settings', async () => {
+  it('enabled false when plugin not enabled in settings', async () => {
     makeMarketplaceDir()
     writeSettings({ 'i-have-adhd@i-have-adhd': false })
-    expect(await iHaveAdhdToolkit.isEnabled()).toBe(false)
+    expect((await getTool().buildDetection(makeCtx())).enabled).toBe(false)
+  })
+
+  it('enabled true only when plugin enabled in settings', async () => {
+    makeMarketplaceDir()
     writeSettings({ 'i-have-adhd@i-have-adhd': true })
-    expect(await iHaveAdhdToolkit.isEnabled()).toBe(true)
+    expect((await getTool().buildDetection(makeCtx())).enabled).toBe(true)
   })
 
-  it('markInstalledFromProxy marks installed when not installed', () => {
-    const base: ToolkitDetection = {
-      name: 'i-have-adhd',
-      installed: false,
-      enabled: false,
-      version: null,
-      installPath: null,
-      codebuddyIntegrated: false,
-    }
-    const result = iHaveAdhdToolkit.markInstalledFromProxy(base)
-    expect(result.installed).toBe(true)
-    expect(result.codebuddyIntegrated).toBe(true)
+  it('proxy marker marks installed when not installed（原 markInstalledFromProxy 语义）', async () => {
+    const det = await getTool().buildDetection(makeCtx(['i-have-adhd']))
+    expect(det.installed).toBe(true)
+    expect(det.codebuddyIntegrated).toBe(true)
   })
 
-  it('markInstalledFromProxy keeps detection when already installed', () => {
-    const base: ToolkitDetection = {
-      name: 'i-have-adhd',
-      installed: true,
-      enabled: true,
-      version: null,
-      installPath: null,
-      codebuddyIntegrated: true,
-    }
-    const result = iHaveAdhdToolkit.markInstalledFromProxy(base)
-    expect(result).toBe(base)
+  it('proxy marker keeps detection true when already installed', async () => {
+    makeMarketplaceDir()
+    writeSettings({ 'i-have-adhd@i-have-adhd': true })
+    const det = await getTool().buildDetection(makeCtx(['i-have-adhd']))
+    expect(det.installed).toBe(true)
+    expect(det.enabled).toBe(true)
   })
 })

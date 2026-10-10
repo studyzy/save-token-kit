@@ -1,24 +1,18 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { runInstall } from '@/commands/install.js'
 import { registerToolkit, getToolkit } from '@/toolkits/index.js'
-import { rtkToolkit } from '@/toolkits/impl/rtk.js'
-import { headroomToolkit } from '@/toolkits/impl/headroom.js'
-import type { SaveTokenToolkit, InstallResult } from '@/toolkits/types.js'
+import { loadRules } from '@/rules/loader.js'
+import type { DataToolkit } from '@/toolkits/data-registry.js'
+import type { InstallResult } from '@/toolkits/types.js'
 
 // A fake toolkit whose install just records the args it received.
-function makeFakeToolkit(name: string): SaveTokenToolkit & { lastArgs: [boolean, string] | null } {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fake: any = {
+function makeFakeToolkit(name: string): DataToolkit & { lastArgs: [boolean, string] | null } {
+  const fake: DataToolkit & { lastArgs: [boolean, string] | null } = {
     name,
     description: 'fake',
-    savingEstimate: '0',
     type: 'cli',
     installCommand: 'true',
-    verifyCommand: 'true',
-    uninstallCommand: '',
     lastArgs: null,
-    detect: () => Promise.resolve(true),
-    isEnabled: () => Promise.resolve(true),
     buildDetection: () =>
       Promise.resolve({
         name,
@@ -29,7 +23,6 @@ function makeFakeToolkit(name: string): SaveTokenToolkit & { lastArgs: [boolean,
         codebuddyIntegrated: true,
         recommendedSaving: '0',
       }),
-    getConfigCommand: () => '',
     install: async (global: boolean, agent: string): Promise<InstallResult> => {
       fake.lastArgs = [global, agent]
       return { toolkit: name, ok: true, steps: [{ cmd: 'true', ok: true }] }
@@ -69,18 +62,17 @@ describe('stk install', () => {
   })
 })
 
-describe('toolkit getConfigCommand', () => {
-  it('rtk: 所有 agent 均返回 rtk init（codebuddy 的失败回退在 install() 内处理）', () => {
-    expect(rtkToolkit.getConfigCommand('codebuddy', true)).toBe('rtk init -g --agent codebuddy')
-    expect(rtkToolkit.getConfigCommand('claude', true)).toBe('rtk init -g --agent claude')
-  })
-
-  it('headroom config command is agent-agnostic', () => {
-    expect(headroomToolkit.getConfigCommand('codebuddy', true)).toBe('headroom mcp install')
-  })
-
-  it('getToolkit finds registered toolkits', () => {
+describe('toolkit registry（数据驱动）', () => {
+  it('getToolkit finds data-driven toolkits', () => {
     expect(getToolkit('rtk')?.name).toBe('rtk')
     expect(getToolkit('headroom')?.name).toBe('headroom')
+  })
+
+  it('headroom config command is agent-agnostic（来自数据）', () => {
+    expect(loadRules().toolkits['headroom']?.install?.config?.default).toBe('headroom mcp install')
+  })
+
+  it('rtk installCommand 来自数据', () => {
+    expect(getToolkit('rtk')?.installCommand).toBe('brew install rtk')
   })
 })
