@@ -63,6 +63,8 @@ function validateData(data: unknown): string | null {
   }
   const toolkitMetaWarn = validateToolkitMeta(toolkits)
   if (toolkitMetaWarn) return toolkitMetaWarn
+  const toolkitSpecWarn = validateToolkitSpec(toolkits)
+  if (toolkitSpecWarn) return toolkitSpecWarn
   const thresholds = data['thresholds']
   if (thresholds !== undefined && (!isPlainObject(thresholds) || !Object.values(thresholds).every((v) => typeof v === 'number'))) {
     return 'thresholds 必须为数值映射'
@@ -109,6 +111,93 @@ function validateToolkitMeta(toolkits: unknown): string | null {
           return `toolkits[${id}].install.byAgent 必须为字符串映射`
         }
       }
+    }
+  }
+  return null
+}
+
+const SPEC_KINDS = ['command', 'path', 'mcp', 'plugin-enabled', 'proxy-plugin', 'hook', 'process'] as const
+const SPEC_SOURCES = ['fs', 'proxy', 'any'] as const
+const MAX_SPEC_DEPTH = 3
+
+/**
+ * Loose validation of one declarative detect/enabled spec (零写死重构 Task 2).
+ * kind 白名单是语法（硬编码在引擎，不算工具写死）；字段在场才校形态，缺 detect/enabled 不报错。
+ * Returns error text or null. `path` is the field-scoped prefix, e.g. `toolkits[gh].detect`.
+ * `depth` counts combinator nesting only (root leaf = 0); all/any 嵌套不得超过 MAX_SPEC_DEPTH 层.
+ */
+function validateSpecNode(spec: unknown, path: string, depth: number): string | null {
+  if (!isPlainObject(spec)) return `${path} 必须为对象`
+  const kind = spec['kind']
+  const combinators = ['all', 'any'].filter((c) => spec[c] !== undefined)
+  // 组合器节点（含 all/any）不要求 kind；叶子节点必须有合法 kind 与必需参数
+  if (combinators.length > 0) return validateSpecChildren(spec, path, depth)
+  if (typeof kind !== 'string' || !(SPEC_KINDS as readonly string[]).includes(kind)) {
+    return `${path}.kind 必须为 ${SPEC_KINDS.join('/')}`
+  }
+  const required: string[] =
+    kind === 'command' || kind === 'proxy-plugin'
+      ? ['name']
+      : kind === 'path'
+        ? ['path']
+        : kind === 'plugin-enabled'
+          ? ['key']
+          : kind === 'hook'
+            ? ['event', 'match']
+            : kind === 'process'
+              ? ['pattern']
+              : []
+  for (const key of ['name', 'path', 'key', 'event', 'match', 'pattern'] as const) {
+    const v = spec[key]
+    if (v !== undefined && typeof v !== 'string') return `${path}.${key} 必须为字符串`
+    if (v === undefined && required.includes(key)) return `${path} 缺少 ${kind} 必需参数 ${key}`
+  }
+  if (kind === 'mcp') {
+    const names = spec['names']
+    if (names === undefined) return `${path} 缺少 mcp 必需参数 names`
+    if (!Array.isArray(names) || !names.every((x) => typeof x === 'string')) return `${path}.names 必须为字符串数组`
+  }
+  const source = spec['source']
+  if (source !== undefined && !(SPEC_SOURCES as readonly string[]).includes(source as string)) {
+    return `${path}.source 必须为 ${SPEC_SOURCES.join('/')}`
+  }
+  return null
+}
+
+/** Recurse into all/any combinator children. */
+function validateSpecChildren(spec: Record<string, unknown>, path: string, depth: number): string | null {
+  for (const combinator of ['all', 'any'] as const) {
+    const children = spec[combinator]
+    if (children === undefined) continue
+    if (!Array.isArray(children)) return `${path}.${combinator} 必须为数组`
+    if (depth + 1 > MAX_SPEC_DEPTH) return `${path} 组合器嵌套超过 ${MAX_SPEC_DEPTH} 层`
+    for (const [i, child] of children.entries()) {
+      const err = validateSpecNode(child, `${path}.${combinator}[${i}]`, depth + 1)
+      if (err) return err
+    }
+  }
+  return null
+}
+
+/** Loose validation of optional toolkit spec fields (detect/enabled/level/estTokens/install 扩展). */
+function validateToolkitSpec(toolkits: unknown): string | null {
+  if (!Array.isArray(toolkits)) return null
+  for (const t of toolkits as Array<Record<string, unknown>>) {
+    const id = t.id as string
+    for (const field of ['detect', 'enabled'] as const) {
+      if (t[field] === undefined) continue
+      const err = validateSpecNode(t[field], `toolkits[${id}].${field}`, 0)
+      if (err) return err
+    }
+    if (t.level !== undefined && !(VALID_LEVELS as readonly string[]).includes(t.level as string)) {
+      return `toolkits[${id}].level 取值必须为 ${VALID_LEVELS.join('/')}`
+    }
+    if (t.estTokens !== undefined && (typeof t.estTokens !== 'number' || !Number.isInteger(t.estTokens) || t.estTokens < 0)) {
+      return `toolkits[${id}].estTokens 必须为非负整数`
+    }
+    if (t.install !== undefined && isPlainObject(t.install)) {
+      if (t.install.verify !== undefined && typeof t.install.verify !== 'string') return `toolkits[${id}].install.verify 必须为字符串`
+      if (t.install.handler !== undefined && typeof t.install.handler !== 'string') return `toolkits[${id}].install.handler 必须为字符串`
     }
   }
   return null
