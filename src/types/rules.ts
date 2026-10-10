@@ -29,6 +29,30 @@ export interface SingleRulesFile {
 /** Optimization level assigned per target in levels.json. */
 export type Level = '初级' | '中级' | '高级'
 
+/** 声明式检测/启用规格（检测原语 + all/any 组合子）。 */
+export interface ToolkitSpec {
+  kind?: 'command' | 'path' | 'mcp' | 'plugin-enabled' | 'proxy-plugin' | 'hook' | 'process'
+  name?: string
+  names?: string[]
+  path?: string
+  key?: string
+  event?: string
+  match?: string
+  pattern?: string
+  source?: 'fs' | 'proxy' | 'any'
+  all?: ToolkitSpec[]
+  any?: ToolkitSpec[]
+}
+
+/** 安装规格：默认/按 Agent 安装命令、验证与配置路径、自定义处理器。 */
+export interface ToolkitInstallSpec {
+  default?: string
+  verify?: string
+  config?: { default?: string; byAgent?: Record<string, string> }
+  handler?: string
+  byAgent?: Record<string, string>
+}
+
 /** Catalog entry for a third-party token-saving toolkit (data-only, registry stays in engine). */
 export interface ToolkitCatalogEntry {
   id: string
@@ -41,8 +65,22 @@ export interface ToolkitCatalogEntry {
   agentNotes?: Partial<Record<'claude' | 'codex' | 'codebuddy', string>>
   /** Whole-table note for the agents view (column "依据"). */
   agentNote?: string
+  /** 一句话说明（报告/表格展示用）。 */
+  description?: string
+  /** 人类可读的节省估算文案。 */
+  saving?: string
+  /** 建议优化等级。 */
+  level?: Level
+  /** 预估节省 token 数。 */
+  estTokens?: number
+  /** 建议归类（当前仅 knowledge-base）。 */
+  category?: 'knowledge-base'
+  /** 安装检测规格。 */
+  detect?: ToolkitSpec
+  /** 启用状态检测规格。 */
+  enabled?: ToolkitSpec
   /** Install command per default or per agent. */
-  install?: { default?: string; byAgent?: Record<string, string> }
+  install?: ToolkitInstallSpec
 }
 
 /** Raw dataset shapes as stored in data/*.json (prompts come from prompts/*.md). */

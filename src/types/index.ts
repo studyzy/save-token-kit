@@ -72,20 +72,8 @@ export interface McpEntry {
 }
 
 export type SkillSource = 'user' | 'project' | 'plugin' | 'plugin-marketplace' | 'bundled'
-export type ToolkitId =
-  | 'rtk'
-  | 'caveman'
-  | 'headroom'
-  | 'lean-ctx'
-  | 'graphify'
-  | 'ponytail'
-  | 'i-have-adhd'
-  | 'karpathy-skills'
-  | 'gitnexus'
-  | 'tokenjuice'
-  | 'codebase-memory'
-  | 'codegraph'
-  | 'context-mode'
+/** 工具标识：放宽为 string，工具清单由规则库数据驱动，不再限定字面量集合。 */
+export type ToolkitId = string
 
 export interface SkillEntry {
   /** Skill name */
