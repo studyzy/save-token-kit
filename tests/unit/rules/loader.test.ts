@@ -1,4 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadRules } from '../../../src/rules/loader.js'
 import fallbackPack from '../../../src/rules/fallback.json'
@@ -53,5 +56,87 @@ describe('loadRules library layer (single file)', () => {
     const merged = loadRules({ rulesFile: FX('corrupted-data') + '/stk-rules.json' })
     expect(merged.rulesInfo.sources.find((s) => s.layer === 'library')?.result).toBe('rejected-corrupted')
     expect(merged.rulesInfo.fallbackInUse).toBe(true)
+  })
+})
+
+describe('loadRules user layer toolkit meta validation', () => {
+  const tmpLayers: string[] = []
+
+  function userLayerWith(toolkits: unknown): string {
+    const dir = mkdtempSync(join(tmpdir(), 'stk-rules-'))
+    tmpLayers.push(dir)
+    writeFileSync(join(dir, 'toolkits.json'), JSON.stringify(toolkits))
+    return dir
+  }
+
+  function userSource(merged: ReturnType<typeof loadRules>) {
+    return merged.rulesInfo.sources.find((s) => s.layer === 'user')
+  }
+
+  it('accepts full meta fields (repo/agents/agentNotes/agentNote/install)', () => {
+    const merged = loadRules({
+      userDir: userLayerWith([
+        {
+          id: 'gh',
+          type: 'cli',
+          repo: 'owner/gh',
+          agents: { claude: true, codex: false, codebuddy: true },
+          agentNotes: { claude: 'note-a', codex: 'note-b', codebuddy: 'note-c' },
+          agentNote: 'misc note',
+          install: { default: 'npm i -g gh', byAgent: { claude: 'brew install gh' } },
+        },
+      ]),
+    })
+    expect(userSource(merged)?.result).toBe('ok')
+  })
+
+  it('rejects invalid agents keys with field-scoped message', () => {
+    const writes: string[] = []
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      writes.push(String(chunk))
+      return true
+    })
+    try {
+      const merged = loadRules({
+        userDir: userLayerWith([{ id: 'gh', type: 'cli', agents: { workbuddy: true } }]),
+      })
+      expect(userSource(merged)?.result).toBe('rejected-corrupted')
+      expect(writes.join()).toContain('toolkits[gh].agents')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('rejects agents values that are not booleans', () => {
+    const merged = loadRules({
+      userDir: userLayerWith([{ id: 'gh', type: 'cli', agents: { claude: 'yes' } }]),
+    })
+    expect(userSource(merged)?.result).toBe('rejected-corrupted')
+  })
+
+  it('rejects agentNotes values that are not strings', () => {
+    const merged = loadRules({
+      userDir: userLayerWith([{ id: 'gh', type: 'cli', agentNotes: { claude: 42 } }]),
+    })
+    expect(userSource(merged)?.result).toBe('rejected-corrupted')
+  })
+
+  it('rejects install.byAgent values that are not strings', () => {
+    const merged = loadRules({
+      userDir: userLayerWith([{ id: 'gh', type: 'cli', install: { byAgent: { claude: true } } }]),
+    })
+    expect(userSource(merged)?.result).toBe('rejected-corrupted')
+  })
+
+  it('accepts legacy entries without meta fields', () => {
+    const merged = loadRules({ userDir: userLayerWith([{ id: 'gh', type: 'cli' }]) })
+    expect(userSource(merged)?.result).toBe('ok')
+  })
+
+  it('accepts unknown meta fields (loose semantics)', () => {
+    const merged = loadRules({
+      userDir: userLayerWith([{ id: 'gh', type: 'cli', foo: 'bar' }]),
+    })
+    expect(userSource(merged)?.result).toBe('ok')
   })
 })

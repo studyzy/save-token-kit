@@ -61,6 +61,8 @@ function validateData(data: unknown): string | null {
   ) {
     return 'toolkits 形态非法'
   }
+  const toolkitMetaWarn = validateToolkitMeta(toolkits)
+  if (toolkitMetaWarn) return toolkitMetaWarn
   const thresholds = data['thresholds']
   if (thresholds !== undefined && (!isPlainObject(thresholds) || !Object.values(thresholds).every((v) => typeof v === 'number'))) {
     return 'thresholds 必须为数值映射'
@@ -72,6 +74,42 @@ function validateData(data: unknown): string | null {
   const prompts = data['prompts']
   if (prompts !== undefined && (!isPlainObject(prompts) || !Object.values(prompts).every((v) => typeof v === 'string'))) {
     return 'prompts 必须为字符串映射'
+  }
+  return null
+}
+
+/** Valid agent keys for toolkit meta fields (tokenlint 迁移；模板侧做 workbuddy→codebuddy 归一化). */
+const TOOLKIT_AGENT_KEYS = ['claude', 'codex', 'codebuddy'] as const
+
+/**
+ * Loose validation of optional toolkit meta fields (tokenlint 迁移，非上游行为).
+ * 字段在场才校形态；未知字段不拒绝，保证旧格式规则包继续加载。
+ */
+function validateToolkitMeta(toolkits: unknown): string | null {
+  if (!Array.isArray(toolkits)) return null
+  for (const t of toolkits as Array<Record<string, unknown>>) {
+    const id = t.id as string
+    if (t.repo !== undefined && typeof t.repo !== 'string') return `toolkits[${id}].repo 必须为字符串`
+    if (t.agentNote !== undefined && typeof t.agentNote !== 'string') return `toolkits[${id}].agentNote 必须为字符串`
+    for (const [field, valueOf] of [
+      ['agents', (v: unknown) => typeof v === 'boolean'],
+      ['agentNotes', (v: unknown) => typeof v === 'string'],
+    ] as const) {
+      const v = t[field]
+      if (v === undefined) continue
+      if (!isPlainObject(v) || !Object.keys(v).every((k) => (TOOLKIT_AGENT_KEYS as readonly string[]).includes(k)) || !Object.values(v).every(valueOf)) {
+        return `toolkits[${id}].${field} 必须为 ${TOOLKIT_AGENT_KEYS.join('/')} 键的映射（值 ${field === 'agents' ? '布尔' : '字符串'}）`
+      }
+    }
+    if (t.install !== undefined) {
+      if (!isPlainObject(t.install)) return `toolkits[${id}].install 必须为对象`
+      if (t.install.default !== undefined && typeof t.install.default !== 'string') return `toolkits[${id}].install.default 必须为字符串`
+      if (t.install.byAgent !== undefined) {
+        if (!isPlainObject(t.install.byAgent) || !Object.values(t.install.byAgent).every((v) => typeof v === 'string')) {
+          return `toolkits[${id}].install.byAgent 必须为字符串映射`
+        }
+      }
+    }
   }
   return null
 }
