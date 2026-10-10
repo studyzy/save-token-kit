@@ -33,6 +33,16 @@ export type Level = '初级' | '中级' | '高级'
 export interface ToolkitCatalogEntry {
   id: string
   type: 'cli' | 'plugin' | 'mcp'
+  /** Official GitHub repo URL (toolkit-meta/links rendering). */
+  repo?: string
+  /** Per-agent official support map; keys constrained to claude/codex/codebuddy. */
+  agents?: Partial<Record<'claude' | 'codex' | 'codebuddy', boolean>>
+  /** Per-agent note rendered as `✓（note）` in the agents table. */
+  agentNotes?: Partial<Record<'claude' | 'codex' | 'codebuddy', string>>
+  /** Whole-table note for the agents view (column "依据"). */
+  agentNote?: string
+  /** Install command per default or per agent. */
+  install?: { default?: string; byAgent?: Record<string, string> }
 }
 
 /** Raw dataset shapes as stored in data/*.json (prompts come from prompts/*.md). */
