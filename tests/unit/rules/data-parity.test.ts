@@ -63,8 +63,38 @@ describe('fallback parity with the distributable rules file', () => {
     ).toBe(true)
   })
 
-  it('packVersion bumped to 1.1.0', () => {
-    expect(distributable.packVersion).toBe('1.1.0')
+  it('carries zero-hardcode detection/enabled specs for the 13 toolkits (v1.2.0)', () => {
+    const toolkits = distributable.data['toolkits'] as Array<Record<string, unknown>>
+    expect(toolkits).toHaveLength(13)
+
+    const byId = new Map(toolkits.map((t) => [t.id as string, t]))
+    // 13 项均具备 description / saving / detect 建议事实与检测规格
+    expect(toolkits.every((t) => typeof t.description === 'string' && t.description.length > 0)).toBe(
+      true,
+    )
+    expect(toolkits.every((t) => typeof t.saving === 'string' && t.saving.length > 0)).toBe(true)
+    expect(toolkits.every((t) => typeof t.detect === 'object' && t.detect !== null)).toBe(true)
+
+    // rtk: command 检测 + rtk-native 安装 handler
+    const rtk = byId.get('rtk')
+    expect((rtk.detect as { kind?: string }).kind).toBe('command')
+    expect((rtk.install as { handler?: string }).handler).toBe('rtk-native')
+
+    // caveman: plugin-enabled 启用规格
+    const caveman = byId.get('caveman')
+    expect((caveman.enabled as { kind?: string }).kind).toBe('plugin-enabled')
+
+    // headroom: 复合启用规格（进程 + MCP）两子项
+    const headroom = byId.get('headroom')
+    expect((headroom.enabled as { all?: unknown[] }).all).toHaveLength(2)
+
+    // 知识库 4 项归类
+    const kbIds = ['graphify', 'codebase-memory', 'codegraph', 'gitnexus']
+    for (const id of kbIds) expect((byId.get(id) as { category?: string }).category).toBe('knowledge-base')
+  })
+
+  it('packVersion bumped to 1.2.0', () => {
+    expect(distributable.packVersion).toBe('1.2.0')
   })
 
   it('declares consistent version metadata', () => {

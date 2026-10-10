@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "packVersion": "1.1.0",
+  "packVersion": "1.2.0",
   "releasedAt": "2026-09-24T00:00:00Z",
   "engines": {
     "stk": ">=0.6"
@@ -36,8 +36,17 @@
         "agents": { "claude": true, "codex": true, "codebuddy": false },
         "agentNotes": { "codebuddy": "特例，见过滤规则" },
         "agentNote": "README \"Supported AI Tools\" 18 工具清单无 codebuddy",
+        "description": "RTK — 终端命令输出压缩 ~89%",
+        "saving": "~89% 命令输出压缩",
+        "level": "初级",
+        "estTokens": 50000,
+        "detect": { "kind": "command", "name": "rtk" },
+        "enabled": { "kind": "hook", "event": "PreToolUse", "match": "rtk" },
         "install": {
           "default": "brew install rtk",
+          "verify": "rtk gain",
+          "config": { "default": "rtk init -g --agent {agent}" },
+          "handler": "rtk-native",
           "byAgent": { "codebuddy": "配置为 claude 模式启用（部署侧约定，官方未声明）" }
         }
       },
@@ -47,8 +56,15 @@
         "repo": "https://github.com/JuliusBrussee/caveman",
         "agents": { "claude": true, "codex": true, "codebuddy": true },
         "agentNote": "INSTALL.md：npx skills add JuliusBrussee/caveman -a codebuddy -g",
+        "description": "Caveman — AI 回复压缩 65-75%",
+        "saving": "65-75% AI 回复压缩",
+        "level": "中级",
+        "estTokens": 30000,
+        "detect": { "kind": "path", "path": "~/.codebuddy/plugins/marketplaces/caveman/" },
+        "enabled": { "kind": "plugin-enabled", "key": "caveman@caveman" },
         "install": {
           "default": "npm install -g @caveman-ai/cli && caveman setup --install",
+          "verify": "ls ~/.codebuddy/plugins/marketplaces/caveman/",
           "byAgent": { "codebuddy": "npx skills add JuliusBrussee/caveman -a codebuddy -g" }
         }
       },
@@ -58,7 +74,25 @@
         "repo": "https://github.com/headroomlabs-ai/headroom",
         "agents": { "claude": true, "codex": true, "codebuddy": false },
         "agentNote": "README \"Agent compatibility\" 表（wrap claude / wrap codex）",
-        "install": { "default": "pip install \"headroom-ai[all]\"" }
+        "description": "Headroom — 上下文压缩 47-92%",
+        "saving": "47-92% 上下文压缩",
+        "level": "高级",
+        "estTokens": 60000,
+        "detect": { "kind": "command", "name": "headroom" },
+        "enabled": {
+          "all": [
+            {
+              "kind": "process",
+              "pattern": "(?=.*(?:^|\\s)(?:python[0-9.\\s-]*\\s+-m\\s+)?headroom(?:\\.cli)?(?:\\s|$))(?=.*\\bproxy\\b)"
+            },
+            { "kind": "mcp", "names": ["headroom"] }
+          ]
+        },
+        "install": {
+          "default": "pip install \"headroom-ai[all]\"",
+          "verify": "headroom --version",
+          "config": { "default": "headroom mcp install" }
+        }
       },
       {
         "id": "lean-ctx",
@@ -66,7 +100,10 @@
         "repo": "https://github.com/yvgude/lean-ctx",
         "agents": { "claude": true, "codex": true, "codebuddy": true },
         "agentNote": "README 支持表列 codebuddy（Hybrid 模式，与 Claude Code 同架构）",
-        "install": { "default": "brew install lean-ctx" }
+        "description": "lean-ctx — 读取筛选 + 跨会话记忆 60-90%",
+        "saving": "60-90% 读取筛选",
+        "detect": { "kind": "command", "name": "lean-ctx" },
+        "install": { "default": "brew install lean-ctx", "verify": "lean-ctx doctor", "config": { "default": "lean-ctx setup" } }
       },
       {
         "id": "graphify",
@@ -74,8 +111,15 @@
         "repo": "https://github.com/Graphify-Labs/graphify",
         "agents": { "claude": true, "codex": true, "codebuddy": true },
         "agentNote": "v8 README：Works in Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, and 15+ more",
+        "description": "Graphify — 代码图谱减少盲搜",
+        "saving": "71.5x 代码图谱",
+        "category": "knowledge-base",
+        "detect": { "kind": "command", "name": "graphify" },
+        "enabled": { "kind": "path", "path": "graphify-out" },
         "install": {
           "default": "uv tool install graphifyy",
+          "verify": "graphify --version",
+          "config": { "default": "graphify install --platform {agent}" },
           "byAgent": { "codebuddy": "graphify install --platform codebuddy", "codex": "graphify install --platform codex" }
         }
       },
@@ -85,8 +129,19 @@
         "repo": "https://github.com/DietrichGebert/ponytail",
         "agents": { "claude": true, "codex": true, "codebuddy": false },
         "agentNote": "README 插件安装仅 Claude Code / Codex",
+        "description": "Ponytail — 决策阶梯减少过度工程",
+        "saving": "54% 代码量 + 20-75% 成本",
+        "level": "中级",
+        "detect": { "kind": "path", "path": "~/.codebuddy/plugins/marketplaces/ponytail/" },
+        "enabled": {
+          "any": [
+            { "kind": "plugin-enabled", "key": "ponytail@ponytail" },
+            { "kind": "proxy-plugin", "name": "ponytail" }
+          ]
+        },
         "install": {
           "default": "claude: /plugin marketplace add DietrichGebert/ponytail && /plugin install ponytail",
+          "verify": "ls ~/.codebuddy/plugins/marketplaces/ponytail/",
           "byAgent": { "codebuddy": "codebuddy plugin marketplace add https://github.com/studyzy/ponytail" }
         }
       },
@@ -96,8 +151,20 @@
         "repo": "https://github.com/ayghri/i-have-adhd",
         "agents": { "claude": true, "codex": true, "codebuddy": false },
         "agentNote": "INSTALL.md 清单无 codebuddy",
+        "description": "i-have-adhd — ADHD 友好输出风格：行动优先、步骤编号、去冗余",
+        "saving": "削减寒暄/复述/长篇解释，输出更精简可执行",
+        "level": "中级",
+        "estTokens": 10000,
+        "detect": { "kind": "path", "path": "~/.codebuddy/plugins/marketplaces/i-have-adhd/" },
+        "enabled": {
+          "any": [
+            { "kind": "plugin-enabled", "key": "i-have-adhd@i-have-adhd" },
+            { "kind": "proxy-plugin", "name": "i-have-adhd" }
+          ]
+        },
         "install": {
           "default": "claude plugin marketplace add ayghri/i-have-adhd",
+          "verify": "ls ~/.codebuddy/plugins/marketplaces/i-have-adhd/",
           "byAgent": { "codebuddy": "codebuddy plugin marketplace add ayghri/i-have-adhd && codebuddy plugin install i-have-adhd@i-have-adhd" }
         }
       },
@@ -108,8 +175,14 @@
         "agents": { "claude": true, "codex": false, "codebuddy": true },
         "agentNotes": { "codebuddy": "注入类" },
         "agentNote": "官方安装仅 Claude Code 插件 / CLAUDE.md / Cursor；无 AGENTS.md，Codex 官方不支持",
+        "description": "Karpathy Skills — 编码行为准则减少 LLM 错误",
+        "saving": "减少不必要的 diff/重写/盲目假设",
+        "level": "中级",
+        "estTokens": 10000,
+        "detect": { "kind": "path", "path": "~/.codebuddy/plugins/marketplaces/andrej-karpathy-skills/" },
         "install": {
           "default": "claude: /plugin marketplace add multica-ai/andrej-karpathy-skills && /plugin install andrej-karpathy-skills@karpathy-skills",
+          "verify": "ls ~/.codebuddy/plugins/marketplaces/andrej-karpathy-skills/",
           "byAgent": { "codebuddy": "codebuddy plugin marketplace add https://github.com/multica-ai/andrej-karpathy-skills && codebuddy plugin install andrej-karpathy-skills@karpathy-skills" }
         }
       },
@@ -119,8 +192,14 @@
         "repo": "https://github.com/abhigyanpatwari/GitNexus",
         "agents": { "claude": true, "codex": true, "codebuddy": true },
         "agentNote": "README 支持表：CodeBuddy (Tencent) 为 MCP + Skills 级（Claude/Codex 为 Full 级）",
+        "description": "GitNexus — 代码知识图谱 Graph RAG 替代盲搜",
+        "saving": "图谱检索替代全仓盲搜",
+        "category": "knowledge-base",
+        "detect": { "kind": "mcp", "names": ["gitnexus"], "source": "fs" },
+        "enabled": { "kind": "mcp", "names": ["gitnexus"], "source": "fs" },
         "install": {
-          "default": "git clone https://github.com/abhigyanpatwari/GitNexus ~/.codebuddy/gitnexus && cd ~/.codebuddy/gitnexus && npm install"
+          "default": "git clone https://github.com/abhigyanpatwari/GitNexus ~/.codebuddy/gitnexus && cd ~/.codebuddy/gitnexus && npm install",
+          "verify": "ls ~/.codebuddy/gitnexus/"
         }
       },
       {
@@ -129,8 +208,12 @@
         "repo": "https://github.com/vincentkoc/tokenjuice",
         "agents": { "claude": true, "codex": true, "codebuddy": true },
         "agentNote": "README Host integrations：tokenjuice install codebuddy → ~/.codebuddy/settings.json",
+        "description": "TokenJuice — 命令输出确定性压缩（规则驱动）",
+        "saving": "终端命令输出压缩，减少 transcript 浪费",
+        "detect": { "kind": "command", "name": "tokenjuice" },
         "install": {
           "default": "go install github.com/vincentkoc/tokenjuice/cmd/tokenjuice@latest",
+          "verify": "tokenjuice --help",
           "byAgent": { "claude": "tokenjuice install claude-code", "codex": "tokenjuice install codex", "codebuddy": "tokenjuice install codebuddy" }
         }
       },
@@ -140,8 +223,14 @@
         "repo": "https://github.com/DeusData/codebase-memory-mcp",
         "agents": { "claude": true, "codex": true, "codebuddy": true },
         "agentNote": "README 支持表（约 40 客户端）含 CodeBuddy Code CLI（Detected ~/.codebuddy/.mcp.json）",
+        "description": "Codebase Memory MCP — 代码库记忆图谱替代反复读仓",
+        "saving": "记忆图谱检索替代全仓盲读",
+        "category": "knowledge-base",
+        "detect": { "kind": "mcp", "names": ["codebase-memory"], "source": "fs" },
+        "enabled": { "kind": "mcp", "names": ["codebase-memory"], "source": "fs" },
         "install": {
-          "default": "git clone https://github.com/DeusData/codebase-memory-mcp ~/.codebuddy/codebase-memory-mcp && cd ~/.codebuddy/codebase-memory-mcp && npm install"
+          "default": "git clone https://github.com/DeusData/codebase-memory-mcp ~/.codebuddy/codebase-memory-mcp && cd ~/.codebuddy/codebase-memory-mcp && npm install",
+          "verify": "ls ~/.codebuddy/codebase-memory-mcp/"
         }
       },
       {
@@ -151,8 +240,15 @@
         "agents": { "claude": true, "codex": true, "codebuddy": true },
         "agentNotes": { "codebuddy": "手动 MCP" },
         "agentNote": "README Supported Agents 9 清单无 codebuddy（一键安装待 PR #563 合并）；维护者在 issue #164 认可手动 MCP 接入",
+        "description": "CodeGraph — 本地代码知识图谱减少 Agent 盲搜",
+        "saving": "语义代码图谱替代反复盲搜读仓",
+        "category": "knowledge-base",
+        "detect": { "kind": "command", "name": "codegraph" },
+        "enabled": { "kind": "path", "path": ".codegraph" },
         "install": {
           "default": "npm i -g @colbymchenry/codegraph",
+          "verify": "codegraph --version",
+          "config": { "default": "codegraph install --platform {agent}" },
           "byAgent": { "codebuddy": "将 codegraph serve --mcp 手动写入 ~/.codebuddy/.mcp.json 的 mcpServers" }
         }
       },
@@ -162,7 +258,17 @@
         "repo": "https://github.com/mksglu/context-mode",
         "agents": { "claude": true, "codex": true, "codebuddy": false },
         "agentNote": "README \"17 supported clients\" 清单无 codebuddy",
-        "install": { "default": "npm install -g context-mode" }
+        "description": "Context Mode — 工具输出沙箱化 + 会话记忆持久化（MCP）",
+        "saving": "工具输出 FTS5 外部索引，减少 ~98% 上下文占用",
+        "level": "中级",
+        "estTokens": 40000,
+        "detect": { "kind": "command", "name": "context-mode" },
+        "enabled": { "kind": "mcp", "names": ["context-mode", "plugin_context-mode_context-mode"] },
+        "install": {
+          "default": "npm install -g context-mode",
+          "verify": "context-mode --version",
+          "config": { "default": "codebuddy mcp add context-mode -- context-mode" }
+        }
       }
     ],
     "thresholds": {
