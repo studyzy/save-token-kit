@@ -24,7 +24,6 @@
 | ponytail | https://github.com/DietrichGebert/ponytail |
 | i-have-adhd | https://github.com/ayghri/i-have-adhd |
 | karpathy-skills | https://github.com/multica-ai/andrej-karpathy-skills |
-| graphify | https://github.com/Graphify-Labs/graphify |
 | context-mode | https://github.com/mksglu/context-mode |
 | tokenjuice | https://github.com/vincentkoc/tokenjuice |
 <!-- /stk:rules:toolkit-meta/links exclude=graphify,codebase-memory,codegraph,gitnexus -->
