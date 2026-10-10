@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { loadRules } from '../../../src/rules/loader.js'
-import { renderTemplate, renderHeader } from '../../../src/rules/render.js'
+import { renderTemplate, renderHeader, renderToolkitTables } from '../../../src/rules/render.js'
+import type { MergedRules } from '../../../src/types/rules.js'
 
 describe('renderTemplate', () => {
   it('replaces placeholders with pack fragments (library rules beat builtin)', () => {
@@ -54,6 +55,98 @@ describe('renderTemplate', () => {
     const b = renderTemplate(skeleton, merged).content
     expect(a).toBe(b)
     expect(a).toContain('permissions.deny')
+  })
+})
+
+describe('toolkit-meta rendering', () => {
+  const toolkitSkeleton = (inner = '内置兜底表格', view = 'links') => [
+    `<!-- stk:rules:toolkit-meta/${view} -->`,
+    inner,
+    `<!-- /stk:rules:toolkit-meta/${view} -->`,
+  ].join('\n')
+
+  it('replaces links placeholder with the official-repo table including rtk', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const res = renderTemplate(toolkitSkeleton(), merged)
+    expect(res.content).toContain('| 工具 | 官方仓库 |')
+    expect(res.content).toContain('| rtk | https://github.com/rtk-ai/rtk |')
+    expect(res.content).not.toContain('内置兜底表格')
+    expect(res.warnings).toHaveLength(0)
+  })
+
+  it('replaces agents placeholder with the per-agent support table', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const res = renderTemplate(toolkitSkeleton('内置兜底表格', 'agents'), merged)
+    expect(res.content).toContain('| 工具 | claude | codex | codebuddy | 依据 |')
+    expect(res.content).toContain('✗（特例，见过滤规则）') // rtk codebuddy
+    expect(res.content).toContain('✓（注入类）') // karpathy-skills codebuddy
+    expect(res.content).not.toContain('内置兜底表格')
+  })
+
+  it('exclude filter removes rows for the listed ids', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const skeleton = [
+      '<!-- stk:rules:toolkit-meta/links exclude=graphify,codebase-memory,codegraph,gitnexus -->',
+      '兜底',
+      '<!-- /stk:rules:toolkit-meta/links exclude=graphify,codebase-memory,codegraph,gitnexus -->',
+    ].join('\n')
+    const res = renderTemplate(skeleton, merged)
+    expect(res.content).toContain('| 工具 | 官方仓库 |')
+    for (const id of ['graphify', 'codebase-memory', 'codegraph', 'gitnexus']) {
+      expect(res.content).not.toContain(`| ${id} |`)
+    }
+  })
+
+  it('only filter keeps just the listed subset', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const skeleton = [
+      '<!-- stk:rules:toolkit-meta/links only=rtk,graphify -->',
+      '兜底',
+      '<!-- /stk:rules:toolkit-meta/links only=rtk,graphify -->',
+    ].join('\n')
+    const res = renderTemplate(skeleton, merged)
+    expect(res.content).toContain('| rtk | https://github.com/rtk-ai/rtk |')
+    expect(res.content).toContain('| graphify |')
+    expect(res.content).not.toContain('| caveman |')
+  })
+
+  it('keeps builtin fallback when no entry carries meta after filtering', () => {
+    const merged = {
+      ...loadRules({ rulesHome: undefined as unknown as string }),
+      toolkits: {},
+    } as MergedRules
+    const res = renderTemplate(toolkitSkeleton(), merged)
+    expect(res.content).toContain('内置兜底表格')
+    expect(res.warnings).toHaveLength(0)
+  })
+
+  it('keeps the placeholder pair and warns when fallback is empty and no meta exists', () => {
+    const merged = {
+      ...loadRules({ rulesHome: undefined as unknown as string }),
+      toolkits: {},
+    } as MergedRules
+    const res = renderTemplate(toolkitSkeleton(''), merged)
+    expect(res.content).toContain('stk:rules:toolkit-meta/links')
+    expect(res.warnings).toHaveLength(1)
+    expect(res.warnings[0]).toBe('toolkit-meta links 无可用 meta 数据且骨架无兜底内容')
+  })
+
+  it('omits the marker from output and is byte-idempotent', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const skeleton = [
+      toolkitSkeleton(),
+      toolkitSkeleton('兜底', 'agents'),
+    ].join('\n')
+    const res = renderTemplate(skeleton, merged)
+    expect(res.content).not.toContain('stk:rules:toolkit-meta')
+    expect(renderTemplate(skeleton, merged).content).toBe(res.content)
+  })
+
+  it('renderToolkitTables direct call matches renderTemplate output', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const direct = renderToolkitTables(merged, 'links')
+    const res = renderTemplate(toolkitSkeleton(), merged)
+    expect(res.content).toContain(`${direct}\n`)
   })
 })
 
