@@ -20,12 +20,13 @@
    - "启用 RTK" → `rtk`
    - "安装 Ponytail" → `ponytail`
    - "安装 i-have-adhd" → `i-have-adhd`
-2. 执行安装命令：
+2. 确定安装命令：优先取规则库 `data.toolkits` 对应条目的 `install.default`（或当前 agent 匹配的 `install.byAgent`），自定义规则库可覆盖；缺省回退现有命令 `stk install <toolkit> -g --agent codebuddy`。
+3. 执行安装命令：
    ```bash
    stk install <toolkit> -g --agent codebuddy
    ```
-3. 等待命令完成，检查退出码。
-4. 回报结果。
+4. 等待命令完成，检查退出码。
+5. 回报结果。
 
 ## 输出格式
 
