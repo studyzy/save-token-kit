@@ -8,6 +8,34 @@
 
 代码知识图谱工具（Graphify / Codebase-Memory MCP / CodeGraph / GitNexus）通过建立仓库依赖/调用图谱，让 AI 用图谱检索替代回读源码，节省上下文。但**仓库过小时收益不足以覆盖工具本身开销**，需按规模判定是否值得启用。
 
+## 官方仓库（建议必须附带）
+
+产出任何建议时，`detail`（判定规则表中带 `reason` 的则 `reason`）末尾**必须**附上对应工具的官方仓库链接（格式：`官方仓库: <url>`），供用户决策与后续安装使用。下表由规则库 `data.toolkits` 的 meta 字段在 `stk init` 渲染期生成（自定义规则库可覆盖）：
+
+<!-- stk:rules:toolkit-meta/links only=graphify,codebase-memory,codegraph,gitnexus -->
+| 工具 | 官方仓库 |
+| ---- | -------- |
+| graphify | https://github.com/Graphify-Labs/graphify |
+| codebase-memory | https://github.com/DeusData/codebase-memory-mcp |
+| codegraph | https://github.com/colbymchenry/codegraph |
+| gitnexus | https://github.com/abhigyanpatwari/GitNexus |
+<!-- /stk:rules:toolkit-meta/links only=graphify,codebase-memory,codegraph,gitnexus -->
+
+## 支持 Agent 过滤（推荐前必查）
+
+各工具官方支持的 Agent（支持键为 `claude` / `codex` / `codebuddy`，与规则库 `meta.agents` 键一致，依据各官方 README 逐个核实，由规则库 meta 生成；`workbuddy` 与 CodeBuddy 同内核，按 `codebuddy` 归一化后匹配）：
+
+<!-- stk:rules:toolkit-meta/agents only=graphify,codebase-memory,codegraph,gitnexus -->
+| 工具 | claude | codex | codebuddy | 依据 |
+| ---- | ------ | ----- | --------- | ---- |
+| graphify | ✓ | ✓ | ✓ | v8 README："Works in Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, and 15+ more"；安装表含 `graphify install --platform codebuddy` / `--platform codex` |
+| codebase-memory | ✓ | ✓ | ✓ | README 支持表（约 40 客户端）含 "CodeBuddy Code CLI"（Detected ~/.codebuddy/.mcp.json） |
+| codegraph | ✓ | ✓ | ✓（手动 MCP） | README "Supported Agents" 9 个清单无 codebuddy，一键安装待 PR #563 合并；但维护者在 issue #164 认可手动 MCP 接入（`codegraph serve --mcp` 写入 MCP 配置即用） |
+| gitnexus | ✓ | ✓ | ✓ | README 支持表：CodeBuddy (Tencent) 为 MCP + Skills 级（Claude/Codex 为 Full 级） |
+<!-- /stk:rules:toolkit-meta/agents only=graphify,codebase-memory,codegraph,gitnexus -->
+
+**过滤规则**：当前 `--agent`（归一化后）在该工具支持列中为 ✗ 时，**不产出**该工具的任何建议（即使已安装未启用也不推荐启用）。安装方式（`install.default` / `install.byAgent`）同样来自规则库 meta 字段，为用户执行安装时引用。
+
 ## 输入
 
 - `toolkitDetection[]`（来自 `diagnosis-report.json`）：判定知识库工具是否已安装/启用（`codebase-memory-mcp` 在诊断报告的 `ToolkitId` 类型中对应 `codebase-memory`，两者等效）

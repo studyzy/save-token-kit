@@ -10,6 +10,50 @@
 - `usageStats.toolUsage.last30Days`（来自 `diagnosis-report.json`，含 `total` 与 `ranking`）：判定命令类工具收益的依据。**注意：`diagnosis-report.md` 不渲染 usage 数据，必须直读 `diagnosis-report.json`**；缺失时按下方回退规则处理
 - 缺失或为空数组：返回 `skipped: true` + 空 `suggestions`，不阻塞流程
 
+## 官方仓库（建议必须附带）
+
+产出任何"启用/安装"建议时，`detail`（判定规则表中带 `reason` 的则 `reason`）末尾**必须**附上对应工具的官方仓库链接（格式：`官方仓库: <url>`），供用户决策与后续安装使用。下表由规则库 `data.toolkits` 的 meta 字段在 `stk init` 渲染期生成（自定义规则库可覆盖）：
+
+<!-- stk:rules:toolkit-meta/links exclude=graphify,codebase-memory,codegraph,gitnexus -->
+| 工具 | 官方仓库 |
+| ---- | -------- |
+| rtk | https://github.com/rtk-ai/rtk |
+| caveman | https://github.com/JuliusBrussee/caveman |
+| headroom | https://github.com/headroomlabs-ai/headroom |
+| lean-ctx | https://github.com/yvgude/lean-ctx |
+| ponytail | https://github.com/DietrichGebert/ponytail |
+| i-have-adhd | https://github.com/ayghri/i-have-adhd |
+| karpathy-skills | https://github.com/multica-ai/andrej-karpathy-skills |
+| graphify | https://github.com/Graphify-Labs/graphify |
+| context-mode | https://github.com/mksglu/context-mode |
+| tokenjuice | https://github.com/vincentkoc/tokenjuice |
+<!-- /stk:rules:toolkit-meta/links exclude=graphify,codebase-memory,codegraph,gitnexus -->
+
+安装方式（`install.default` / `install.byAgent`）同样来自规则库 meta 字段，为用户执行安装时引用。
+
+注：知识库类工具（`graphify` / `codebase-memory` / `codegraph` / `gitnexus`）的建议产出交 agent 6 `knowledge-base`，其官方仓库与支持 Agent 信息见该 agent 模板。
+
+## 支持 Agent 过滤（推荐前必查）
+
+各工具官方支持的 Agent（支持键为 `claude` / `codex` / `codebuddy`，与规则库 `meta.agents` 键一致，依据各官方 README/INSTALL.md 逐个核实，由规则库 meta 生成；`workbuddy` 与 CodeBuddy 同内核，按 `codebuddy` 归一化后匹配）：
+
+<!-- stk:rules:toolkit-meta/agents exclude=graphify,codebase-memory,codegraph,gitnexus -->
+| 工具 | claude | codex | codebuddy | 依据 |
+| ---- | ------ | ----- | --------- | ---- |
+| rtk | ✓ | ✓ | ✗（特例，见过滤规则） | README "Supported AI Tools" 18 工具清单无 codebuddy |
+| caveman | ✓ | ✓ | ✓ | INSTALL.md：`npx skills add JuliusBrussee/caveman -a codebuddy -g` |
+| headroom | ✓ | ✓ | ✗ | README "Agent compatibility" 表（wrap claude / wrap codex） |
+| lean-ctx | ✓ | ✓ | ✓ | README 支持表列 `codebuddy`（Hybrid 模式，与 Claude Code 同架构） |
+| ponytail | ✓ | ✓ | ✗ | README 插件安装仅 Claude Code / Codex |
+| i-have-adhd | ✓ | ✓ | ✗ | INSTALL.md 清单无 codebuddy |
+| karpathy-skills | ✓ | ✗ | ✓（注入类） | 官方安装仅 Claude Code 插件 / CLAUDE.md / Cursor；本体为纯 Markdown 规则，可手动粘入 CODEBUDDY.md（无官方一键安装）；无 AGENTS.md，Codex 官方不支持 |
+| graphify | ✓ | ✓ | ✓ | v8 README："Works in Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, and 15+ more"；安装表含 `graphify install --platform codebuddy` / `--platform codex` |
+| context-mode | ✓ | ✓ | ✗ | README "17 supported clients" 清单无 codebuddy |
+| tokenjuice | ✓ | ✓ | ✓ | README "Host integrations"：`tokenjuice install codebuddy` → ~/.codebuddy/settings.json |
+<!-- /stk:rules:toolkit-meta/agents exclude=graphify,codebase-memory,codegraph,gitnexus -->
+
+**过滤规则**：当前 `--agent`（归一化后）在该工具支持列中为 ✗ 时，**不产出**该工具的任何建议（即使已安装未启用也不推荐启用）——避免引导用户在不兼容的环境下安装/启用。唯一例外是 `rtk`：在 `codebuddy` 环境下可配置为 claude 模式启用（此为部署侧约定，官方文档未声明），照常产出建议，且 `detail` 中注明"需配置为 claude 模式"。
+
 ## 判定规则
 
 逐项遍历 `toolkitDetection[]`，按下表匹配（命中即产出，单条可命中多条规则则分别产出独立 suggestion）：
@@ -28,6 +72,7 @@
 
 - `toolkitDetection` 为空或缺失 → `skipped: true`
 - 工具已装已启用 → 不产出
+- 当前 `--agent` 不在该工具官方支持列表（RTK 在 codebuddy 下除外，见"支持 Agent 过滤"）→ 不产出
 - usage 缺失且 `installed === false` → 不产出"推荐安装"（避免误装）
 - 同一工具同时命中"启用"与"禁用"矛盾规则 → 仅产出"启用"（启用优先级更高）
 
@@ -79,7 +124,7 @@
     {
       "id": "S1",
       "title": "启用 Headroom",
-      "detail": "headroom 已安装但未启用（installPath=<path>），启用后可提供 47-92% 上下文压缩",
+      "detail": "headroom 已安装但未启用（installPath=<path>），启用后可提供 47-92% 上下文压缩。官方仓库: https://github.com/headroomlabs-ai/headroom",
       "operationType": "install-toolkit",
       "target": "headroom",
       "estimatedSavingTokens": 6200,
@@ -92,7 +137,7 @@
     {
       "id": "S2",
       "title": "启用 RTK",
-      "detail": "rtk 已安装未启用，可透明改写 git/npm/grep 等 dev 命令，节省 60-90% 操作 token",
+      "detail": "rtk 已安装未启用，可透明改写 git/npm/grep 等 dev 命令，节省 60-90% 操作 token。官方仓库: https://github.com/rtk-ai/rtk",
       "operationType": "install-toolkit",
       "target": "rtk",
       "estimatedSavingTokens": 50000,

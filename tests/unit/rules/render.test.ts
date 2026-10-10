@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { loadRules } from '../../../src/rules/loader.js'
 import { renderTemplate, renderHeader, renderToolkitTables } from '../../../src/rules/render.js'
 import type { MergedRules } from '../../../src/types/rules.js'
@@ -147,6 +149,30 @@ describe('toolkit-meta rendering', () => {
     const direct = renderToolkitTables(merged, 'links')
     const res = renderTemplate(toolkitSkeleton(), merged)
     expect(res.content).toContain(`${direct}\n`)
+  })
+})
+
+describe('smoke: real agent templates render without placeholder residue', () => {
+  const merged = loadRules({ rulesHome: undefined as unknown as string })
+  const loadTemplate = (name: string) =>
+    readFileSync(
+      fileURLToPath(new URL(`../../../src/templates/skills/stk-analyze/agents/${name}.md`, import.meta.url)),
+      'utf8',
+    )
+
+  it('smoke: toolkit-enable/knowledge-base 模板渲染后无占位标记且含真实 meta 表', () => {
+    const enable = renderTemplate(loadTemplate('toolkit-enable'), merged)
+    expect(enable.content).not.toContain('stk:rules:toolkit-meta')
+    expect(enable.content).toContain('https://github.com/rtk-ai/rtk')
+    expect(enable.content).toContain('| 工具 | 官方仓库 |')
+    expect(enable.content).toContain('| 工具 | claude | codex | codebuddy | 依据 |')
+    expect(enable.warnings).toHaveLength(0)
+
+    const kb = renderTemplate(loadTemplate('knowledge-base'), merged)
+    expect(kb.content).not.toContain('stk:rules:toolkit-meta')
+    expect(kb.content).toContain('https://github.com/Graphify-Labs/graphify')
+    expect(kb.content).toContain('https://github.com/abhigyanpatwari/GitNexus')
+    expect(kb.warnings).toHaveLength(0)
   })
 })
 
