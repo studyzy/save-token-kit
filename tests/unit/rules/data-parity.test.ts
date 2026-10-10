@@ -51,6 +51,22 @@ describe('fallback parity with the distributable rules file', () => {
     })
   })
 
+  it('toolkits carry tokenlint-migrated meta fields', () => {
+    const rtk = distributable.data['toolkits'].find((t) => t.id === 'rtk')
+    expect(rtk.repo).toBe('https://github.com/rtk-ai/rtk')
+    expect(rtk.agents).toEqual({ claude: true, codex: true, codebuddy: false })
+    const kits = distributable.data['toolkits'].filter((t) =>
+      ['graphify', 'codebase-memory', 'codegraph', 'gitnexus'].includes(t.id),
+    )
+    expect(
+      kits.every((t) => typeof t.repo === 'string' && typeof t.agents === 'object' && t.agents !== null),
+    ).toBe(true)
+  })
+
+  it('packVersion bumped to 1.1.0', () => {
+    expect(distributable.packVersion).toBe('1.1.0')
+  })
+
   it('declares consistent version metadata', () => {
     expect(distributable.packVersion).toMatch(/^\d+\.\d+\.\d+$/)
     expect(distributable.schemaVersion).toBe(1)

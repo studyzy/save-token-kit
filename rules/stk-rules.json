@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "packVersion": "1.0.0",
+  "packVersion": "1.1.0",
   "releasedAt": "2026-09-24T00:00:00Z",
   "engines": {
     "stk": ">=0.6"
@@ -31,55 +31,138 @@
     "toolkits": [
       {
         "id": "rtk",
-        "type": "cli"
+        "type": "cli",
+        "repo": "https://github.com/rtk-ai/rtk",
+        "agents": { "claude": true, "codex": true, "codebuddy": false },
+        "agentNotes": { "codebuddy": "特例，见过滤规则" },
+        "agentNote": "README \"Supported AI Tools\" 18 工具清单无 codebuddy",
+        "install": {
+          "default": "brew install rtk",
+          "byAgent": { "codebuddy": "配置为 claude 模式启用（部署侧约定，官方未声明）" }
+        }
       },
       {
         "id": "caveman",
-        "type": "plugin"
+        "type": "plugin",
+        "repo": "https://github.com/JuliusBrussee/caveman",
+        "agents": { "claude": true, "codex": true, "codebuddy": true },
+        "agentNote": "INSTALL.md：npx skills add JuliusBrussee/caveman -a codebuddy -g",
+        "install": {
+          "default": "npm install -g @caveman-ai/cli && caveman setup --install",
+          "byAgent": { "codebuddy": "npx skills add JuliusBrussee/caveman -a codebuddy -g" }
+        }
       },
       {
         "id": "headroom",
-        "type": "cli"
+        "type": "cli",
+        "repo": "https://github.com/headroomlabs-ai/headroom",
+        "agents": { "claude": true, "codex": true, "codebuddy": false },
+        "agentNote": "README \"Agent compatibility\" 表（wrap claude / wrap codex）",
+        "install": { "default": "pip install \"headroom-ai[all]\"" }
       },
       {
         "id": "lean-ctx",
-        "type": "cli"
+        "type": "cli",
+        "repo": "https://github.com/yvgude/lean-ctx",
+        "agents": { "claude": true, "codex": true, "codebuddy": true },
+        "agentNote": "README 支持表列 codebuddy（Hybrid 模式，与 Claude Code 同架构）",
+        "install": { "default": "brew install lean-ctx" }
       },
       {
         "id": "graphify",
-        "type": "cli"
+        "type": "cli",
+        "repo": "https://github.com/Graphify-Labs/graphify",
+        "agents": { "claude": true, "codex": true, "codebuddy": true },
+        "agentNote": "v8 README：Works in Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, and 15+ more",
+        "install": {
+          "default": "uv tool install graphifyy",
+          "byAgent": { "codebuddy": "graphify install --platform codebuddy", "codex": "graphify install --platform codex" }
+        }
       },
       {
         "id": "ponytail",
-        "type": "plugin"
+        "type": "plugin",
+        "repo": "https://github.com/DietrichGebert/ponytail",
+        "agents": { "claude": true, "codex": true, "codebuddy": false },
+        "agentNote": "README 插件安装仅 Claude Code / Codex",
+        "install": {
+          "default": "claude: /plugin marketplace add DietrichGebert/ponytail && /plugin install ponytail",
+          "byAgent": { "codebuddy": "codebuddy plugin marketplace add https://github.com/studyzy/ponytail" }
+        }
       },
       {
         "id": "i-have-adhd",
-        "type": "plugin"
+        "type": "plugin",
+        "repo": "https://github.com/ayghri/i-have-adhd",
+        "agents": { "claude": true, "codex": true, "codebuddy": false },
+        "agentNote": "INSTALL.md 清单无 codebuddy",
+        "install": {
+          "default": "claude plugin marketplace add ayghri/i-have-adhd",
+          "byAgent": { "codebuddy": "codebuddy plugin marketplace add ayghri/i-have-adhd && codebuddy plugin install i-have-adhd@i-have-adhd" }
+        }
       },
       {
         "id": "karpathy-skills",
-        "type": "plugin"
+        "type": "plugin",
+        "repo": "https://github.com/multica-ai/andrej-karpathy-skills",
+        "agents": { "claude": true, "codex": false, "codebuddy": true },
+        "agentNotes": { "codebuddy": "注入类" },
+        "agentNote": "官方安装仅 Claude Code 插件 / CLAUDE.md / Cursor；无 AGENTS.md，Codex 官方不支持",
+        "install": {
+          "default": "claude: /plugin marketplace add multica-ai/andrej-karpathy-skills && /plugin install andrej-karpathy-skills@karpathy-skills",
+          "byAgent": { "codebuddy": "codebuddy plugin marketplace add https://github.com/multica-ai/andrej-karpathy-skills && codebuddy plugin install andrej-karpathy-skills@karpathy-skills" }
+        }
       },
       {
         "id": "gitnexus",
-        "type": "plugin"
+        "type": "plugin",
+        "repo": "https://github.com/abhigyanpatwari/GitNexus",
+        "agents": { "claude": true, "codex": true, "codebuddy": true },
+        "agentNote": "README 支持表：CodeBuddy (Tencent) 为 MCP + Skills 级（Claude/Codex 为 Full 级）",
+        "install": {
+          "default": "git clone https://github.com/abhigyanpatwari/GitNexus ~/.codebuddy/gitnexus && cd ~/.codebuddy/gitnexus && npm install"
+        }
       },
       {
         "id": "tokenjuice",
-        "type": "cli"
+        "type": "cli",
+        "repo": "https://github.com/vincentkoc/tokenjuice",
+        "agents": { "claude": true, "codex": true, "codebuddy": true },
+        "agentNote": "README Host integrations：tokenjuice install codebuddy → ~/.codebuddy/settings.json",
+        "install": {
+          "default": "go install github.com/vincentkoc/tokenjuice/cmd/tokenjuice@latest",
+          "byAgent": { "claude": "tokenjuice install claude-code", "codex": "tokenjuice install codex", "codebuddy": "tokenjuice install codebuddy" }
+        }
       },
       {
         "id": "codebase-memory",
-        "type": "mcp"
+        "type": "mcp",
+        "repo": "https://github.com/DeusData/codebase-memory-mcp",
+        "agents": { "claude": true, "codex": true, "codebuddy": true },
+        "agentNote": "README 支持表（约 40 客户端）含 CodeBuddy Code CLI（Detected ~/.codebuddy/.mcp.json）",
+        "install": {
+          "default": "git clone https://github.com/DeusData/codebase-memory-mcp ~/.codebuddy/codebase-memory-mcp && cd ~/.codebuddy/codebase-memory-mcp && npm install"
+        }
       },
       {
         "id": "codegraph",
-        "type": "mcp"
+        "type": "mcp",
+        "repo": "https://github.com/colbymchenry/codegraph",
+        "agents": { "claude": true, "codex": true, "codebuddy": true },
+        "agentNotes": { "codebuddy": "手动 MCP" },
+        "agentNote": "README Supported Agents 9 清单无 codebuddy（一键安装待 PR #563 合并）；维护者在 issue #164 认可手动 MCP 接入",
+        "install": {
+          "default": "npm i -g @colbymchenry/codegraph",
+          "byAgent": { "codebuddy": "将 codegraph serve --mcp 手动写入 ~/.codebuddy/.mcp.json 的 mcpServers" }
+        }
       },
       {
         "id": "context-mode",
-        "type": "plugin"
+        "type": "plugin",
+        "repo": "https://github.com/mksglu/context-mode",
+        "agents": { "claude": true, "codex": true, "codebuddy": false },
+        "agentNote": "README \"17 supported clients\" 清单无 codebuddy",
+        "install": { "default": "npm install -g context-mode" }
       }
     ],
     "thresholds": {
