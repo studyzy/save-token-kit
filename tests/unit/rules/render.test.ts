@@ -150,6 +150,100 @@ describe('toolkit-meta rendering', () => {
     const res = renderTemplate(toolkitSkeleton(), merged)
     expect(res.content).toContain(`${direct}\n`)
   })
+
+  it('levels view renders the level table and omits entries without level', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const res = renderTemplate(toolkitSkeleton('内置兜底表格', 'levels'), merged)
+    expect(res.content).toContain('| 工具 | level |')
+    expect(res.content).toContain('| rtk | 初级 |')
+    expect(res.content).toContain('| caveman | 中级 |')
+    expect(res.content).toContain('| headroom | 高级 |')
+    expect(res.content).toContain('| ponytail | 中级 |')
+    for (const id of ['graphify', 'codebase-memory', 'codegraph', 'gitnexus']) {
+      expect(res.content).not.toContain(`| ${id} |`)
+    }
+    expect(res.content).not.toContain('内置兜底表格')
+    expect(res.warnings).toHaveLength(0)
+  })
+
+  it('est view renders the token estimate table and omits entries without estTokens', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const res = renderTemplate(toolkitSkeleton('内置兜底表格', 'est'), merged)
+    expect(res.content).toContain('| 工具 | 默认估算 (tokens) |')
+    expect(res.content).toContain('| rtk | 50000 |')
+    expect(res.content).toContain('| i-have-adhd | 10000 |')
+    expect(res.content).not.toContain('| ponytail |')
+    expect(res.content).not.toContain('内置兜底表格')
+  })
+
+  it('names view with category filter outputs a plain name list in insertion order', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const skeleton = [
+      '<!-- stk:rules:toolkit-meta/names category=knowledge-base -->',
+      '内置兜底名单',
+      '<!-- /stk:rules:toolkit-meta/names category=knowledge-base -->',
+    ].join('\n')
+    const res = renderTemplate(skeleton, merged)
+    expect(res.content).toContain('graphify, gitnexus, codebase-memory, codegraph')
+    expect(res.content).not.toContain('| 工具 |')
+    expect(res.content).not.toContain('内置兜底名单')
+  })
+
+  it('exclude-category filter and only/exclude are orthogonal and stackable', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const skeleton = [
+      '<!-- stk:rules:toolkit-meta/links exclude-category=knowledge-base -->',
+      '兜底',
+      '<!-- /stk:rules:toolkit-meta/links exclude-category=knowledge-base -->',
+    ].join('\n')
+    const res = renderTemplate(skeleton, merged)
+    expect(res.content).toContain('| rtk | https://github.com/rtk-ai/rtk |')
+    for (const id of ['graphify', 'codebase-memory', 'codegraph', 'gitnexus']) {
+      expect(res.content).not.toContain(`| ${id} |`)
+    }
+
+    const stack = [
+      '<!-- stk:rules:toolkit-meta/names category=knowledge-base only=graphify,rtk -->',
+      '兜底',
+      '<!-- /stk:rules:toolkit-meta/names category=knowledge-base only=graphify,rtk -->',
+    ].join('\n')
+    const res2 = renderTemplate(stack, merged)
+    expect(res2.content).toContain('graphify')
+    expect(res2.content).not.toContain('gitnexus')
+  })
+
+  it('keeps fallback when filtering yields zero entries with data, warns on empty fallback', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    // graphify 无 level → only=graphify 过滤后零项 → 保留兜底骨架
+    const zero = [
+      '<!-- stk:rules:toolkit-meta/levels only=graphify -->',
+      '兜底表格',
+      '<!-- /stk:rules:toolkit-meta/levels only=graphify -->',
+    ].join('\n')
+    const res = renderTemplate(zero, merged)
+    expect(res.content).toContain('兜底表格')
+    expect(res.warnings).toHaveLength(0)
+
+    const empty = [
+      '<!-- stk:rules:toolkit-meta/levels only=graphify -->',
+      '<!-- /stk:rules:toolkit-meta/levels only=graphify -->',
+    ].join('\n')
+    const res2 = renderTemplate(empty, merged)
+    expect(res2.content).toContain('stk:rules:toolkit-meta/levels')
+    expect(res2.warnings).toEqual(['toolkit-meta levels 无可用 meta 数据且骨架无兜底内容'])
+  })
+
+  it('new views are idempotent and leave no placeholder markers', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const parts = [
+      toolkitSkeleton('兜底', 'levels'),
+      toolkitSkeleton('兜底', 'est'),
+      toolkitSkeleton('兜底', 'names'),
+    ].join('\n')
+    const res = renderTemplate(parts, merged)
+    expect(res.content).not.toContain('stk:rules:toolkit-meta')
+    expect(renderTemplate(parts, merged).content).toBe(res.content)
+  })
 })
 
 describe('smoke: real agent templates render without placeholder residue', () => {

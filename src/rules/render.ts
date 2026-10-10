@@ -4,10 +4,37 @@ import type { MergedRules, ToolkitCatalogEntry } from '../types/rules.js'
 
 const PAIR_RE = /<!-- stk:rules:prompts\/([\w.-]+) -->\n([\s\S]*?)<!-- \/stk:rules:prompts\/\1 -->/g
 
-// 子集过滤语法：<!-- stk:rules:toolkit-meta/links(only=a,b|exclude=a,b) --> ……
+// 子集过滤语法：<!-- stk:rules:toolkit-meta/links(only=a,b|exclude=a,b|category=c|exclude-category=c) --> ……
+// 属性可叠加（空格分隔，only/exclude 二选一 + category/exclude-category 二选一）；
 // 正向名字段避免回溯歧义；过滤列表仅 [\w-] 与逗号。
 // （TOOLKIT_RE 与 PAIR_RE 中的 `stk:rules` 标记是规则包格式的历史命名，保持不变。）
-const TOOLKIT_RE = /<!-- stk:rules:toolkit-meta\/(links|agents)(?: (only|exclude)=([\w,-]+))? -->\n([\s\S]*?)<!-- \/stk:rules:toolkit-meta\/\1(?: (?:only|exclude)=[\w,-]+)? -->/g
+const TOOLKIT_RE = /<!-- stk:rules:toolkit-meta\/(links|agents|levels|est|names)((?: (?:only|exclude|category|exclude-category)=[\w,-]+)*) -->\n([\s\S]*?)<!-- \/stk:rules:toolkit-meta\/\1(?: (?:only|exclude|category|exclude-category)=[\w,-]+)* -->/g
+
+export type ToolkitView = 'links' | 'agents' | 'levels' | 'est' | 'names'
+
+/** Parsed filter attributes from a toolkit-meta placeholder pair. */
+export interface ToolkitFilters {
+  mode?: 'only' | 'exclude'
+  list?: string
+  category?: string
+  excludeCategory?: string
+}
+
+/** Parse the raw attribute string, e.g. ` only=a,b category=x`. */
+function parseToolkitAttrs(attrs: string): ToolkitFilters {
+  const f: ToolkitFilters = {}
+  for (const m of attrs.matchAll(/(only|exclude|category|exclude-category)=([\w,-]+)/g)) {
+    if (m[1] === 'only' || m[1] === 'exclude') {
+      f.mode = m[1]
+      f.list = m[2]
+    } else if (m[1] === 'category') {
+      f.category = m[2]
+    } else {
+      f.excludeCategory = m[2]
+    }
+  }
+  return f
+}
 
 /** Apply only/exclude subset filter to the toolkit list (insertion order preserved). */
 function filterToolkits(
@@ -20,6 +47,13 @@ function filterToolkits(
   return toolkits.filter((t) => (mode === 'only' ? set.has(t.id) : !set.has(t.id)))
 }
 
+/** Apply category / exclude-category filter (orthogonal to only/exclude). */
+function filterCategory(toolkits: ToolkitCatalogEntry[], f: ToolkitFilters): ToolkitCatalogEntry[] {
+  if (f.category !== undefined) return toolkits.filter((t) => t.category === f.category)
+  if (f.excludeCategory !== undefined) return toolkits.filter((t) => t.category !== f.excludeCategory)
+  return toolkits
+}
+
 /** ✓/✗ cell with optional per-agent note, e.g. `✓（手动 MCP）` / `✗（特例，见过滤规则）`. */
 function agentCell(entry: ToolkitCatalogEntry, key: 'claude' | 'codex' | 'codebuddy'): string {
   const v = entry.agents?.[key]
@@ -30,29 +64,45 @@ function agentCell(entry: ToolkitCatalogEntry, key: 'claude' | 'codex' | 'codebu
 }
 
 /**
- * Build the two toolkit tables from merged.toolkits meta fields.
+ * Build a toolkit table/name-list from merged.toolkits meta fields.
  * Returns '' when no entry carries the field so the caller can fall back to
  * the skeleton's builtin table.
  */
 export function renderToolkitTables(
   merged: MergedRules,
-  view: 'links' | 'agents',
-  mode?: string,
-  list?: string,
+  view: ToolkitView,
+  filters: ToolkitFilters = {},
 ): string {
-  const entries = filterToolkits(Object.values(merged.toolkits ?? {}), mode, list)
-  const field = view === 'links' ? 'repo' : 'agents'
-  const withMeta = entries.filter((t) => t[field] !== undefined)
+  const entries = filterCategory(filterToolkits(Object.values(merged.toolkits ?? {}), filters.mode, filters.list), filters)
+  const inField = (t: ToolkitCatalogEntry): boolean => {
+    if (view === 'links') return t.repo !== undefined
+    if (view === 'agents') return t.agents !== undefined
+    if (view === 'levels') return t.level !== undefined
+    if (view === 'est') return t.estTokens !== undefined
+    return t.category !== undefined
+  }
+  const withMeta = entries.filter(inField)
   if (withMeta.length === 0) return ''
   if (view === 'links') {
     const rows = withMeta.map((t) => `| ${t.id} | ${t.repo} |`)
     return ['| 工具 | 官方仓库 |', '| ---- | -------- |', ...rows].join('\n')
   }
-  const rows = withMeta.map(
-    (t) =>
-      `| ${t.id} | ${agentCell(t, 'claude')} | ${agentCell(t, 'codex')} | ${agentCell(t, 'codebuddy')} | ${t.agentNote ?? ''} |`,
-  )
-  return ['| 工具 | claude | codex | codebuddy | 依据 |', '| ---- | ------ | ----- | --------- | ---- |', ...rows].join('\n')
+  if (view === 'agents') {
+    const rows = withMeta.map(
+      (t) =>
+        `| ${t.id} | ${agentCell(t, 'claude')} | ${agentCell(t, 'codex')} | ${agentCell(t, 'codebuddy')} | ${t.agentNote ?? ''} |`,
+    )
+    return ['| 工具 | claude | codex | codebuddy | 依据 |', '| ---- | ------ | ----- | --------- | ---- |', ...rows].join('\n')
+  }
+  if (view === 'levels') {
+    const rows = withMeta.map((t) => `| ${t.id} | ${t.level} |`)
+    return ['| 工具 | level |', '| ---- | ----- |', ...rows].join('\n')
+  }
+  if (view === 'est') {
+    const rows = withMeta.map((t) => `| ${t.id} | ${t.estTokens} |`)
+    return ['| 工具 | 默认估算 (tokens) |', '| ---- | ----------------- |', ...rows].join('\n')
+  }
+  return withMeta.map((t) => t.id).join(', ')
 }
 
 export interface RenderResult {
@@ -70,8 +120,8 @@ export function renderTemplate(skeleton: string, merged: MergedRules): RenderRes
   const warnings: string[] = []
   let content = skeleton.replace(
     TOOLKIT_RE,
-    (whole, view: 'links' | 'agents', mode: string, list: string, fallback: string) => {
-      const table = renderToolkitTables(merged, view, mode, list)
+    (whole, view: ToolkitView, attrs: string, fallback: string) => {
+      const table = renderToolkitTables(merged, view, parseToolkitAttrs(attrs))
       if (table) return `${table}\n`
       if (fallback.trim().length === 0) {
         warnings.push(`toolkit-meta ${view} 无可用 meta 数据且骨架无兜底内容`)
