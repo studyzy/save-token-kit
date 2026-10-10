@@ -6,7 +6,11 @@
 
 ## 机制依据
 
-代码知识图谱工具（Graphify / Codebase-Memory MCP / CodeGraph / GitNexus）通过建立仓库依赖/调用图谱，让 AI 用图谱检索替代回读源码，节省上下文。但**仓库过小时收益不足以覆盖工具本身开销**，需按规模判定是否值得启用。
+代码知识图谱工具（
+<!-- stk:rules:toolkit-meta/names category=knowledge-base -->
+Graphify / Codebase-Memory MCP / CodeGraph / GitNexus
+<!-- /stk:rules:toolkit-meta/names category=knowledge-base -->
+）通过建立仓库依赖/调用图谱，让 AI 用图谱检索替代回读源码，节省上下文。但**仓库过小时收益不足以覆盖工具本身开销**，需按规模判定是否值得启用。
 
 ## 官方仓库（建议必须附带）
 
@@ -69,14 +73,7 @@
 - 若 `docFileCount ≥ 50`，即使 `codeFileCount < 50`，也降级为"中等"而非"不推荐"（知识图谱可整合文档）
 - `gitnexus`（纯浏览器端、零服务端）对 < 50 文件仓库可放宽阈值
 
-**展示名映射**：
-
-| 工具存储值            | 展示名              |
-| --------------------- | ------------------- |
-| `graphify`            | Graphify            |
-| `codebase-memory-mcp` | Codebase-Memory MCP |
-| `codegraph`           | CodeGraph           |
-| `gitnexus`            | GitNexus            |
+工具存储值即 id（如 `graphify`），输出建议的 `target` 直接使用 id；展示时可用首字母大写形式（如 Graphify）。
 
 ## 不输出的情况
 
@@ -116,7 +113,7 @@
 - 知识库**已启用**时本 Agent 不启动（由启动前置判定拦截），不产出任何建议
 - 知识库**已装未启用**的"启用"建议**由本 Agent 产出**（不再交 agent 1）
 - 仓库规模判定依据来自 `repo-scan.json`，不自行扫描
-- 不处理其他类型工具（rtk/headroom 等交 agent 1）
+- 不处理非知识库类第三方工具（交 agent 1 toolkit-enable）
 
 ## 输出示例
 

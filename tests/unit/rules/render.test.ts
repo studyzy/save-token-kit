@@ -254,19 +254,77 @@ describe('smoke: real agent templates render without placeholder residue', () =>
       'utf8',
     )
 
-  it('smoke: toolkit-enable/knowledge-base 模板渲染后无占位标记且含真实 meta 表', () => {
+  /**
+   * 清单性硬编码扫描：给定 id 只允许出现在三类行——
+   * 1) 渲染表格行（以 `|` 开头） 2) 渲染名单行（命中 allowRe） 3) 输出示例 JSON（以 `"` 开头）。
+   * 违规则返回所在行（判定逻辑 prose 中允许出现的 id 不列入 forbidden，宁窄勿误报）。
+   */
+  const proseHardcode = (content: string, forbidden: string[], allowRe: RegExp): string[] => {
+    return content
+      .split('\n')
+      .filter((line) => forbidden.some((id) => line.includes(id)))
+      .filter((line) => !/^\s*\|/.test(line) && !/^\s*"/.test(line) && !allowRe.test(line))
+  }
+
+  it('smoke: toolkit-enable 渲染出 levels/est/名单表且清单性硬编码消除', () => {
     const enable = renderTemplate(loadTemplate('toolkit-enable'), merged)
     expect(enable.content).not.toContain('stk:rules:toolkit-meta')
-    expect(enable.content).toContain('https://github.com/rtk-ai/rtk')
-    expect(enable.content).toContain('| 工具 | 官方仓库 |')
-    expect(enable.content).toContain('| 工具 | claude | codex | codebuddy | 依据 |')
     expect(enable.warnings).toHaveLength(0)
 
+    // 渲染产物：官方仓库 / agents / levels / est 表 + 知识库名单
+    expect(enable.content).toContain('| 工具 | 官方仓库 |')
+    expect(enable.content).toContain('| rtk | https://github.com/rtk-ai/rtk |')
+    expect(enable.content).toContain('| 工具 | claude | codex | codebuddy | 依据 |')
+    expect(enable.content).toContain('| rtk | 初级 |')
+    expect(enable.content).toContain('| headroom | 高级 |')
+    expect(enable.content).toContain('| rtk | 50000 |')
+    expect(enable.content).toContain('| context-mode | 40000 |')
+    expect(enable.content).toMatch(/知识库类工具（\n+graphify, gitnexus, codebase-memory, codegraph\n+）/)
+
+    // 兜底表（占位对内旧表逐字内容）已被渲染产物替换，不应残留
+    expect(enable.content).not.toContain('caveman-*') // level 兜底表专属写法
+    expect(enable.content).not.toContain('30000（对话')
+    expect(enable.content).not.toContain('10000（间接节省')
+
+    // 清单性硬编码消除：这些 id 只允许出现在渲染表行 / 示例 JSON
+    // （rtk 为特例文案允许出现；headroom 允许出现在示例 JSON 与渲染行）
+    expect(
+      proseHardcode(enable.content, [
+        'caveman',
+        'ponytail',
+        'i-have-adhd',
+        'karpathy-skills',
+        'lean-ctx',
+        'tokenjuice',
+      ]),
+    ).toEqual([])
+  })
+
+  it('smoke: knowledge-base 渲染名单且 4 工具枚举仅存在于渲染名单/表格/逻辑行', () => {
     const kb = renderTemplate(loadTemplate('knowledge-base'), merged)
     expect(kb.content).not.toContain('stk:rules:toolkit-meta')
-    expect(kb.content).toContain('https://github.com/Graphify-Labs/graphify')
-    expect(kb.content).toContain('https://github.com/abhigyanpatwari/GitNexus')
     expect(kb.warnings).toHaveLength(0)
+
+    // 渲染产物：links/agents 表 + 知识库名单
+    expect(kb.content).toContain('| graphify | https://github.com/Graphify-Labs/graphify |')
+    expect(kb.content).toContain('https://github.com/abhigyanpatwari/GitNexus')
+    expect(kb.content).toContain('| 工具 | claude | codex | codebuddy | 依据 |')
+    expect(kb.content).toMatch(/代码知识图谱工具（\n+graphify, gitnexus, codebase-memory, codegraph\n+）/)
+
+    // 旧展示名映射表与展示名枚举已删除
+    expect(kb.content).not.toContain('Graphify / Codebase-Memory')
+    expect(kb.content).not.toContain('Codebase-Memory MCP |')
+    expect(kb.content).not.toContain('展示名映射')
+
+    // 清单性硬编码消除：知识库 id 只允许出现在渲染表行 / 渲染名单行 / 示例 JSON /
+    // 保留的判定逻辑行（benchmark 依据、候选推断、放宽阈值等，属逻辑非清单）
+    expect(
+      proseHardcode(
+        kb.content,
+        ['graphify', 'gitnexus', 'codebase-memory', 'codegraph', 'Graphify', 'GitNexus', 'CodeGraph'],
+        /benchmark|官方建议|纯浏览器端|repo 特征选 1|两者等效|工具存储值即 id|^[\w-]+, /,
+      ),
+    ).toEqual([])
   })
 })
 
