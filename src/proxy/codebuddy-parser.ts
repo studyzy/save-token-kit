@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs'
 import {
   assembleProxyDiagnosisData,
+  detectPluginsFromMessages,
   extractToolName,
   parseCore,
   type SkillTokensMap,
@@ -185,32 +186,6 @@ function isAgentUsageNote(name: string, rest: string): boolean {
     if (paramPrefixes.some((p) => rest.startsWith(p))) return true
   }
   return false
-}
-
-/** Detect active CodeBuddy plugins via mode markers in message content. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function detectPluginsFromMessages(messages: any[]): string[] {
-  const markers: Record<string, string> = {
-    caveman: 'CAVEMAN MODE ACTIVE',
-    ponytail: 'PONYTAIL MODE ACTIVE',
-    'i-have-adhd': 'ADHD MODE ACTIVE',
-  }
-  const detected: string[] = []
-  for (const msg of messages) {
-    let content = ''
-    if (typeof msg?.content === 'string') {
-      content = msg.content
-    } else if (Array.isArray(msg?.content)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      content = msg.content.map((b: any) => (typeof b?.text === 'string' ? b.text : '')).join('\n')
-    }
-    for (const [plugin, marker] of Object.entries(markers)) {
-      if (!detected.includes(plugin) && content.includes(marker)) {
-        detected.push(plugin)
-      }
-    }
-  }
-  return detected
 }
 
 /**

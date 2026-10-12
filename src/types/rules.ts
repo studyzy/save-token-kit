@@ -79,6 +79,10 @@ export interface ToolkitCatalogEntry {
   detect?: ToolkitSpec
   /** 启用状态检测规格。 */
   enabled?: ToolkitSpec
+  /** 请求消息中标记该插件激活的字符串（proxy 解析器数据化检测，零写死重构收尾）。 */
+  proxyMarkers?: string[]
+  /** 该工具 MCP 工具名的额外前缀（'mcp__' 通用语法前缀之外，proxy 解析器分类用）。 */
+  mcpPrefixes?: string[]
   /** Install command per default or per agent. */
   install?: ToolkitInstallSpec
 }

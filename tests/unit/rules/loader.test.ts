@@ -128,6 +128,31 @@ describe('loadRules user layer toolkit meta validation', () => {
     expect(userSource(merged)?.result).toBe('rejected-corrupted')
   })
 
+  it('accepts proxyMarkers/mcpPrefixes string arrays on toolkits', () => {
+    const merged = loadRules({
+      userDir: userLayerWith([
+        {
+          id: 'gh',
+          type: 'cli',
+          proxyMarkers: ['GH MODE ACTIVE'],
+          mcpPrefixes: ['headroom_'],
+        },
+      ]),
+    })
+    expect(userSource(merged)?.result).toBe('ok')
+    expect(merged.toolkits['gh']?.proxyMarkers).toEqual(['GH MODE ACTIVE'])
+    expect(merged.toolkits['gh']?.mcpPrefixes).toEqual(['headroom_'])
+  })
+
+  it('rejects proxyMarkers/mcpPrefixes that are not string arrays', () => {
+    const merged = loadRules({
+      userDir: userLayerWith([
+        { id: 'gh', type: 'cli', proxyMarkers: 'GH MODE ACTIVE', mcpPrefixes: [42] },
+      ]),
+    })
+    expect(userSource(merged)?.result).toBe('rejected-corrupted')
+  })
+
   it('accepts legacy entries without meta fields', () => {
     const merged = loadRules({ userDir: userLayerWith([{ id: 'gh', type: 'cli' }]) })
     expect(userSource(merged)?.result).toBe('ok')

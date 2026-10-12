@@ -93,6 +93,19 @@ describe('fallback parity with the distributable rules file', () => {
     for (const id of kbIds) expect((byId.get(id) as { category?: string }).category).toBe('knowledge-base')
   })
 
+  it('carries proxy-plugin markers and MCP prefixes as data (zero-hardcode follow-up)', () => {
+    const byId = new Map(
+      (distributable.data['toolkits'] as Array<Record<string, unknown>>).map((t) => [
+        t.id as string,
+        t,
+      ]),
+    )
+    expect(byId.get('caveman')?.proxyMarkers).toEqual(['CAVEMAN MODE ACTIVE'])
+    expect(byId.get('ponytail')?.proxyMarkers).toEqual(['PONYTAIL MODE ACTIVE'])
+    expect(byId.get('i-have-adhd')?.proxyMarkers).toEqual(['ADHD MODE ACTIVE'])
+    expect(byId.get('headroom')?.mcpPrefixes).toEqual(['headroom_'])
+  })
+
   it('packVersion bumped to 1.2.0', () => {
     expect(distributable.packVersion).toBe('1.2.0')
   })

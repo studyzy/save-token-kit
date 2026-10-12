@@ -1,6 +1,12 @@
 import { estimateTokensOf, truncateIfLarge } from '../collectors/token-estimator.js'
 import type { AgentEntry, ProxyDiagnosisData, MessageBreakdown, SkillEntry } from '../types/index.js'
-import { extractMcpFromText, extractToolName, classifyTool, type McpServersMap } from './parser-core.js'
+import {
+  detectPluginsFromMessages,
+  extractMcpFromText,
+  extractToolName,
+  classifyTool,
+  type McpServersMap,
+} from './parser-core.js'
 import { extractAgentsFromText } from './codebuddy-parser.js'
 
 /**
@@ -226,26 +232,6 @@ function extractCodexAgents(
     extractAgentsFromText(listText, agents, seen)
   }
   return agents
-}
-
-/** Detect active plugins via message mode markers (same markers as CodeBuddy). */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function detectPluginsFromMessages(messages: any[]): string[] {
-  const markers: Record<string, string> = {
-    caveman: 'CAVEMAN MODE ACTIVE',
-    ponytail: 'PONYTAIL MODE ACTIVE',
-    'i-have-adhd': 'ADHD MODE ACTIVE',
-  }
-  const detected: string[] = []
-  for (const msg of messages) {
-    const content = messageText(msg)
-    for (const [plugin, marker] of Object.entries(markers)) {
-      if (!detected.includes(plugin) && content.includes(marker)) {
-        detected.push(plugin)
-      }
-    }
-  }
-  return detected
 }
 
 /** Assemble a ProxyDiagnosisData fragment from the Responses core. */

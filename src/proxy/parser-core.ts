@@ -6,8 +6,43 @@ import type {
   ProxyDiagnosisData,
   SkillEntry,
 } from '../types/index.js'
+import { loadRules } from '../rules/loader.js'
 
-const MCP_PREFIXES = ['mcp__', 'headroom_']
+/**
+ * Data-driven tool facts collected from loadRules().toolkits: per-toolkit
+ * MCP name prefixes and per-toolkit plugin activation markers. `'mcp__'` is
+ * the generic MCP naming syntax and stays in the engine.
+ */
+export interface ToolkitProxyData {
+  mcpPrefixes: string[]
+  /** toolkit id → marker strings that activate it in request messages. */
+  proxyMarkers: Record<string, string[]>
+}
+
+const GENERIC_MCP_PREFIX = 'mcp__'
+
+let cachedToolkitData: ToolkitProxyData | undefined
+
+function getToolkitProxyData(): ToolkitProxyData {
+  cachedToolkitData ??= (() => {
+    const data: ToolkitProxyData = { mcpPrefixes: [], proxyMarkers: {} }
+    try {
+      for (const t of Object.values(loadRules().toolkits)) {
+        if (t.mcpPrefixes?.length) data.mcpPrefixes.push(...t.mcpPrefixes)
+        if (t.proxyMarkers?.length) data.proxyMarkers[t.id] = t.proxyMarkers
+      }
+    } catch {
+      // rules loading unavailable → classify with generic syntax only
+    }
+    return data
+  })()
+  return cachedToolkitData
+}
+
+/** Test-only injection overriding the toolkit-derived prefix/marker tables. */
+export function __setToolkitProxyDataForTest(data: ToolkitProxyData | undefined): void {
+  cachedToolkitData = data
+}
 
 export interface ToolStat {
   name: string
@@ -33,15 +68,44 @@ export type SkillTokensMap = Record<
 
 /**
  * Classify a request-body tool definition. The body carries no per-tool
- * provenance, so only MCP server tools (prefixed names like `mcp__<server>__`
- * or the `headroom_` special case) are non-builtin. Everything else — including
- * deferred-capable builtins such as CronCreate / EnterWorktree / Workflow and
- * any tool absent from a hardcoded list — is a builtin tool loaded in the
- * current request.
+ * provenance, so only MCP server tools (the generic `mcp__<server>__` naming
+ * syntax, plus data-driven prefixes from rules data.toolkits) are non-builtin.
+ * Everything else — including deferred-capable builtins such as CronCreate /
+ * EnterWorktree / Workflow and any tool absent from a hardcoded list — is a
+ * builtin tool loaded in the current request.
  */
 export function classifyTool(name: string): 'builtin' | 'mcp' {
-  if (MCP_PREFIXES.some((p) => name.startsWith(p))) return 'mcp'
+  if (name.startsWith(GENERIC_MCP_PREFIX)) return 'mcp'
+  if (getToolkitProxyData().mcpPrefixes.some((p) => name.startsWith(p))) return 'mcp'
   return 'builtin'
+}
+
+/**
+ * Detect active plugins via mode markers in message content. The marker
+ * table (plugin id → activation strings) comes from rules data.toolkits.
+ */
+export function detectPluginsFromMessages(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  messages: any[],
+): string[] {
+  const markers = getToolkitProxyData().proxyMarkers
+  const detected: string[] = []
+  for (const msg of messages) {
+    let content = ''
+    if (typeof msg?.content === 'string') {
+      content = msg.content
+    } else if (Array.isArray(msg?.content)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      content = msg.content.map((b: any) => (typeof b?.text === 'string' ? b.text : '')).join('\n')
+    }
+    for (const [plugin, pluginMarkers] of Object.entries(markers)) {
+      if (detected.includes(plugin)) continue
+      if (pluginMarkers.some((marker) => content.includes(marker))) {
+        detected.push(plugin)
+      }
+    }
+  }
+  return detected
 }
 
 /**

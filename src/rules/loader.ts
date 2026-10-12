@@ -103,6 +103,13 @@ function validateToolkitMeta(toolkits: unknown): string | null {
         return `toolkits[${id}].${field} 必须为 ${TOOLKIT_AGENT_KEYS.join('/')} 键的映射（值 ${field === 'agents' ? '布尔' : '字符串'}）`
       }
     }
+    for (const field of ['proxyMarkers', 'mcpPrefixes'] as const) {
+      const v = t[field]
+      if (v === undefined) continue
+      if (!Array.isArray(v) || !v.every((x) => typeof x === 'string')) {
+        return `toolkits[${id}].${field} 必须为字符串数组`
+      }
+    }
     if (t.install !== undefined) {
       if (!isPlainObject(t.install)) return `toolkits[${id}].install 必须为对象`
       if (t.install.default !== undefined && typeof t.install.default !== 'string') return `toolkits[${id}].install.default 必须为字符串`
