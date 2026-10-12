@@ -279,7 +279,7 @@ describe('smoke: real agent templates render without placeholder residue', () =>
     expect(enable.content).toContain('| headroom | 高级 |')
     expect(enable.content).toContain('| rtk | 50000 |')
     expect(enable.content).toContain('| context-mode | 40000 |')
-    expect(enable.content).toMatch(/知识库类工具（\n+graphify, gitnexus, codebase-memory, codegraph\n+）/)
+    expect(enable.content).toMatch(/知识库工具名单：\n+graphify, gitnexus, codebase-memory, codegraph\n+/)
 
     // 兜底表（占位对内旧表逐字内容）已被渲染产物替换，不应残留
     expect(enable.content).not.toContain('caveman-*') // level 兜底表专属写法
@@ -309,7 +309,7 @@ describe('smoke: real agent templates render without placeholder residue', () =>
     expect(kb.content).toContain('| graphify | https://github.com/Graphify-Labs/graphify |')
     expect(kb.content).toContain('https://github.com/abhigyanpatwari/GitNexus')
     expect(kb.content).toContain('| 工具 | claude | codex | codebuddy | 依据 |')
-    expect(kb.content).toMatch(/代码知识图谱工具（\n+graphify, gitnexus, codebase-memory, codegraph\n+）/)
+    expect(kb.content).toMatch(/名单由规则库渲染名单给出，见下）[^]*?：\n+graphify, gitnexus, codebase-memory, codegraph\n+/)
 
     // 旧展示名映射表与展示名枚举已删除
     expect(kb.content).not.toContain('Graphify / Codebase-Memory')

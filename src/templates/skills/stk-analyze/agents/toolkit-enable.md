@@ -15,44 +15,20 @@
 产出任何"启用/安装"建议时，`detail`（判定规则表中带 `reason` 的则 `reason`）末尾**必须**附上对应工具的官方仓库链接（格式：`官方仓库: <url>`），供用户决策与后续安装使用。下表由规则库 `data.toolkits` 的 meta 字段在 `stk init` 渲染期生成（自定义规则库可覆盖）：
 
 <!-- stk:rules:toolkit-meta/links exclude=graphify,codebase-memory,codegraph,gitnexus -->
-| 工具 | 官方仓库 |
-| ---- | -------- |
-| rtk | https://github.com/rtk-ai/rtk |
-| caveman | https://github.com/JuliusBrussee/caveman |
-| headroom | https://github.com/headroomlabs-ai/headroom |
-| lean-ctx | https://github.com/yvgude/lean-ctx |
-| ponytail | https://github.com/DietrichGebert/ponytail |
-| i-have-adhd | https://github.com/ayghri/i-have-adhd |
-| karpathy-skills | https://github.com/multica-ai/andrej-karpathy-skills |
-| context-mode | https://github.com/mksglu/context-mode |
-| tokenjuice | https://github.com/vincentkoc/tokenjuice |
 <!-- /stk:rules:toolkit-meta/links exclude=graphify,codebase-memory,codegraph,gitnexus -->
 
 安装方式（`install.default` / `install.byAgent`）同样来自规则库 meta 字段，为用户执行安装时引用。
 
-注：知识库类工具（
+注：知识库类工具的建议产出交 agent 6 `knowledge-base`，其官方仓库与支持 Agent 信息见该 agent 模板。知识库工具名单：
+
 <!-- stk:rules:toolkit-meta/names category=knowledge-base -->
-`graphify` / `codebase-memory` / `codegraph` / `gitnexus`
 <!-- /stk:rules:toolkit-meta/names category=knowledge-base -->
-）的建议产出交 agent 6 `knowledge-base`，其官方仓库与支持 Agent 信息见该 agent 模板。
 
 ## 支持 Agent 过滤（推荐前必查）
 
 各工具官方支持的 Agent（支持键为 `claude` / `codex` / `codebuddy`，与规则库 `meta.agents` 键一致，依据各官方 README/INSTALL.md 逐个核实，由规则库 meta 生成；`workbuddy` 与 CodeBuddy 同内核，按 `codebuddy` 归一化后匹配）：
 
 <!-- stk:rules:toolkit-meta/agents exclude=graphify,codebase-memory,codegraph,gitnexus -->
-| 工具 | claude | codex | codebuddy | 依据 |
-| ---- | ------ | ----- | --------- | ---- |
-| rtk | ✓ | ✓ | ✗（特例，见过滤规则） | README "Supported AI Tools" 18 工具清单无 codebuddy |
-| caveman | ✓ | ✓ | ✓ | INSTALL.md：`npx skills add JuliusBrussee/caveman -a codebuddy -g` |
-| headroom | ✓ | ✓ | ✗ | README "Agent compatibility" 表（wrap claude / wrap codex） |
-| lean-ctx | ✓ | ✓ | ✓ | README 支持表列 `codebuddy`（Hybrid 模式，与 Claude Code 同架构） |
-| ponytail | ✓ | ✓ | ✗ | README 插件安装仅 Claude Code / Codex |
-| i-have-adhd | ✓ | ✓ | ✗ | INSTALL.md 清单无 codebuddy |
-| karpathy-skills | ✓ | ✗ | ✓（注入类） | 官方安装仅 Claude Code 插件 / CLAUDE.md / Cursor；本体为纯 Markdown 规则，可手动粘入 CODEBUDDY.md（无官方一键安装）；无 AGENTS.md，Codex 官方不支持 |
-| graphify | ✓ | ✓ | ✓ | v8 README："Works in Claude Code, Cursor, Codex, Gemini CLI, GitHub Copilot, and 15+ more"；安装表含 `graphify install --platform codebuddy` / `--platform codex` |
-| context-mode | ✓ | ✓ | ✗ | README "17 supported clients" 清单无 codebuddy |
-| tokenjuice | ✓ | ✓ | ✓ | README "Host integrations"：`tokenjuice install codebuddy` → ~/.codebuddy/settings.json |
 <!-- /stk:rules:toolkit-meta/agents exclude=graphify,codebase-memory,codegraph,gitnexus -->
 
 **过滤规则**：当前 `--agent`（归一化后）在该工具支持列中为 ✗ 时，**不产出**该工具的任何建议（即使已安装未启用也不推荐启用）——避免引导用户在不兼容的环境下安装/启用。唯一例外是 `rtk`：在 `codebuddy` 环境下可配置为 claude 模式启用（此为部署侧约定，官方文档未声明），照常产出建议，且 `detail` 中注明"需配置为 claude 模式"。
@@ -93,11 +69,6 @@
 下表由规则库 `data.toolkits` 的 meta 字段在 `stk init` 渲染期生成（自定义规则库可覆盖）：
 
 <!-- stk:rules:toolkit-meta/levels exclude-category=knowledge-base -->
-| level | 命中条件（`target` / 工具名）                                                                                                                    |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 初级  | `rtk`（安装即用、零配置）                                                                                                                        |
-| 中级  | `caveman` / `caveman-*` / `ponytail` / `ponytail-*` / `i-have-adhd` / `i-have-adhd-*` / `karpathy-skills` / `context-mode`（需 MCP + Hook 配置） |
-| 高级  | `headroom`（需上下文压缩配置，配置复杂度高）；知识库类工具交 agent 6，本 Agent 不产出                                                            |
 <!-- /stk:rules:toolkit-meta/levels exclude-category=knowledge-base -->
 
 ## estimatedSavingTokens 估算口径
@@ -107,12 +78,6 @@
   - 绝对数字（如 "6200"）：直接使用
 - 无 `recommendedSaving` 时按下表默认估算（下表由规则库 `data.toolkits` 的 meta 字段在 `stk init` 渲染期生成，自定义规则库可覆盖）：
 <!-- stk:rules:toolkit-meta/est exclude-category=knowledge-base -->
-  - `rtk`：50000（10万 token session，50% 命令输出占比，60% 压缩率）
-  - `caveman`：30000（对话 token 占 40%，75% 压缩率）
-  - `headroom`：60000（上下文压缩 60%）
-  - `context-mode`：40000（工具输出占 40%，98% 压缩率）
-  - `karpathy-skills`：10000（间接节省，保守估计）
-  - `i-have-adhd`：10000（输出冗余压缩，间接节省，保守估计）
 <!-- /stk:rules:toolkit-meta/est exclude-category=knowledge-base -->
 
 ## 职责边界
