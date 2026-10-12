@@ -231,6 +231,49 @@ describe('generic install (mock runShell)', () => {
     expect(calls).toEqual(['install g-tool'])
   })
 
+  it('runShell 抛异常 → ok=false，error 为异常消息，config 步骤不执行', async () => {
+    const calls: string[] = []
+    const deps = makeDeps({
+      runShell: async (cmd) => {
+        calls.push(cmd)
+        if (cmd === 'install g-tool') throw new Error('spawn ENOENT')
+        return { exitCode: 0, stderr: '' }
+      },
+    })
+    const [t] = buildRegistry(
+      makeMerged([entryWith({ default: 'install g-tool', config: { default: 'g setup' } })]),
+      deps,
+    )
+    const result = await t!.install(false, 'codebuddy')
+    expect(result.ok).toBe(false)
+    expect(result.steps).toHaveLength(1)
+    expect(result.steps[0]!.ok).toBe(false)
+    expect(result.steps[0]!.error).toBe('spawn ENOENT')
+    expect(calls).toEqual(['install g-tool'])
+  })
+
+  it('config 步骤失败：install 成功后终止，ok=false 且含 config 失败记录', async () => {
+    const calls: string[] = []
+    const deps = makeDeps({
+      runShell: async (cmd) => {
+        calls.push(cmd)
+        if (cmd === 'g setup') return { exitCode: 3, stderr: 'config boom' }
+        return { exitCode: 0, stderr: '' }
+      },
+    })
+    const [t] = buildRegistry(
+      makeMerged([entryWith({ default: 'install g-tool', config: { default: 'g setup' } })]),
+      deps,
+    )
+    const result = await t!.install(false, 'codebuddy')
+    expect(result.ok).toBe(false)
+    expect(calls).toEqual(['install g-tool', 'g setup'])
+    expect(result.steps).toHaveLength(2)
+    expect(result.steps[0]!.ok).toBe(true)
+    expect(result.steps[1]!.ok).toBe(false)
+    expect(result.steps[1]!.error).toContain('exitCode=3')
+  })
+
   it('无 install.default 时为空步骤成功（byAgent 仅展示不执行）', async () => {
     const { deps, calls } = recorderDeps()
     const [t] = buildRegistry(
