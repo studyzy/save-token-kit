@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### 重构：第三方 Toolkit 零写死，检测/建议/安装全量数据驱动（v1.2.0，breaking）
+
+- **动机**：第三方工具的清单与事实性数据（检测方式、启用判定、建议参数、安装命令、官方仓库、支持 Agent）全部下沉到规则库 `data.toolkits`，自定义规则包可增删改第三方工具而无需改代码
+- **声明式检测规格**：`data.toolkits[]` 新增 `detect` / `enabled` 规格字段——7 种原语（`command` / `path` / `mcp` / `plugin-enabled` / `proxy-plugin` / `hook` / `process`）+ `all` / `any` 组合器（嵌套 ≤3 层），由 `src/toolkits/spec.ts` 的 `evaluateSpec` 统一评估；`proxyMarkers` / `mcpPrefixes` 字段数据化 proxy 请求体标记与 MCP 工具名前缀
+- **删除 `src/toolkits/impl/`（13 个文件）**：检测注册表改为 `data-registry.ts` 运行时从 `merged.toolkits` 构建；`diagnose.ts` 的 7 处 per-tool enabled 探测特例清除；唯一例外 `handlers/rtk-native.ts`（rtk 复杂安装流，数据经 `install.handler: 'rtk-native'` 引用）
+- **类型放宽**：`ToolkitId` 从 13 个字面量联合改为 `string`（工具清单数据驱动）；`ToolkitCatalogEntry` 扩展 `detect` / `enabled` / `description` / `saving` / `level` / `estTokens` / `category` / `install{verify,config,handler}` 可选字段
+- **loader**：`validateToolkitSpec` 宽松校验（字段在场才校形态、未知字段不拒绝、未知 kind 拒绝），旧格式规则包向后兼容（schemaVersion 保持 1，packVersion → 1.2.0）
+- **建议事实数据化**：level 判定表 / estTokens 默认估算 / 知识库 4 工具分类（`category: 'knowledge-base'`）从 toolkit-enable / knowledge-base 模板硬编码迁入数据，经 toolkit-meta 新视图渲染——`levels` / `est` / `names` 视图 + `category=` / `exclude-category=` 过滤属性（与既有 `only` / `exclude` 正交）
+- **模板零写死**：toolkit-enable / knowledge-base 的工具名枚举、level 表、估算清单、展示名映射全部改为渲染期注入；smoke 测试行级白名单断言清单性硬编码为零
+- **proxy 解析器**：插件激活标记（caveman / ponytail / i-have-adhd）与 `headroom_` MCP 前缀从 codebuddy-parser / codex-parser 硬编码迁入数据，`parser-core` 共享实现（`getToolkitProxyData()` 惰性缓存）；`'mcp__'` 通用语法保留引擎
+- **行为等价**：13 工具重构后检测结果与旧实现逐项一致（已通过逐字段对照 + 真实环境 diagnose 冒烟验证）；`report.ts` 仅写 `installed` 工具的既有行为不变
+- **测试**：465 用例（51 文件），重构模块覆盖 92-98%，全仓 83.2%
+
+### 迁移：toolkit-meta 建议元数据下沉规则库（v1.1.0，自 tokenlint 反向移植）
+
+- **动机**：第三方工具的官方仓库 / 支持 Agent / 安装方式是事实性数据，应可由自定义规则库覆盖而非硬编码在 SKILL 模板
+- **数据**：`data.toolkits[]` 新增可选平铺字段 `repo` / `agents`（claude/codex/codebuddy 布尔映射）/ `agentNotes` / `agentNote` / `install{default,byAgent}`；packVersion 1.1.0；`FR-001` parity（fallback.json 与 rules/stk-rules.json 逐字节一致）保持
+- **渲染**：`render.ts` 新增 `stk:rules:toolkit-meta/links|agents [only=|exclude=]` 占位对，渲染期生成 markdown 表；零项带 meta 时保留占位对内兜底骨架，产物不含占位标记、天然幂等
+- **模板**：toolkit-enable / knowledge-base 接入占位对；新增「支持 Agent 过滤」规则（当前 `--agent` 不支持的工具不产出建议，rtk 在 codebuddy 下除外）；建议 `detail` 必须附官方仓库链接
+- **有意偏差**：`agentCell` 的 note 对 ✗ 也渲染（tokenlint 仅 ✓ 渲染会丢 rtk 特例注记）
+
 ### 变更：第三方省 Token 工具统一改称 Toolkit（breaking）
 
 - **动机**：避免与 LLM 请求体中的 Tools（builtinTools / mcpTools）概念混淆，第三方省 Token 工具（rtk / caveman / headroom / lean-ctx / graphify / ponytail / i-have-adhd 等）统一改称 **Toolkit**
