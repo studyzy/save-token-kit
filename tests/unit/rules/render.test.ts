@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { loadRules } from '../../../src/rules/loader.js'
-import { renderTemplate, renderHeader, renderToolkitTables } from '../../../src/rules/render.js'
+import {
+  renderTemplate,
+  renderHeader,
+  insertHeader,
+  renderToolkitTables,
+} from '../../../src/rules/render.js'
 import type { MergedRules } from '../../../src/types/rules.js'
 
 describe('renderTemplate', () => {
@@ -61,11 +66,12 @@ describe('renderTemplate', () => {
 })
 
 describe('toolkit-meta rendering', () => {
-  const toolkitSkeleton = (inner = '内置兜底表格', view = 'links') => [
-    `<!-- stk:rules:toolkit-meta/${view} -->`,
-    inner,
-    `<!-- /stk:rules:toolkit-meta/${view} -->`,
-  ].join('\n')
+  const toolkitSkeleton = (inner = '内置兜底表格', view = 'links') =>
+    [
+      `<!-- stk:rules:toolkit-meta/${view} -->`,
+      inner,
+      `<!-- /stk:rules:toolkit-meta/${view} -->`,
+    ].join('\n')
 
   it('replaces links placeholder with the official-repo table including rtk', () => {
     const merged = loadRules({ rulesHome: undefined as unknown as string })
@@ -135,10 +141,7 @@ describe('toolkit-meta rendering', () => {
 
   it('omits the marker from output and is byte-idempotent', () => {
     const merged = loadRules({ rulesHome: undefined as unknown as string })
-    const skeleton = [
-      toolkitSkeleton(),
-      toolkitSkeleton('兜底', 'agents'),
-    ].join('\n')
+    const skeleton = [toolkitSkeleton(), toolkitSkeleton('兜底', 'agents')].join('\n')
     const res = renderTemplate(skeleton, merged)
     expect(res.content).not.toContain('stk:rules:toolkit-meta')
     expect(renderTemplate(skeleton, merged).content).toBe(res.content)
@@ -250,7 +253,9 @@ describe('smoke: real agent templates render without placeholder residue', () =>
   const merged = loadRules({ rulesHome: undefined as unknown as string })
   const loadTemplate = (name: string) =>
     readFileSync(
-      fileURLToPath(new URL(`../../../src/templates/skills/stk-analyze/agents/${name}.md`, import.meta.url)),
+      fileURLToPath(
+        new URL(`../../../src/templates/skills/stk-analyze/agents/${name}.md`, import.meta.url),
+      ),
       'utf8',
     )
 
@@ -279,7 +284,9 @@ describe('smoke: real agent templates render without placeholder residue', () =>
     expect(enable.content).toContain('| headroom | 高级 |')
     expect(enable.content).toContain('| rtk | 50000 |')
     expect(enable.content).toContain('| context-mode | 40000 |')
-    expect(enable.content).toMatch(/知识库工具名单：\n+graphify, gitnexus, codebase-memory, codegraph\n+/)
+    expect(enable.content).toMatch(
+      /知识库工具名单：\n+graphify, gitnexus, codebase-memory, codegraph\n+/,
+    )
 
     // 兜底表（占位对内旧表逐字内容）已被渲染产物替换，不应残留
     expect(enable.content).not.toContain('caveman-*') // level 兜底表专属写法
@@ -309,7 +316,9 @@ describe('smoke: real agent templates render without placeholder residue', () =>
     expect(kb.content).toContain('| graphify | https://github.com/Graphify-Labs/graphify |')
     expect(kb.content).toContain('https://github.com/abhigyanpatwari/GitNexus')
     expect(kb.content).toContain('| 工具 | claude | codex | codebuddy | 依据 |')
-    expect(kb.content).toMatch(/名单由规则库渲染名单给出，见下）[^]*?：\n+graphify, gitnexus, codebase-memory, codegraph\n+/)
+    expect(kb.content).toMatch(
+      /名单由规则库渲染名单给出，见下）[^]*?：\n+graphify, gitnexus, codebase-memory, codegraph\n+/,
+    )
 
     // 旧展示名映射表与展示名枚举已删除
     expect(kb.content).not.toContain('Graphify / Codebase-Memory')
@@ -321,7 +330,15 @@ describe('smoke: real agent templates render without placeholder residue', () =>
     expect(
       proseHardcode(
         kb.content,
-        ['graphify', 'gitnexus', 'codebase-memory', 'codegraph', 'Graphify', 'GitNexus', 'CodeGraph'],
+        [
+          'graphify',
+          'gitnexus',
+          'codebase-memory',
+          'codegraph',
+          'Graphify',
+          'GitNexus',
+          'CodeGraph',
+        ],
         /benchmark|官方建议|纯浏览器端|repo 特征选 1|两者等效|工具存储值即 id|^[\w-]+, /,
       ),
     ).toEqual([])
@@ -334,5 +351,44 @@ describe('renderHeader', () => {
     const header = renderHeader(merged)
     expect(header).toContain(`v${merged.rulesInfo.packVersion}`)
     expect(header).toMatch(/^<!-- stk-rules:/)
+  })
+})
+
+describe('insertHeader', () => {
+  const header = '<!-- stk-rules: v1.2.0 (rules) -->\n'
+
+  it('keeps the header at the top when there is no frontmatter', () => {
+    const content = '# Title\n\nbody\n'
+    expect(insertHeader(content, header)).toBe(header + content)
+  })
+
+  it('inserts the header after the frontmatter block, not before it', () => {
+    const content = '---\nname: stk\ndescription: x\n---\n\n# SKILL: stk\n'
+    const out = insertHeader(content, header)
+    expect(out.startsWith('---\n')).toBe(true)
+    expect(out).toContain('---\n' + header)
+    expect(out).toContain('# SKILL: stk')
+    // frontmatter must remain the very first line
+    expect(out.split('\n')[0]).toBe('---')
+  })
+
+  it('preserves the blank line separating frontmatter and body', () => {
+    const content = '---\nname: stk\n---\n\n# T\n'
+    const out = insertHeader(content, header)
+    expect(out).toBe('---\nname: stk\n---\n' + header + '\n# T\n')
+  })
+
+  it('handles CRLF frontmatter without corrupting line endings', () => {
+    const content = '---\r\nname: stk\r\n---\r\n\r\n# T\r\n'
+    const out = insertHeader(content, header)
+    expect(out.startsWith('---\r\n')).toBe(true)
+    expect(out).toContain('---\r\n' + header + '\r\n# T')
+  })
+
+  it('is idempotent-safe: the resulting content still starts with frontmatter', () => {
+    const merged = loadRules({ rulesHome: undefined as unknown as string })
+    const content = '---\nname: stk\n---\n\nbody\n'
+    const once = insertHeader(content, renderHeader(merged))
+    expect(once.split('\n')[0]).toBe('---')
   })
 })

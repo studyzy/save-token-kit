@@ -8,7 +8,8 @@ const PAIR_RE = /<!-- stk:rules:prompts\/([\w.-]+) -->\n([\s\S]*?)<!-- \/stk:rul
 // 属性可叠加（空格分隔，only/exclude 二选一 + category/exclude-category 二选一）；
 // 正向名字段避免回溯歧义；过滤列表仅 [\w-] 与逗号。
 // （TOOLKIT_RE 与 PAIR_RE 中的 `stk:rules` 标记是规则包格式的历史命名，保持不变。）
-const TOOLKIT_RE = /<!-- stk:rules:toolkit-meta\/(links|agents|levels|est|names)((?: (?:only|exclude|category|exclude-category)=[\w,-]+)*) -->\n([\s\S]*?)<!-- \/stk:rules:toolkit-meta\/\1(?: (?:only|exclude|category|exclude-category)=[\w,-]+)* -->/g
+const TOOLKIT_RE =
+  /<!-- stk:rules:toolkit-meta\/(links|agents|levels|est|names)((?: (?:only|exclude|category|exclude-category)=[\w,-]+)*) -->\n([\s\S]*?)<!-- \/stk:rules:toolkit-meta\/\1(?: (?:only|exclude|category|exclude-category)=[\w,-]+)* -->/g
 
 export type ToolkitView = 'links' | 'agents' | 'levels' | 'est' | 'names'
 
@@ -50,7 +51,8 @@ function filterToolkits(
 /** Apply category / exclude-category filter (orthogonal to only/exclude). */
 function filterCategory(toolkits: ToolkitCatalogEntry[], f: ToolkitFilters): ToolkitCatalogEntry[] {
   if (f.category !== undefined) return toolkits.filter((t) => t.category === f.category)
-  if (f.excludeCategory !== undefined) return toolkits.filter((t) => t.category !== f.excludeCategory)
+  if (f.excludeCategory !== undefined)
+    return toolkits.filter((t) => t.category !== f.excludeCategory)
   return toolkits
 }
 
@@ -73,7 +75,10 @@ export function renderToolkitTables(
   view: ToolkitView,
   filters: ToolkitFilters = {},
 ): string {
-  const entries = filterCategory(filterToolkits(Object.values(merged.toolkits ?? {}), filters.mode, filters.list), filters)
+  const entries = filterCategory(
+    filterToolkits(Object.values(merged.toolkits ?? {}), filters.mode, filters.list),
+    filters,
+  )
   const inField = (t: ToolkitCatalogEntry): boolean => {
     if (view === 'links') return t.repo !== undefined
     if (view === 'agents') return t.agents !== undefined
@@ -92,7 +97,11 @@ export function renderToolkitTables(
       (t) =>
         `| ${t.id} | ${agentCell(t, 'claude')} | ${agentCell(t, 'codex')} | ${agentCell(t, 'codebuddy')} | ${t.agentNote ?? ''} |`,
     )
-    return ['| 工具 | claude | codex | codebuddy | 依据 |', '| ---- | ------ | ----- | --------- | ---- |', ...rows].join('\n')
+    return [
+      '| 工具 | claude | codex | codebuddy | 依据 |',
+      '| ---- | ------ | ----- | --------- | ---- |',
+      ...rows,
+    ].join('\n')
   }
   if (view === 'levels') {
     const rows = withMeta.map((t) => `| ${t.id} | ${t.level} |`)
@@ -150,6 +159,26 @@ export function renderHeader(merged: MergedRules): string {
   const fromRules = Object.keys(merged.prompts).length > 0
   const src = fromRules ? 'rules' : 'builtin'
   return `<!-- stk-rules: v${merged.rulesInfo.packVersion} (${src}) -->\n`
+}
+
+/**
+ * Insert the version header comment into rendered artifact content.
+ *
+ * Markdown artifacts that begin with a YAML frontmatter block (`---` on the
+ * first line) must keep it at the very top: agents such as Codex parse skill
+ * files and fail with "missing YAML frontmatter" when anything precedes the
+ * opening `---`. For those files the header is inserted after the closing
+ * `---` instead of before the whole document. All other content keeps the
+ * header at the top as before.
+ */
+export function insertHeader(content: string, header: string): string {
+  const m = /^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/.exec(content)
+  if (!m) return header + content
+  const fm = m[0]
+  const rest = content.slice(fm.length).replace(/^\r?\n/, '')
+  const fmBlock = fm.endsWith('\n') ? fm : `${fm}\n`
+  const nl = fm.includes('\r\n') ? '\r\n' : '\n'
+  return fmBlock + header + nl + rest
 }
 
 /** Default dirs for prompt fragments if a pack ships them standalone. */

@@ -47,7 +47,8 @@ disable-model-invocation: true
    > 因此不能以这些变量判定为 Claude Code；请以 `CLAUDE_CODE_SESSION_ID` / `CLAUDE_PID`（Claude Code 官方注入）为准。
    > 同理，`CODEBUDDY_BASE_URL` 是配置 API 端点/代理的变量（可能被全局设置），不能作为"当前运行在 CodeBuddy"的依据，故仅用 `CODEBUDDY_SESSION_ID` 判定。
 3. 读取 `./save-token/diagnosis-report.md`，在对话中展示诊断报告。
-4. 提醒用户下一步运行 `/stk-analyze`，基于本次诊断数据给出节省 Token 的优化建议。
+4. **使用次数统计**：`.md` 报告不含 Tools / Skill / MCP / SubAgent 的调用次数；这些数据在 `./save-token/diagnosis-report.json` 的 `usageStats` 字段（`mcpServerUsage` / `skillUsage` / `subagentUsage`，含 `last30Days.ranking`）。展示时需从 JSON 补充各维度"最近 30 天调用排名"一并呈现；若 `usageStats` 缺失或 `filesScanned === 0`，如实说明"无会话历史数据"，不得当作 0 次调用。
+5. 提醒用户下一步运行 `/stk-analyze`，基于本次诊断数据给出节省 Token 的优化建议。
 
 ## 注意
 

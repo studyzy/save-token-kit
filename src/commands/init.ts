@@ -1,6 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, copyFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  readdirSync,
+  copyFileSync,
+} from 'node:fs'
 import { loadRules } from '../rules/loader.js'
-import { renderTemplate, renderHeader } from '../rules/render.js'
+import { renderTemplate, renderHeader, insertHeader } from '../rules/render.js'
 import type { MergedRules } from '../types/rules.js'
 import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -122,7 +129,7 @@ function copySkillDir(srcDir: string, destDir: string, force: boolean, rules: Me
       const raw = readFileSync(src, 'utf8')
       const { content, warnings } = renderTemplate(raw, rules)
       for (const w of warnings) console.error(yellow(`警告: ${w}`))
-      writeFileSync(dest, renderHeader(rules) + content)
+      writeFileSync(dest, insertHeader(content, renderHeader(rules)))
     } else {
       copyFileSync(src, dest)
     }

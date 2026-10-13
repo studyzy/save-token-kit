@@ -1,5 +1,13 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { mkdtempSync, rmSync, existsSync, readFileSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs'
+import {
+  mkdtempSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  mkdirSync,
+  writeFileSync,
+  readdirSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { runInit } from '@/commands/init.js'
@@ -43,7 +51,18 @@ describe('stk init', () => {
       join(tmp, '.codebuddy', 'skills', 'stk-diagnose', 'SKILL.md'),
       'utf8',
     )
-    expect(skillMd).toMatch(/^<!-- stk-rules: v\d+\.\d+\.\d+/)
+    expect(skillMd).toMatch(/\n---\n<!-- stk-rules: v\d+\.\d+\.\d+/)
+  })
+
+  it('keeps SKILL frontmatter on the first line and injects the header after it', async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'stk-init-'))
+    process.env.HOME = tmp
+    await runInit({ agent: 'codebuddy', force: true })
+    const skillMd = readFileSync(join(tmp, '.codebuddy', 'skills', 'stk', 'SKILL.md'), 'utf8')
+    // Codex rejects skill files whose opening `---` is not the very first line.
+    expect(skillMd.startsWith('---\n')).toBe(true)
+    expect(skillMd).toMatch(/\n---\n<!-- stk-rules: v\d+\.\d+\.\d+/)
+    expect(skillMd).toContain('name: stk')
   })
 
   it('installs to project .codebuddy when --local is set', async () => {
