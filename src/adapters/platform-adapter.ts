@@ -112,6 +112,24 @@ export interface PlatformAdapter {
    */
   readonly needsIsolatedConfigDir?: boolean
   /**
+   * Whether config-dir isolation is actually required right now. Isolation
+   * hides everything the config dir provides (user skills, rules, CLAUDE.md,
+   * OAuth credentials), which distorts the diagnosis report. It is only needed
+   * when the agent's config would otherwise override the proxy env var — e.g.
+   * Claude Code only does so when `settings.json` sets `ANTHROPIC_BASE_URL`.
+   * Agents without this hook are isolated whenever `needsIsolatedConfigDir` is true.
+   */
+  readonly shouldIsolateConfigDir?: () => boolean
+  /**
+   * A placeholder credential to inject when config-dir isolation leaves the
+   * probe unauthenticated. Claude Code's OAuth session lives in the config dir
+   * (`.credentials.json` / keychain), not in `settings.json` env, so isolation
+   * makes it exit with "Not logged in" and send no request. The mock proxy does
+   * not validate keys, so a placeholder lets the probe reach the proxy.
+   * Return null when the agent authenticates some other way (leave env untouched).
+   */
+  readonly isolatedProbeCredential?: () => { key: string; value: string } | null
+  /**
    * Environment variables to retain from the agent's own config (e.g.
    * `~/.claude/settings.json` env) when `diagnose` isolates the config dir.
    * The proxy env var (`ANTHROPIC_BASE_URL`) is intentionally excluded so the

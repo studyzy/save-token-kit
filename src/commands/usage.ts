@@ -4,12 +4,18 @@
  * `save-token/usage-report.json`. Pure local-disk analysis — no network, no
  * agent invocation, no session message content.
  */
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { bold, green, red } from 'ansis'
 import { getAdapter } from '../adapters/codebuddy-adapter.js'
 import { collectUsageStats } from '../collectors/usage-collector.js'
-import { SAVE_TOKEN_DIR, type UsageDimension, type UsageStats, type UsageTimeBucket } from '../types/index.js'
+import { ensureIgnoredDir } from '../utils/fs-operations.js'
+import {
+  SAVE_TOKEN_DIR,
+  type UsageDimension,
+  type UsageStats,
+  type UsageTimeBucket,
+} from '../types/index.js'
 
 export interface UsageOptions {
   /** Target agent whose session history is scanned (default: codebuddy). */
@@ -45,7 +51,7 @@ export async function runUsage(options: UsageOptions = {}): Promise<void> {
   printReport(stats)
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
-  mkdirSync(outDir, { recursive: true })
+  ensureIgnoredDir(outDir)
   const outPath = join(outDir, 'usage-report.json')
   writeFileSync(outPath, JSON.stringify(stats, null, 2))
   console.error(bold(green(`\n使用报告已写入 ${outPath}`)))

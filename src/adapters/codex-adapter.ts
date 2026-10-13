@@ -66,7 +66,14 @@ export class CodeXAdapter implements PlatformAdapter {
   readonly statusLabel = '可用'
   readonly proxyEnvVar = 'OPENAI_BASE_URL'
   readonly proxyBasePath = '/v1'
-  readonly triggerCommand = ['codex', 'exec', 'Hello', '--skip-git-repo-check', '--sandbox', 'read-only']
+  readonly triggerCommand = [
+    'codex',
+    'exec',
+    'Hello',
+    '--skip-git-repo-check',
+    '--sandbox',
+    'read-only',
+  ]
   readonly capturePathPrefix = '/v1/'
   readonly defaultApiBase = 'https://api.openai.com'
   // CodeX reads "additional input from stdin" when stdin is a pipe and blocks
@@ -84,9 +91,17 @@ export class CodeXAdapter implements PlatformAdapter {
    * CodeX (>= 0.18) routes via config.toml `[model_providers.<id>].base_url`,
    * not an env var like `OPENAI_BASE_URL`. Redirect it to the proxy by
    * appending `-c model_providers.<provider>.base_url="<proxy>"`.
+   *
+   * Exception: `openai` is a reserved built-in provider id — CodeX rejects
+   * `model_providers.openai.base_url` with "model_providers contains reserved
+   * built-in provider IDs". Users without a `model_provider` setting default to
+   * `openai`, so that case must go through the top-level `openai_base_url` key.
    */
   proxyRedirectArgs(proxyBaseUrl: string): string[] {
     const providerId = readProviderId(this.configFilePath())
+    if (providerId === 'openai') {
+      return ['-c', `openai_base_url="${proxyBaseUrl}"`]
+    }
     return ['-c', `model_providers.${providerId}.base_url="${proxyBaseUrl}"`]
   }
 

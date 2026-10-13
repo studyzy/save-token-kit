@@ -88,7 +88,10 @@ describe('ClaudeAdapter', () => {
     it('reads upstream base url from settings.json env when process env is absent', () => {
       const dir = join(tempHome, '.claude')
       mkdirSync(dir, { recursive: true })
-      writeFileSync(join(dir, 'settings.json'), JSON.stringify({ env: { ANTHROPIC_BASE_URL: 'http://9.134.212.96:3456/' } }))
+      writeFileSync(
+        join(dir, 'settings.json'),
+        JSON.stringify({ env: { ANTHROPIC_BASE_URL: 'http://9.134.212.96:3456/' } }),
+      )
       expect(adapter.resolveUpstreamBaseUrl()).toBe('http://9.134.212.96:3456/')
     })
 
@@ -133,6 +136,73 @@ describe('ClaudeAdapter', () => {
 
     it('configDirRetainedEnv returns empty object when settings.json is missing', () => {
       expect(adapter.configDirRetainedEnv()).toEqual({})
+    })
+  })
+
+  describe('config-dir isolation policy', () => {
+    let tempHome: string
+
+    beforeEach(() => {
+      tempHome = mkdtempSync(join(tmpdir(), 'stk-claude-'))
+      vi.spyOn(platformUtils, 'getHomeDir').mockReturnValue(tempHome)
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+      rmSync(tempHome, { recursive: true, force: true })
+    })
+
+    function writeSettings(env: Record<string, string>): void {
+      const dir = join(tempHome, '.claude')
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, 'settings.json'), JSON.stringify({ env }))
+    }
+
+    it('skips isolation when settings.json does not pin the proxy base url', () => {
+      // No ANTHROPIC_BASE_URL in settings -> process-env redirect already wins,
+      // so isolating would only hide user skills/rules/memory from the report.
+      writeSettings({ ANTHROPIC_AUTH_TOKEN: 'sk-test' })
+      expect(adapter.shouldIsolateConfigDir()).toBe(false)
+    })
+
+    it('requires isolation when settings.json pins the proxy base url', () => {
+      writeSettings({ ANTHROPIC_BASE_URL: 'http://from-settings' })
+      expect(adapter.shouldIsolateConfigDir()).toBe(true)
+    })
+
+    it('requires isolation when settings.json is missing (conservative default)', () => {
+      expect(adapter.shouldIsolateConfigDir()).toBe(false)
+    })
+
+    it('isolatedProbeCredential injects a placeholder when no credential is in env', () => {
+      const origKey = process.env.ANTHROPIC_API_KEY
+      const origToken = process.env.ANTHROPIC_AUTH_TOKEN
+      delete process.env.ANTHROPIC_API_KEY
+      delete process.env.ANTHROPIC_AUTH_TOKEN
+      try {
+        // OAuth users have no credential in the inherited env; the probe would
+        // exit "Not logged in" without a placeholder.
+        expect(adapter.isolatedProbeCredential()).toEqual({
+          key: 'ANTHROPIC_API_KEY',
+          value: 'stk-probe-placeholder',
+        })
+      } finally {
+        if (origKey === undefined) delete process.env.ANTHROPIC_API_KEY
+        else process.env.ANTHROPIC_API_KEY = origKey
+        if (origToken === undefined) delete process.env.ANTHROPIC_AUTH_TOKEN
+        else process.env.ANTHROPIC_AUTH_TOKEN = origToken
+      }
+    })
+
+    it('isolatedProbeCredential returns null when a credential is already present', () => {
+      const origKey = process.env.ANTHROPIC_API_KEY
+      process.env.ANTHROPIC_API_KEY = 'sk-real'
+      try {
+        expect(adapter.isolatedProbeCredential()).toBeNull()
+      } finally {
+        if (origKey === undefined) delete process.env.ANTHROPIC_API_KEY
+        else process.env.ANTHROPIC_API_KEY = origKey
+      }
     })
   })
 })

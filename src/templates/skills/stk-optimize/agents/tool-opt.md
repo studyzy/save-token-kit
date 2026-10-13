@@ -34,7 +34,7 @@ alias cblite='codebuddy --tools "Read,Write,Edit,Bash,Glob,Grep,Skill,Defer(Task
 2. 判定目标 shell 配置文件：
    - 运行 `echo $SHELL`，含 `zsh` → `~/.zshrc`；含 `bash` → `~/.bashrc`。
    - 文件不存在 → 创建空文件（`touch`）。
-3. **备份**：该文件在仓库外（用户主目录），**必须先备份**再修改。复制原文件到 `~/.codebuddy/save-token-kit-backup/<原文件名>.bak`（目录不存在则先 `mkdir -p`）。
+3. **备份**：该文件在仓库外（用户主目录），**必须先备份**再修改。复制原文件到 `~/.save-token-kit-backup/<原文件名>.bak`（目录不存在则先 `mkdir -p`），备份目录与目标 shell 配置文件无关。
 4. 幂等检查：读取文件内容，若已包含 `cblite` 定义：
    - 与目标 alias 相同 → 已就绪，回报"已存在，无需修改"。
    - 与目标 alias 不同 → 回报冲突，提示用户是否覆盖（不自动覆盖）。
@@ -63,7 +63,7 @@ alias cblite='codebuddy --tools "Read,Write,Edit,Bash,Glob,Grep,Skill,Defer(Task
 ### 执行逻辑
 
 1. **用户确认**：`detail` 中已列出用户确认的 deny 工具。若 `detail` 工具清单为空/缺失，或用户尚未明确确认，**先停下**向主 SKILL 回报"需用户确认 deny 工具"，不要擅自写入。
-2. **备份**：`~/.claude/settings.json` 在仓库外，**必须先备份**再修改。复制到 `~/.codebuddy/save-token-kit-backup/settings-claude.json.bak`。
+2. **备份**：`~/.claude/settings.json` 在仓库外，**必须先备份**再修改。复制到 `~/.claude/save-token-kit-backup/settings-claude.json.bak`（目录不存在则先 `mkdir -p`）。
 3. 读取文件：
    - 文件不存在 → 创建 `{}`。
    - JSON 解析失败 → 回报失败，不覆盖。

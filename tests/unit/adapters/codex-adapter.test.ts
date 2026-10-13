@@ -96,14 +96,18 @@ describe('CodeXAdapter', () => {
     }
   })
 
-  it('defaults provider id to openai when config has none', () => {
+  it('uses top-level openai_base_url when provider id defaults to openai', () => {
     const dir = mkdtempSync(join(tmpdir(), 'stk-codex-'))
     writeFileSync(join(dir, 'config.toml'), 'model = "test-model"\n')
     const orig = process.env.CODEX_HOME
     process.env.CODEX_HOME = dir
     try {
       const args = adapter.proxyRedirectArgs('http://127.0.0.1:54321/v1')
-      expect(args[1]).toContain('model_providers.openai.base_url')
+      // `openai` is a reserved built-in provider id; CodeX rejects
+      // `model_providers.openai.base_url`, so it must use the top-level key.
+      expect(args[0]).toBe('-c')
+      expect(args[1]).toBe('openai_base_url="http://127.0.0.1:54321/v1"')
+      expect(args[1]).not.toContain('model_providers.openai')
     } finally {
       if (orig === undefined) delete process.env.CODEX_HOME
       else process.env.CODEX_HOME = orig

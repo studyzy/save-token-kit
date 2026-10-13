@@ -59,8 +59,10 @@ disable-model-invocation: true
 | operationType          | target 匹配                              | 子 Agent                          | 说明                                                                                                                        |
 | ---------------------- | ---------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `install-toolkit`      | —                                        | `@agents/install-toolkit.md`      | 执行 `stk install` 安装工具                                                                                                 |
-| `disable-skill`        | —                                        | `@agents/skill-opt.md`            | 修改 settings.json 禁用 Skill                                                                                               |
-| `migrate-skill`        | —                                        | `@agents/skill-opt.md`            | 修改 settings.json 迁移 Skill 作用域                                                                                        |
+| `disable-skill`        | —                                        | `@agents/skill-opt.md`            | 改 Skill 自身 frontmatter/移除文件（**非** settings.json，Skill 不受 `enabledPlugins` 控制）                                 |
+| `migrate-skill`        | —                                        | `@agents/skill-opt.md`            | 移动 Skill 目录（user↔project 作用域迁移）                                                                                  |
+| `disable-model-invocation` | —                                    | `@agents/skill-opt.md`            | 加 `disable-model-invocation: true`，改为仅斜杠调用                                                                          |
+| `skill-model-downgrade` | —                                       | `@agents/skill-opt.md`            | 加 `context: fork` + `model: lite`，便宜模型执行                                                                             |
 | `disable-mcp`          | —                                        | `@agents/mcp-opt.md`              | 修改 .mcp.json 禁用 MCP                                                                                                     |
 | `defer-mcp`            | —                                        | `@agents/mcp-opt.md`              | 修改 .mcp.json 设置 defer_loading                                                                                           |
 | `replace-mcp-with-cli` | `tapd` / `mcp-server-tapd`               | `@agents/cli-replace-tapd.md`     | 安装 tapd-ai-cli + 禁用 TAPD MCP                                                                                            |
@@ -108,7 +110,9 @@ id: "<task id>"
 
 子 Agent 直接执行系统修改，回报结果给主 SKILL。不产出中间 JSON 文件。
 
-> 本 SKILL 操作对象均为当前 Git 仓库内的受版本管理文件，**无需手动备份，直接修改即可**——误改可由 `git checkout` / `git restore` 还原。仅当任务明确指向仓库外用户配置（如 `~/.codebuddy/settings.json`、`.mcp.json` 等脱离 Git 跟踪的文件）时才先备份再改。
+> 本 SKILL 操作对象均为当前 Git 仓库内的受版本管理文件，**无需手动备份，直接修改即可**——误改可由 `git checkout` / `git restore` 还原。仅当任务明确指向仓库外用户配置（如 `~/.codebuddy/settings.json`、`.mcp.json` 等脱离 Git 跟踪的文件）时才先备份再改，备份到 `~/.save-token-kit-backup/`。
+>
+> ⚠️ **平台路径按诊断 `agentName` 选择，勿写死 `~/.codebuddy`**：各子 Agent 均在开头给出平台路径表，执行前必须替换为 `codebuddy`/`workbuddy`/`claude`/`codex` 对应的 `~/.<agent>/` 目录，避免误改其他 Agent 的配置。
 
 ## 边界
 

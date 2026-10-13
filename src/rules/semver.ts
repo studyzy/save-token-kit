@@ -1,12 +1,17 @@
 /**
  * Minimal semver range check for rules-pack compat gating.
  * Supports only `>=X.Y.Z`, `<X.Y.Z`, `=X.Y.Z` tokens joined by commas (AND).
- * Deliberately no semver dependency (charter IV); ranges beyond this grammar fail closed.
+ * Pre-release / build metadata (`-beta.0`, `+sha`) is ignored and only the
+ * `X.Y.Z` core is compared. Deliberately no semver dependency (charter IV);
+ * ranges beyond this grammar fail closed.
  */
 
 function parseVersion(v: string, allowPartial = false): number[] | null {
+  // Strip pre-release / build metadata so a version like `0.6.1-beta.0` is
+  // compared by its `0.6.1` core instead of failing to parse.
+  const core = v.trim().split(/[-+]/, 1)[0]
   const re = allowPartial ? /^(\d+)(?:\.(\d+))?(?:\.(\d+))?$/ : /^(\d+)\.(\d+)\.(\d+)$/
-  const m = re.exec(v.trim())
+  const m = re.exec(core)
   if (!m) return null
   return [Number(m[1] ?? 0), Number(m[2] ?? 0), Number(m[3] ?? 0)]
 }
@@ -47,7 +52,10 @@ function satisfiesToken(version: number[], token: string): boolean {
 export function satisfiesRange(version: string, range: string): boolean {
   const v = parseVersion(version)
   if (!v) return false
-  const tokens = range.split(',').map((t) => t.trim()).filter(Boolean)
+  const tokens = range
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
   if (tokens.length === 0) return false
   return tokens.every((t) => satisfiesToken(v, t))
 }

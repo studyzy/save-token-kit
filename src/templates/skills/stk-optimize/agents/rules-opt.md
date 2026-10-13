@@ -11,13 +11,25 @@
 - `target`: Rule 名称或文件路径
 - `title`: 任务标题
 - `detail`: 任务详情（描述具体优化操作）
+- 当前平台：以诊断 `agentName` 为准（`codebuddy` / `workbuddy` / `claude` / `codex`）
+
+## 配置路径（按当前平台选择，勿写死）
+
+| 平台 | user 级 rules 目录 | project 级 rules 目录 |
+| --- | --- | --- |
+| CodeBuddy | `~/.codebuddy/rules/` | `./.codebuddy/rules/` |
+| WorkBuddy | `~/.workbuddy/rules/` | `./.workbuddy/rules/` |
+| Claude Code | `~/.claude/rules/` | `./.claude/rules/` |
+| CodeX | 无独立 rules 目录（规则写在 `AGENTS.md`） | `./AGENTS.md` |
+
+- **执行前必须按诊断 `agentName` 替换为对应平台目录**，避免改到其他 Agent 的规则文件。
 
 ## 执行逻辑
 
 按 `detail` 描述执行对应操作：
 
 ### 为 rule 添加 paths 作用域
-1. 读取目标 rule 文件（`~/.codebuddy/rules/<name>.md` 或 `./.codebuddy/rules/<name>.md`）。
+1. 读取目标 rule 文件（上表对应平台的 user 或 project 级目录）。
 2. 在 frontmatter 中添加 `paths:` 字段，限定加载范围。
 3. 写回文件。
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import {
   mkdtempSync,
   rmSync,
@@ -97,5 +97,26 @@ describe('stk init', () => {
     await runInit({ agent: 'codebuddy', force: true })
     expect(readFileSync(join(base, 'SKILL.md'), 'utf8')).not.toBe('OLD')
     expect(readFileSync(join(base, 'agents', 'skill-opt.md'), 'utf8')).not.toBe('OLD-AGENT')
+  })
+
+  it('reports skipped-existing rather than an empty template on re-run', async () => {
+    tmp = mkdtempSync(join(tmpdir(), 'stk-init-'))
+    process.env.HOME = tmp
+    await runInit({ agent: 'codebuddy', force: true })
+    // Second run without --force: every file exists, so it must say so and
+    // point at the target dir — not blame the (non-empty) template dir.
+    const errors: string[] = []
+    const spy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      errors.push(args.join(' '))
+    })
+    try {
+      await runInit({ agent: 'codebuddy' })
+    } finally {
+      spy.mockRestore()
+    }
+    const joined = errors.join('\n')
+    expect(joined).toMatch(/已存在 \d+ 个文件，跳过（加 --force 覆盖）/)
+    expect(joined).toContain(join(tmp, '.codebuddy', 'skills'))
+    expect(joined).not.toContain('模板目录为空')
   })
 })

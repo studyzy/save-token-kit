@@ -1,4 +1,4 @@
-import { writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawn, type SpawnOptions } from 'node:child_process'
@@ -7,6 +7,7 @@ import { getAdapter } from '../adapters/codebuddy-adapter.js'
 import type { PlatformAdapter } from '../adapters/platform-adapter.js'
 import { WorkBuddyAdapter } from '../adapters/workbuddy-adapter.js'
 import { detectCodeBuddyVersion, getHomeDir } from '../utils/platform.js'
+import { ensureIgnoredDir } from '../utils/fs-operations.js'
 import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
 import { parseRequestBody } from '../proxy/parser.js'
@@ -14,10 +15,7 @@ import { scanFilesystem } from '../collectors/fs-collector.js'
 import { collectUsageStats } from '../collectors/usage-collector.js'
 import { loadRules, RULES_HOME } from '../rules/loader.js'
 import { autoCheckLibraryUpdate, metaPath } from '../rules/update.js'
-import {
-  getAllToolkits,
-  type SpecContext,
-} from '../toolkits/index.js'
+import { getAllToolkits, type SpecContext } from '../toolkits/index.js'
 import {
   DEFAULT_PROXY_PORT,
   SAVE_TOKEN_DIR,
@@ -71,14 +69,14 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   // Resolve the upstream API base URL: some adapters read it from their own
   // config (e.g. CodeX provider base_url); others use the current env var value
   // or the built-in default.
-  const originalBaseUrl =
-    adapter.resolveUpstreamBaseUrl?.() ?? process.env[adapter.proxyEnvVar]
+  const originalBaseUrl = adapter.resolveUpstreamBaseUrl?.() ?? process.env[adapter.proxyEnvVar]
   const upstreamBaseUrl = originalBaseUrl || adapter.defaultApiBase
 
   // 1. Start transparent proxy. Live mode forwards to the real API and records
   // request/response traces; mock mode (default) answers with a protocol mock
   // so the probe completes without a reachable upstream.
-  console.log(bold(green(`启动代理 (127.0.0.1:${preferredPort}) 拦截 ${agentName} 的请求...`)))
+  // The log is printed after binding so it reports the real port: when the
+  // preferred port is taken, startProxy falls back to a random one.
   const proxy = await startProxy({
     port: preferredPort,
     capturePathPrefix: adapter.capturePathPrefix,
@@ -86,6 +84,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     mock: !live,
     traceDir: live ? join(process.cwd(), SAVE_TOKEN_DIR, 'trace') : undefined,
   })
+  console.log(bold(green(`启动代理 (127.0.0.1:${proxy.port}) 拦截 ${agentName} 的请求...`)))
 
   // 2. Point agent at the proxy and capture requests.
   const proxyBaseUrl = `http://127.0.0.1:${proxy.port}`
@@ -140,13 +139,20 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
 
     // For agents whose own config can override the proxy env var (e.g. Claude
     // Code's `~/.claude/settings.json` env), isolate the config dir to a temp
-    // dir so the process-env redirection below actually takes effect.
+    // dir so the process-env redirection below actually takes effect. Isolation
+    // is skipped when the agent reports it is unnecessary (`shouldIsolateConfigDir`),
+    // since it hides the user's skills/rules/memory from the probe and would make
+    // the report show only built-in assets.
     const configDirVar = 'CLAUDE_CONFIG_DIR'
     const originalConfigDir = process.env[configDirVar]
     let isolatedConfigDir: string | undefined
     // Track env vars we injected during isolation so we can delete them in finally.
     const injectedEnvKeys = new Set<string>()
-    if (usesEnvRedirect && adapter.needsIsolatedConfigDir) {
+    const isolate =
+      usesEnvRedirect &&
+      adapter.needsIsolatedConfigDir === true &&
+      (adapter.shouldIsolateConfigDir?.() ?? true)
+    if (isolate) {
       isolatedConfigDir = mkdtempSync(join(tmpdir(), 'stk-config-'))
       process.env[configDirVar] = isolatedConfigDir
       // Isolation hides settings.json env (credentials, model mappings). Preserve
@@ -156,6 +162,14 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
           process.env[k] = v
           injectedEnvKeys.add(k)
         }
+      }
+      // OAuth logins keep their credential in the config dir, not in settings.json
+      // env, so isolation leaves the probe unauthenticated. Inject a placeholder
+      // (the mock proxy does not validate keys) so claude still sends a request.
+      const placeholder = adapter.isolatedProbeCredential?.()
+      if (placeholder && process.env[placeholder.key] === undefined) {
+        process.env[placeholder.key] = placeholder.value
+        injectedEnvKeys.add(placeholder.key)
       }
     }
     if (usesEnvRedirect) {
@@ -176,7 +190,9 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
           const customModelUrl = proxyBaseUrl
           prevModels = adapter.injectDiagnoseModel(customModelUrl)
           console.error(green(`  代理已就绪 (端口 ${proxy.port})，等待 WorkBuddy 桌面发起请求...`))
-          console.error(cyan(`  已注入自定义模型 "stk-diagnose" → ${customModelUrl}/chat/completions`))
+          console.error(
+            cyan(`  已注入自定义模型 "stk-diagnose" → ${customModelUrl}/chat/completions`),
+          )
           console.error(
             yellow(
               `  请在 WorkBuddy 桌面选择 "stk-diagnose (token check)" 模型，然后发送一条消息：\n` +
@@ -193,7 +209,11 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
       } else {
         console.log(green(`  代理已就绪 (端口 ${proxy.port})，触发探测请求...`))
         if (usesEnvRedirect) {
-          console.error(cyan(`  重定向 ${adapter.proxyEnvVar}=${proxyUrl}${isolatedConfigDir ? ` (隔离配置目录 ${isolatedConfigDir})` : ''}`))
+          console.error(
+            cyan(
+              `  重定向 ${adapter.proxyEnvVar}=${proxyUrl}${isolatedConfigDir ? ` (隔离配置目录 ${isolatedConfigDir})` : ''}`,
+            ),
+          )
         }
         await runTriggerCommand(adapter, adapter.triggerCommand, redirectArgs, CAPTURE_TIMEOUT_MS)
       }
@@ -237,9 +257,11 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     if (agentName === 'claude') {
       console.error(
         yellow(
-          '排查提示：Claude Code 可能被 shell 别名/函数或 preload 拦截，覆盖了代理重定向。\n' +
+          '排查提示：Claude Code 可能被 shell 别名/函数或 preload 拦截，覆盖了代理重定向；\n' +
+            '也可能因配置目录隔离后失去登录态（OAuth 凭据在配置目录内，不在 settings.json env）。\n' +
             '  1) 请确认 `which claude` 不是被包裹的函数；若 ~/.zshrc 有 claude() 函数定义（如 onesuite-pilot 拦截），会干扰重定向。\n' +
-            '  2) 可临时跳过拦截重跑，或用 `stk diagnose --agent codebuddy` 验证代理链路是否正常。',
+            '  2) 若为 OAuth 登录，可先设置 ANTHROPIC_API_KEY=<任意值> 再重跑（代理不校验 key）。\n' +
+            '  3) 可临时跳过拦截重跑，或用 `stk diagnose --agent codebuddy` 验证代理链路是否正常。',
         ),
       )
     }
@@ -262,19 +284,20 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   const proxyParsed: ProxyDiagnosisData | null = parseRequestBody(mainBody, agentName)
   const toolkitDetection = await detectToolkitsViaRegistry(fs, proxyParsed)
   const agentVersion = await detectCodeBuddyVersion(adapter.getConfigPaths().cliBinary)
-  const report = buildDiagnosisReport([mainBody], fs, toolkitDetection, agentVersion, agentName, loadRules().rulesInfo)
+  const report = buildDiagnosisReport(
+    [mainBody],
+    fs,
+    toolkitDetection,
+    agentVersion,
+    agentName,
+    loadRules().rulesInfo,
+  )
   await attachUsageStats(report, adapter.getConfigPaths().sessionsDir)
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
-  mkdirSync(outDir, { recursive: true })
   // Artifacts here include the full request-body snapshot (proxy-raw-body.json),
-  // which embeds code and memory-file content — keep them out of version
-  // control by default. Only create when absent so a user-curated .gitignore
-  // (e.g. to track reports) is never overwritten.
-  const gitignorePath = join(outDir, '.gitignore')
-  if (!existsSync(gitignorePath)) {
-    writeFileSync(gitignorePath, '*\n')
-  }
+  // which embeds code and memory-file content — keep them out of version control.
+  ensureIgnoredDir(outDir)
 
   writeFileSync(join(outDir, 'proxy-raw-body.json'), JSON.stringify(mainBody, null, 2))
   writeFileSync(join(outDir, 'diagnosis-report.json'), JSON.stringify(report, null, 2))
@@ -381,9 +404,9 @@ function buildSpecContext(
   const home = getHomeDir()
   let settingsJson: { enabledPlugins?: Record<string, boolean> } | null = null
   try {
-    settingsJson = JSON.parse(
-      readFileSync(join(home, '.codebuddy', 'settings.json'), 'utf8'),
-    ) as { enabledPlugins?: Record<string, boolean> }
+    settingsJson = JSON.parse(readFileSync(join(home, '.codebuddy', 'settings.json'), 'utf8')) as {
+      enabledPlugins?: Record<string, boolean>
+    }
   } catch {
     // 无 settings.json → plugin-enabled 原语按 false 处理
   }
@@ -396,10 +419,7 @@ function buildSpecContext(
  * the user must restart the agent pointed at the proxy and fire a conversation.
  * Polls every 500ms so a long user interaction is not missed.
  */
-export async function waitForCapture(
-  capturedBodies: unknown[],
-  timeoutMs: number,
-): Promise<void> {
+export async function waitForCapture(capturedBodies: unknown[], timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (capturedBodies.length > 0) return

@@ -117,11 +117,13 @@ function copySkillDir(srcDir: string, destDir: string, force: boolean, rules: Me
     return 0
   }
   let written = 0
+  let skipped = 0
   for (const rel of walkFiles(srcDir)) {
     const src = join(srcDir, rel)
     const dest = join(destDir, rel)
     if (existsSync(dest) && !force) {
       console.error(yellow(`已存在，跳过（使用 --force 覆盖）: ${dest}`))
+      skipped += 1
       continue
     }
     mkdirSync(dirname(dest), { recursive: true })
@@ -136,7 +138,13 @@ function copySkillDir(srcDir: string, destDir: string, force: boolean, rules: Me
     written += 1
   }
   if (written === 0) {
-    console.error(red(`模板目录为空或全部跳过: ${relative(process.cwd(), srcDir) || srcDir}`))
+    if (skipped > 0) {
+      // Re-running init without --force lands here; make the reason and the
+      // target directory explicit instead of implying the template is broken.
+      console.error(yellow(`已存在 ${skipped} 个文件，跳过（加 --force 覆盖）: ${destDir}`))
+    } else {
+      console.error(red(`模板目录为空: ${relative(process.cwd(), srcDir) || srcDir}`))
+    }
   }
   return written
 }

@@ -6,6 +6,7 @@ import {
   isDirectory,
   getStats,
   readJsonSafe,
+  ensureIgnoredDir,
 } from '@/utils/fs-operations.js'
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -52,5 +53,22 @@ describe('fs-operations', () => {
     expect(readJsonSafe(join(DIR, 'missing.json'))).toBeNull()
     writeFileSync(join(DIR, 'bad.json'), 'not json')
     expect(readJsonSafe(join(DIR, 'bad.json'))).toBeNull()
+  })
+
+  describe('ensureIgnoredDir', () => {
+    it('creates the dir and a self-ignoring .gitignore', () => {
+      const target = join(DIR, 'save-token')
+      ensureIgnoredDir(target)
+      expect(isDirectory(target)).toBe(true)
+      expect(readFile(join(target, '.gitignore'))).toBe('*\n')
+    })
+
+    it('never overwrites a user-curated .gitignore', () => {
+      const target = join(DIR, 'save-token')
+      mkdirSync(target, { recursive: true })
+      writeFileSync(join(target, '.gitignore'), '!report.md\n')
+      ensureIgnoredDir(target)
+      expect(readFile(join(target, '.gitignore'))).toBe('!report.md\n')
+    })
   })
 })

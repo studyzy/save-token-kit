@@ -1,5 +1,5 @@
 import type { Stats } from 'node:fs'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 
 export function exists(path: string): boolean {
   return existsSync(path)
@@ -31,5 +31,19 @@ export function readJsonSafe<T>(path: string): T | null {
     return JSON.parse(readFile(path)) as T
   } catch {
     return null
+  }
+}
+
+/**
+ * Ensure the `save-token/` artifact directory exists and is self-ignoring, so
+ * running any command inside a repo never leaves untracked files behind.
+ * The `.gitignore` is only created when absent, so a user-curated one (e.g. to
+ * deliberately track reports) is never overwritten.
+ */
+export function ensureIgnoredDir(dir: string): void {
+  mkdirSync(dir, { recursive: true })
+  const gitignorePath = `${dir}/.gitignore`
+  if (!existsSync(gitignorePath)) {
+    writeFileSync(gitignorePath, '*\n')
   }
 }

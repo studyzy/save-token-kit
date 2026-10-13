@@ -147,3 +147,71 @@ describe('renderMarkdown', () => {
     expect(md).toContain('A commit helper skill')
   })
 })
+
+describe('renderMarkdown Hooks section', () => {
+  function reportWithHooks(hookList: DiagnosisReport['hookList']): DiagnosisReport {
+    return {
+      scanTimestamp: '2026-01-01T00:00:00Z',
+      agentName: 'codebuddy',
+      agentVersion: '1.0.0',
+      contextOverview: { totalEstimatedTokens: 1000, breakdown: [] },
+      mcpList: [],
+      skillList: [],
+      agentList: [],
+      builtinTools: [],
+      hookList,
+    }
+  }
+
+  it('shows only the first line of a multi-line hook command', () => {
+    const md = renderMarkdown(
+      reportWithHooks([
+        {
+          event: 'SessionStart',
+          matcher: '*',
+          command: 'echo start\n  second line\n  third line',
+          timeout: null,
+          source: 'settings',
+        },
+      ]),
+    )
+    expect(md).toContain('SessionStart [*] → echo start')
+    expect(md).not.toContain('second line')
+    expect(md).not.toContain('third line')
+  })
+
+  it('collapses identical hooks into one entry with a count', () => {
+    const md = renderMarkdown(
+      reportWithHooks(
+        Array.from({ length: 7 }, () => ({
+          event: 'SessionStart',
+          matcher: '*',
+          command: 'rtk hook',
+          timeout: null,
+          source: 'settings' as const,
+        })),
+      ),
+    )
+    expect(md).toContain('Hooks (7 个)')
+    expect(md).toContain('SessionStart [*] → rtk hook  (×7 重复)')
+    // The collapsed line appears exactly once, not seven times.
+    expect(md.match(/→ rtk hook/g)).toHaveLength(1)
+  })
+
+  it('keeps distinct hooks separate', () => {
+    const md = renderMarkdown(
+      reportWithHooks([
+        { event: 'SessionStart', matcher: '*', command: 'a', timeout: null, source: 'settings' },
+        { event: 'PreToolUse', matcher: 'Bash', command: 'b', timeout: null, source: 'settings' },
+      ]),
+    )
+    expect(md).toContain('SessionStart [*] → a')
+    expect(md).toContain('PreToolUse [Bash] → b')
+    expect(md).not.toContain('重复')
+  })
+
+  it('renders (无) when there are no hooks', () => {
+    expect(renderMarkdown(reportWithHooks([]))).toContain('Hooks (0 个)')
+    expect(renderMarkdown(reportWithHooks([]))).toContain('(无)')
+  })
+})

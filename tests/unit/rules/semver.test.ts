@@ -35,4 +35,14 @@ describe('satisfiesRange', () => {
     expect(satisfiesRange('1.0.0', '<=1.0.0')).toBe(true)
     expect(satisfiesRange('1.0.1', '>1.0.0')).toBe(true)
   })
+
+  it('ignores pre-release and build metadata when comparing the core version', () => {
+    // Regression: a prerelease engine version (e.g. 0.6.1-beta.0) used to fail
+    // to parse and got the rules pack wrongly rejected as incompatible.
+    expect(satisfiesRange('0.6.1-beta.0', '>=0.6')).toBe(true)
+    expect(satisfiesRange('1.4.0-beta.0-save-token-kit.0', '>=0.6,<1.0.0')).toBe(false)
+    expect(satisfiesRange('0.9.0-rc.1', '>=0.6,<1.0.0')).toBe(true)
+    expect(satisfiesRange('0.6.0+build.5', '>=0.6')).toBe(true)
+    expect(satisfiesRange('0.5.0-beta.1', '>=0.6')).toBe(false)
+  })
 })

@@ -61,7 +61,7 @@ Access Token 获取方式：
 
 ### 步骤 5：禁用 TAPD MCP
 
-1. 读取项目 `.mcp.json`（优先）或 `~/.codebuddy/.mcp.json`。
+1. 读取项目 `.mcp.json`（优先）或**当前平台**的 user 级 MCP 配置。user 级路径按诊断 `agentName` 选择（勿写死）：CodeBuddy `~/.codebuddy/.mcp.json`、WorkBuddy `~/.workbuddy/.mcp.json`、Claude Code `~/.claude/.mcp.json`、CodeX `~/.codex/config.toml`（`[mcp_servers]` 段）。
 2. 在 `disabledMcpServers` 数组中追加目标 TAPD MCP name。
 3. 写回文件。
 

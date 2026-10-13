@@ -59,6 +59,29 @@ export class ClaudeAdapter implements PlatformAdapter {
   readonly needsIsolatedConfigDir = true
 
   /**
+   * Isolation is only required when `settings.json` actually pins
+   * `ANTHROPIC_BASE_URL` — otherwise it would override our process-env
+   * redirection. When it does not, isolating hides the user's skills, rules and
+   * CLAUDE.md from the probe request and the report ends up showing only
+   * built-in assets.
+   */
+  shouldIsolateConfigDir(): boolean {
+    return readEnvFromSettings(this.getConfigPaths().settings, this.proxyEnvVar) !== null
+  }
+
+  /**
+   * Isolation hides the OAuth login state (which lives in the config dir, not in
+   * `settings.json` env). Without any credential the CLI exits with
+   * "Not logged in" and never sends a probe request. The mock proxy does not
+   * validate keys, so a placeholder restores the probe when the env carries no
+   * credential either.
+   */
+  isolatedProbeCredential(): { key: string; value: string } | null {
+    if (process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN) return null
+    return { key: 'ANTHROPIC_API_KEY', value: 'stk-probe-placeholder' }
+  }
+
+  /**
    * Retain all settings.json env vars except `ANTHROPIC_BASE_URL` (which
    * diagnose overrides to point at the proxy). This keeps the auth token and
    * model mappings available to the probe request despite config-dir isolation.

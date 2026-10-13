@@ -4,10 +4,11 @@
  * follow the stk-report SKILL convention: diagnosis-report.json (before) vs
  * diagnosis-report2.json (after).
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { bold, green, red } from 'ansis'
 import { diffReports } from '../proxy/diff.js'
+import { ensureIgnoredDir } from '../utils/fs-operations.js'
 import { SAVE_TOKEN_DIR, type DiagnosisReport } from '../types/index.js'
 
 export interface DiffOptions {
@@ -50,7 +51,7 @@ export async function runDiff(options: DiffOptions = {}): Promise<void> {
   // Print to stdout (the report is compact), then persist for the SKILL flow.
   console.log(markdown)
 
-  mkdirSync(outDir, { recursive: true })
+  ensureIgnoredDir(outDir)
   const outPath = join(outDir, 'diff-report.md')
   writeFileSync(outPath, markdown)
   console.error(bold(green(`\n对比报告已写入 ${outPath}`)))

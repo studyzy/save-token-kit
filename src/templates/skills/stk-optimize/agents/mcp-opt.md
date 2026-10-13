@@ -13,12 +13,25 @@
 - `target`: MCP server 名称
 - `title`: 任务标题
 - `detail`: 任务详情
+- 当前平台：以诊断 `agentName` 为准（`codebuddy` / `workbuddy` / `claude` / `codex`）
+
+## 配置路径（按当前平台选择，勿写死）
+
+| 平台 | user 级 MCP 配置 | 说明 |
+| --- | --- | --- |
+| CodeBuddy | `~/.codebuddy/.mcp.json` | JSON |
+| WorkBuddy | `~/.workbuddy/.mcp.json` | JSON |
+| Claude Code | `~/.claude/.mcp.json` | JSON |
+| CodeX | `~/.codex/config.toml` | TOML 的 `[mcp_servers]` 段 |
+
+- project 级一律为项目根 `.mcp.json`（CodeX 例外：项目级也在 `config.toml`）。
+- 下方示例以 CodeBuddy 路径书写；**执行前必须按诊断 `agentName` 替换为对应平台路径**，避免改到其他 Agent 的配置。
 
 ## 执行逻辑
 
 ### disable-mcp
 
-1. 读取项目 `.mcp.json`（优先）或 `~/.codebuddy/.mcp.json`。
+1. 读取项目 `.mcp.json`（优先）或上表对应的 user 级路径。
 2. 在 `disabledMcpServers` 数组中追加目标 MCP name（若数组不存在则创建）。
 3. 不删除 `mcpServers` 中的原配置（保留以便日后恢复）。
 4. 写回文件。
@@ -26,7 +39,7 @@
 
 ### defer-mcp
 
-1. 读取项目 `.mcp.json`（优先）或 `~/.codebuddy/.mcp.json`。
+1. 读取项目 `.mcp.json`（优先）或上表对应的 user 级路径。
 2. 在目标 MCP server 的配置中添加或修改 `"defer_loading": true`。
 3. 写回文件。
 4. 回报结果。

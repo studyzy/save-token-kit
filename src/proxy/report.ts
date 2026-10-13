@@ -59,9 +59,7 @@ export function buildDiagnosisReport(
   // MCP tool definitions are a major context consumer and must be counted in
   // the overview total (previously they were excluded, skewing percentages).
   const mcpTokens = parsed.tools.mcp.reduce((s, t) => s + t.estimatedTokens, 0)
-  categories.push(
-    makeItem('system-tools', `Tool definitions (${builtinCount}内置)`, builtinTokens),
-  )
+  categories.push(makeItem('system-tools', `Tool definitions (${builtinCount}内置)`, builtinTokens))
   if (mcpTokens > 0) {
     categories.push(makeItem('mcp-tools', `MCP 工具定义 (${mcpToolCount}个)`, mcpTokens))
   }
@@ -141,10 +139,7 @@ function makeItem(type: ContextItem['type'], name: string, tokens: number): Cont
  * plugin-marketplace. Skills not found on disk are either plugin-introduced
  * (namespaced like `superpowers:brainstorming`) or built-in (bundled).
  */
-function resolveSkillSources(
-  skills: SkillEntry[],
-  fs?: FsCollectResult,
-): SkillEntry[] {
+function resolveSkillSources(skills: SkillEntry[], fs?: FsCollectResult): SkillEntry[] {
   if (!fs) return skills
   const byName = new Map<string, SkillEntry>()
   for (const s of fs.skillList) byName.set(s.name, s)
@@ -245,7 +240,9 @@ export function renderMarkdown(report: DiagnosisReport, options?: { detail?: boo
   lines.push(`扫描时间: ${report.scanTimestamp}`)
   lines.push(`${versionLabel}: ${report.agentVersion}`)
   lines.push(`数据来源: Proxy 拦截 (最精确)`)
-  lines.push(`规则库: ${report.rulesInfo?.packVersion ?? 'builtin'}${report.rulesInfo?.fallbackInUse ? ' (兜底)' : ''}`)
+  lines.push(
+    `规则库: ${report.rulesInfo?.packVersion ?? 'builtin'}${report.rulesInfo?.fallbackInUse ? ' (兜底)' : ''}`,
+  )
   if (report.proxyDetails?.model) lines.push(`模型: ${report.proxyDetails.model}`)
   lines.push('')
 
@@ -377,14 +374,28 @@ export function renderMarkdown(report: DiagnosisReport, options?: { detail?: boo
   lines.push('')
 
   // --- Hooks ---
+  // Hook commands can be multi-line; only the first line is shown so the
+  // section stays scannable. Identical (event, matcher, command) entries are
+  // collapsed with a count — users often accumulate exact duplicates.
   const hooks = report.hookList ?? []
   lines.push(`Hooks (${hooks.length} 个)`)
   lines.push('-'.repeat(40))
   if (hooks.length === 0) {
     lines.push('  (无)')
   } else {
+    const seen = new Map<string, { hook: (typeof hooks)[number]; count: number }>()
     for (const h of hooks) {
-      lines.push(`  ${h.event} [${h.matcher}] → ${h.command}`)
+      const firstLine = h.command.split(/\r?\n/, 1)[0] ?? ''
+      const key = `${h.event}\u0000${h.matcher}\u0000${firstLine}`
+      const entry = seen.get(key)
+      if (entry) entry.count += 1
+      else seen.set(key, { hook: h, count: 1 })
+    }
+    for (const { hook, count } of seen.values()) {
+      const firstLine = hook.command.split(/\r?\n/, 1)[0] ?? ''
+      const label = firstLine.length > 120 ? `${firstLine.slice(0, 117)}...` : firstLine
+      const dup = count > 1 ? `  (×${count} 重复)` : ''
+      lines.push(`  ${hook.event} [${hook.matcher}] → ${label}${dup}`)
     }
   }
   lines.push('')
