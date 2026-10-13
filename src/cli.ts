@@ -47,11 +47,13 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     )
 
   cli
-    .command('init', 'Install stk SKILL files for an AI agent')
+    .command(
+      'init',
+      'Install stk SKILL files (overwrites existing). Without --agent, installs into every AI agent whose config dir exists',
+    )
     .option('--local', 'Install to project-level .codebuddy/ instead of global ~/.codebuddy/')
-    .option('--force', 'Overwrite existing files without prompting')
-    .option('--agent <name>', 'Target AI agent (default: codebuddy)')
-    .action(async (options: { local?: boolean; force?: boolean; agent?: string }) => {
+    .option('--agent <name>', 'Install for one agent only (codebuddy/workbuddy/claude/codex)')
+    .action(async (options: { local?: boolean; agent?: string }) => {
       await runInit(options)
     })
 

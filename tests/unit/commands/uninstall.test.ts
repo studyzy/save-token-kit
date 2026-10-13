@@ -20,7 +20,7 @@ describe('stk uninstall', () => {
   it('removes all 5 stk SKILL dirs installed by init', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'stk-uninstall-'))
     process.env.HOME = tmp
-    await runInit({ agent: 'codebuddy', force: true })
+    await runInit({ agent: 'codebuddy' })
     await runUninstall({ agent: 'codebuddy', force: true })
     const base = join(tmp, '.codebuddy', 'skills')
     for (const s of ALL_SKILLS) {
@@ -31,7 +31,7 @@ describe('stk uninstall', () => {
   it('keeps non-stk skills in the same skills directory', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'stk-uninstall-'))
     process.env.HOME = tmp
-    await runInit({ agent: 'codebuddy', force: true })
+    await runInit({ agent: 'codebuddy' })
     const base = join(tmp, '.codebuddy', 'skills')
     mkdirSync(join(base, 'my-own-skill'), { recursive: true })
     writeFileSync(join(base, 'my-own-skill', 'SKILL.md'), 'MINE')
@@ -43,7 +43,7 @@ describe('stk uninstall', () => {
     tmp = mkdtempSync(join(tmpdir(), 'stk-uninstall-'))
     mkdirSync(join(tmp, 'project'), { recursive: true })
     process.chdir(join(tmp, 'project'))
-    await runInit({ agent: 'codebuddy', local: true, force: true })
+    await runInit({ agent: 'codebuddy', local: true })
     await runUninstall({ agent: 'codebuddy', local: true, force: true })
     const base = join(tmp, 'project', '.codebuddy', 'skills')
     expect(existsSync(join(base, 'stk-diagnose'))).toBe(false)
@@ -52,7 +52,7 @@ describe('stk uninstall', () => {
   it('aborts in non-interactive mode without --force', async () => {
     tmp = mkdtempSync(join(tmpdir(), 'stk-uninstall-'))
     process.env.HOME = tmp
-    await runInit({ agent: 'codebuddy', force: true })
+    await runInit({ agent: 'codebuddy' })
     const before = process.exitCode
     await runUninstall({ agent: 'codebuddy' })
     expect(process.exitCode).toBe(1)
