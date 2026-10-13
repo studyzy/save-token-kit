@@ -137,21 +137,6 @@ describe('diffReports — category/MCP/skill deltas', () => {
   })
 })
 
-describe('diffReports — score change', () => {
-  it('reports score change when either side has a score', () => {
-    const before = report({ score: { score: 72, deductions: [] } })
-    const after = report({ score: { score: 90, deductions: [] } })
-    const diff = diffReports(before, after)
-    expect(diff).toContain('综合评分')
-    expect(diff).toContain('72 → 90 /100')
-  })
-
-  it('omits the score section when neither side has a score', () => {
-    const diff = diffReports(report(), report())
-    expect(diff).not.toContain('综合评分')
-  })
-})
-
 describe('diffReports — no change', () => {
   it('emits "(无变化)" for empty sections', () => {
     const diff = diffReports(report(), report())

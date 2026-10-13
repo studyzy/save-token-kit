@@ -228,30 +228,6 @@ export interface DiagnosisReport {
   proxyDetails?: ProxyDetails
   /** Session-history usage statistics (present when the agent has a sessions dir) */
   usageStats?: UsageStats
-  /**
-   * Mechanical 0-100 score with per-item deductions. Computed after usage
-   * stats are attached (so idle-object deductions can use them); absent in
-   * fs-only/empty reports.
-   */
-  score?: ReportScore
-}
-
-/** One scored waste item deducted from the overall report score. */
-export interface ScoreDeduction {
-  /** The wasteful object, e.g. `MCP tavily`, `Skill foo`, a memory file path. */
-  item: string
-  /** Why it costs points, with measured numbers. */
-  detail: string
-  /** Points deducted (>= 1). */
-  points: number
-  /** The concrete fix, shown in Quick Wins. */
-  action: string
-}
-
-/** Mechanical 0-100 score derived from a DiagnosisReport (100 = no detected waste). */
-export interface ReportScore {
-  score: number
-  deductions: ScoreDeduction[]
 }
 
 /** Extra details captured from the intercepted proxy request body. */

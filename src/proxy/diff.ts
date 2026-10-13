@@ -152,13 +152,5 @@ export function diffReports(before: DiagnosisReport, after: DiagnosisReport): st
   const memDeltas = collectDeltas(memNames, memMap(before), memMap(after))
   renderSection(lines, '记忆文件变化', 'tok', memDeltas.changed, memDeltas.added, memDeltas.removed)
 
-  // --- Score ---
-  if (before.score || after.score) {
-    lines.push('综合评分')
-    lines.push('-'.repeat(40))
-    lines.push(`  ${before.score?.score ?? '-'} → ${after.score?.score ?? ''}`.trimEnd() + ' /100')
-    lines.push('')
-  }
-
   return lines.join('\n')
 }

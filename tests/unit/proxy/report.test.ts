@@ -125,10 +125,10 @@ describe('renderMarkdown', () => {
     }
   }
 
-  it('default mode includes score and Quick Wins, hides per-tool lines and skill description', () => {
+  it('default mode reports objective facts only, hides per-tool lines and skill description', () => {
     const md = renderMarkdown(reportWithWaste())
-    expect(md).toContain('综合评分:')
-    expect(md).toContain('Quick Wins')
+    expect(md).not.toContain('综合评分')
+    expect(md).not.toContain('Quick Wins')
     // Per-tool lines only appear in detail mode.
     expect(md).not.toContain('Read') // 内置工具名不应出现在默认模式
     // Skill description only in detail mode.
@@ -141,9 +141,8 @@ describe('renderMarkdown', () => {
     expect(md).not.toMatch(/Read\s+~50/)
   })
 
-  it('detail mode includes deduction detail and per-tool lines', () => {
+  it('detail mode includes per-tool lines', () => {
     const md = renderMarkdown(reportWithWaste(), { detail: true })
-    expect(md).toContain('评分扣分明细')
     expect(md).toContain('Read')
     expect(md).toContain('A commit helper skill')
   })

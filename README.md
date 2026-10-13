@@ -25,7 +25,7 @@
 
 - **多 Agent 支持** — 同时支持 CodeBuddy、WorkBuddy、Claude Code、CodeX 的诊断与优化，自动检测当前运行环境
 - **透明代理诊断** — 拦截真实 LLM 请求体，100% 基于实际数据，非估算模拟
-- **结构化报告** — 输出 `diagnosis-report.json` / `.md`，按 system-prompt、tools、skills、MCP、rules、hooks、messages 等维度拆解 Token 占用
+- **结构化报告** — 输出 `diagnosis-report.json` / `.md`，按 system-prompt、tools、skills、MCP、rules、hooks、messages 等维度拆解 Token 占用；报告只含客观事实数据，不含评分与建议（判断由 `/stk-analyze` 承担）
 - **SKILL 驱动工作流** — 安装后 Agent 对话内即可运行 `/stk-analyze`、`/stk-optimize`、`/stk-report`
 - **零副作用** — 诊断数据全部来自拦截的请求体，不做额外 Agent 调用，秒级完成
 
@@ -74,6 +74,8 @@ stk diagnose --report-path ./save-token/diagnosis-report.md
 - `diagnosis-report.json` — 结构化 JSON 报告（每次覆盖）
 
 控制台输出 Markdown 摘要，也可用 `--report-path` 直接写入 `.md` 文件。
+
+> 报告只记录客观事实（各维度 Token 占用、清单、usage 统计），不做评分或优化建议；哪些该禁用、哪些该精简由 `/stk-analyze` 基于报告判断。
 
 ### 3. 分析 / 优化 / 报告
 

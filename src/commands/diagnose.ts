@@ -9,7 +9,6 @@ import { WorkBuddyAdapter } from '../adapters/workbuddy-adapter.js'
 import { detectCodeBuddyVersion, getHomeDir } from '../utils/platform.js'
 import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
-import { scoreReport } from '../proxy/score.js'
 import { parseRequestBody } from '../proxy/parser.js'
 import { scanFilesystem } from '../collectors/fs-collector.js'
 import { collectUsageStats } from '../collectors/usage-collector.js'
@@ -265,8 +264,6 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   const agentVersion = await detectCodeBuddyVersion(adapter.getConfigPaths().cliBinary)
   const report = buildDiagnosisReport([mainBody], fs, toolkitDetection, agentVersion, agentName, loadRules().rulesInfo)
   await attachUsageStats(report, adapter.getConfigPaths().sessionsDir)
-  // Score after usage stats are attached so idle-object deductions can use them.
-  report.score = scoreReport(report)
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
   mkdirSync(outDir, { recursive: true })

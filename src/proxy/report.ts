@@ -1,5 +1,4 @@
 import { parseRequestBody } from './parser.js'
-import { quickWins, scoreReport } from './score.js'
 import { readFile } from '../utils/fs-operations.js'
 import type {
   DiagnosisReport,
@@ -231,9 +230,10 @@ export function rulesFileLabel(agentName?: string): string {
 
 /**
  * Render a DiagnosisReport as terminal-friendly output matching save-token style.
- * Default output leads with the score + Quick Wins and slims heavy sections
+ * Default output reports objective facts only and slims heavy sections
  * (per-tool definitions, descriptions, paths) so the report stays small for
  * LLM consumption; `detail: true` renders the full breakdown appendix.
+ * Judgments/recommendations are stk-analyze's responsibility, not the report's.
  */
 export function renderMarkdown(report: DiagnosisReport, options?: { detail?: boolean }): string {
   const detail = options?.detail ?? false
@@ -248,32 +248,6 @@ export function renderMarkdown(report: DiagnosisReport, options?: { detail?: boo
   lines.push(`规则库: ${report.rulesInfo?.packVersion ?? 'builtin'}${report.rulesInfo?.fallbackInUse ? ' (兜底)' : ''}`)
   if (report.proxyDetails?.model) lines.push(`模型: ${report.proxyDetails.model}`)
   lines.push('')
-
-  // --- Score + Quick Wins (mechanical, no LLM) ---
-  const score = report.score ?? scoreReport(report)
-  lines.push(`综合评分: ${score.score}/100`)
-  lines.push('')
-  lines.push('Quick Wins（Top 5）')
-  lines.push('-'.repeat(40))
-  const wins = quickWins(score)
-  if (wins.length === 0) {
-    lines.push('  未发现明显浪费项')
-  } else {
-    wins.forEach((w, i) => {
-      lines.push(`  ${i + 1}. [−${w.points} 分] ${w.action}`)
-      lines.push(`     ${w.item}：${w.detail}`)
-    })
-  }
-  lines.push('')
-  if (detail && score.deductions.length > 0) {
-    lines.push('评分扣分明细')
-    lines.push('-'.repeat(40))
-    for (const d of score.deductions) {
-      lines.push(`  [−${d.points}] ${d.item} — ${d.detail}`)
-      lines.push(`      → ${d.action}`)
-    }
-    lines.push('')
-  }
 
   lines.push('上下文总览（估算）')
   lines.push('-'.repeat(40))
