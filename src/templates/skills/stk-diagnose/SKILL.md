@@ -43,6 +43,16 @@ disable-model-invocation: true
    ```bash
    stk diagnose --agent "$AGENT" --report-path=./save-token/diagnosis-report.md
    ```
+
+   > **⚠️ WorkBuddy 必须先告知用户操作方法（不可省略）**：WorkBuddy 无法自动触发探测，需要用户手动切模型发消息才能捕获请求。该命令在 WorkBuddy 中执行时会等待捕获（最长数分钟），而**命令输出会被折叠、用户默认看不到**，因此你必须在**调用命令之前**，先在对话中用自然语言完整告知用户操作步骤，再执行命令：
+
+   ```
+   执行诊断采集。请点击左侧「新建任务」，然后在模型列表中选择
+   「stk-diagnose (token check)」，发送消息「Hi」。
+   ```
+
+   命令开始等待后（通常表现为长时间无返回），可再简短提醒一次"正在等待捕获，请按上述步骤操作"。
+
    > 说明：CodeBuddy 为了兼容也会设置 `CLAUDE_SESSION_ID` / `CLAUDE_PROJECT_DIR` 等变量，
    > 因此不能以这些变量判定为 Claude Code；请以 `CLAUDE_CODE_SESSION_ID` / `CLAUDE_PID`（Claude Code 官方注入）为准。
    > 同理，`CODEBUDDY_BASE_URL` 是配置 API 端点/代理的变量（可能被全局设置），不能作为"当前运行在 CodeBuddy"的依据，故仅用 `CODEBUDDY_SESSION_ID` 判定。

@@ -104,7 +104,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
       console.error(cyan(`  已注入自定义模型 "stk-diagnose" → ${proxyBaseUrl}/chat/completions`))
       console.error(
         yellow(
-          `  请在 WorkBuddy 桌面选择 "stk-diagnose (token check)" 模型并正常工作；\n` +
+          `  请点击左侧「新建任务」，在模型列表中选择 "stk-diagnose (token check)" 并正常工作；\n` +
             `  捕获完成后按 Ctrl+C 结束（诊断完成后自动移除该模型）`,
         ),
       )
@@ -195,10 +195,11 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
           )
           console.error(
             yellow(
-              `  请在 WorkBuddy 桌面选择 "stk-diagnose (token check)" 模型，然后发送一条消息：\n` +
-                `    1) 在 WorkBuddy 桌面切换模型为 "stk-diagnose (token check)"\n` +
-                `    2) 随便发一条消息（stk 将自动捕获请求体）\n` +
-                `    3) 诊断完成后自动移除该模型`,
+              `  请点击左侧「新建任务」，然后在模型列表中选择 "stk-diagnose (token check)"，发送消息「Hi」：\n` +
+                `    1) 点击左侧「新建任务」\n` +
+                `    2) 在模型列表中选择 "stk-diagnose (token check)"\n` +
+                `    3) 发送消息「Hi」（stk 将自动捕获请求体）\n` +
+                `    4) 诊断完成后自动移除该模型`,
             ),
           )
         }
