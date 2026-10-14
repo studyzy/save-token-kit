@@ -108,6 +108,10 @@ export class WorkBuddyAdapter implements PlatformAdapter {
       pluginsMarketplacesDir: `${dir}/plugins/marketplaces`,
       historyFile: `${dir}/history.jsonl`,
       blobsDir: `${dir}/blobs`,
+      // WorkBuddy's CLI kernel writes session JSONL here with the same
+      // `{"type":"function_call","name","arguments","timestamp"}` shape as
+      // CodeBuddy, so the shared usage collector applies unchanged.
+      sessionsDir: `${dir}/projects`,
       cliBinary: this.cliBin(),
       projectCodebuddyMd: `${process.cwd()}/SOUL.md`,
       projectSkillsDir: `${process.cwd()}/.workbuddy/skills`,

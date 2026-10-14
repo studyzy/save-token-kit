@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { buildDiagnosisReport, renderMarkdown } from '@/proxy/report.js'
 import type { FsCollectResult } from '@/collectors/fs-collector.js'
-import type { DiagnosisReport } from '@/types/index.js'
+import type { DiagnosisReport, UsageDimension, UsageStats, UsageTimeBucket } from '@/types/index.js'
 
 describe('buildDiagnosisReport skill sources', () => {
   const body = {
@@ -213,5 +213,99 @@ describe('renderMarkdown Hooks section', () => {
   it('renders (无) when there are no hooks', () => {
     expect(renderMarkdown(reportWithHooks([]))).toContain('Hooks (0 个)')
     expect(renderMarkdown(reportWithHooks([]))).toContain('(无)')
+  })
+})
+
+describe('renderMarkdown usage statistics section', () => {
+  function dim(total: number, ranking: Array<[string, number]>): UsageDimension {
+    return { total, ranking: ranking.map(([name, count]) => ({ name, count })) }
+  }
+
+  function bucket(all: UsageDimension, last30Days: UsageDimension = dim(0, [])): UsageTimeBucket {
+    return { all, last90Days: all, last30Days }
+  }
+
+  function reportWithUsage(usageStats?: UsageStats): DiagnosisReport {
+    return {
+      scanTimestamp: '2026-01-01T00:00:00Z',
+      agentName: 'codebuddy',
+      agentVersion: '1.0.0',
+      contextOverview: { totalEstimatedTokens: 1000, breakdown: [] },
+      mcpList: [],
+      skillList: [],
+      agentList: [],
+      builtinTools: [],
+      usageStats,
+    }
+  }
+
+  function usageWith(overrides: Partial<UsageStats> = {}): UsageStats {
+    return {
+      scannedAt: '2026-01-01T00:00:00Z',
+      sessionsDir: '/tmp/projects',
+      filesScanned: 12,
+      parseErrors: 0,
+      missingTimestamp: 0,
+      toolUsage: bucket(
+        dim(100, [
+          ['Bash', 60],
+          ['Read', 40],
+        ]),
+      ),
+      skillUsage: bucket(dim(4, [['stk-analyze', 4]])),
+      subagentUsage: bucket(dim(0, [])),
+      mcpServerUsage: bucket(dim(9, [['genie-baas', 9]])),
+      mcpToolUsage: bucket(dim(9, [['mcp__genie-baas__run', 9]])),
+      ...overrides,
+    }
+  }
+
+  it('omits the section entirely when usageStats is absent', () => {
+    expect(renderMarkdown(reportWithUsage())).not.toContain('使用统计')
+  })
+
+  it('renders scan metadata and per-dimension rankings with percentages', () => {
+    const md = renderMarkdown(reportWithUsage(usageWith()))
+    expect(md).toContain('使用统计（来自会话历史）')
+    expect(md).toContain('扫描目录: /tmp/projects')
+    expect(md).toContain('扫描文件 12 个')
+    expect(md).toContain('Tool 调用 (全部 100 / 最近30天 0)')
+    expect(md).toContain('Bash')
+    expect(md).toContain('(60.0%)')
+    expect(md).toContain('Skill 使用 (全部 4 / 最近30天 0)')
+    expect(md).toContain('MCP Server 调用 (全部 9 / 最近30天 0)')
+  })
+
+  it('shows the entry count in parentheses when a dimension is empty', () => {
+    const md = renderMarkdown(reportWithUsage(usageWith()))
+    expect(md).toContain('SubAgent 使用 (无记录)')
+  })
+
+  it('warns when no session files were scanned', () => {
+    const md = renderMarkdown(reportWithUsage(usageWith({ filesScanned: 0 })))
+    expect(md).toContain('未扫描到任何会话文件')
+  })
+
+  it('caps each ranking at the top N with a total hint', () => {
+    const many: Array<[string, number]> = Array.from({ length: 15 }, (_, i) => [
+      `tool-${String(i).padStart(2, '0')}`,
+      15 - i,
+    ])
+    const md = renderMarkdown(reportWithUsage(usageWith({ toolUsage: bucket(dim(120, many)) })))
+    expect(md).toContain('tool-00')
+    expect(md).toContain('tool-09')
+    expect(md).not.toContain('tool-10')
+    expect(md).toContain('... 共 15 项')
+  })
+
+  it('carries the last-30-day count alongside the all-time count', () => {
+    const md = renderMarkdown(
+      reportWithUsage(
+        usageWith({
+          toolUsage: bucket(dim(100, [['Bash', 60]]), dim(30, [['Bash', 25]])),
+        }),
+      ),
+    )
+    expect(md).toContain('近30天 25')
   })
 })

@@ -1,4 +1,4 @@
-import { writeFileSync, mkdtempSync, rmSync } from 'node:fs'
+import { writeFileSync, mkdtempSync, rmSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawn, type SpawnOptions } from 'node:child_process'
@@ -35,13 +35,23 @@ export interface DiagnoseOptions {
    * cold-start snapshot.
    */
   live?: boolean
-  /** Live-mode capture window in minutes (default DEFAULT_LIVE_DURATION_MINUTES). */
+  /**
+   * Capture window in minutes. Live mode defaults to
+   * DEFAULT_LIVE_DURATION_MINUTES; manual-trigger agents (WorkBuddy) default to
+   * MANUAL_CAPTURE_TIMEOUT_MS. Ignored by auto-probed agents.
+   */
   duration?: string
   /** Render the full-detail report instead of the slim summary. */
   detail?: boolean
 }
 
 const CAPTURE_TIMEOUT_MS = 60_000
+/**
+ * Manual-trigger agents (WorkBuddy desktop) need the user to open the app,
+ * pick the injected model, and type a message — 60s is routinely too short.
+ * Overridable via the `--duration` flag for users who want a shorter wait.
+ */
+const MANUAL_CAPTURE_TIMEOUT_MS = 5 * 60_000
 const DEFAULT_LIVE_DURATION_MINUTES = 10
 
 /**
@@ -189,21 +199,33 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
           // Custom-model url targets the proxy's /chat/completions path directly.
           const customModelUrl = proxyBaseUrl
           prevModels = adapter.injectDiagnoseModel(customModelUrl)
+          // Ctrl+C (SIGINT) during the wait would otherwise kill the process
+          // before the finally-block runs, leaving the injected model pointing
+          // at a dead proxy in the user's models.json. Clean up on signal too.
+          installModelCleanupOnSignal(adapter, () => prevModels)
           console.error(green(`  代理已就绪 (端口 ${proxy.port})，等待 WorkBuddy 桌面发起请求...`))
           console.error(
             cyan(`  已注入自定义模型 "stk-diagnose" → ${customModelUrl}/chat/completions`),
           )
           console.error(
             yellow(
-              `  请点击左侧「新建任务」，然后在模型列表中选择 "stk-diagnose (token check)"，发送消息「Hi」：\n` +
-                `    1) 点击左侧「新建任务」\n` +
-                `    2) 在模型列表中选择 "stk-diagnose (token check)"\n` +
-                `    3) 发送消息「Hi」（stk 将自动捕获请求体）\n` +
-                `    4) 诊断完成后自动移除该模型`,
+              `  请在 WorkBuddy 桌面端完成以下 3 步（stk 正在等待，请勿关闭本窗口）：\n` +
+                `    1) 点击左上角「新建任务」\n` +
+                `    2) 打开模型下拉框，选择 "stk-diagnose (token check)"\n` +
+                `    3) 发送任意消息（例如「Hi」）\n` +
+                `  stk 捕获到请求后会自动继续；诊断结束会自动移除该自定义模型，无需手动清理。`,
             ),
           )
         }
-        await waitForCapture(proxy.capturedBodies, CAPTURE_TIMEOUT_MS)
+        // Manual agents get a longer window (opening the app + switching models
+        // routinely exceeds the 60s probe timeout); honor --duration when given.
+        const manualTimeoutMs =
+          options.duration !== undefined
+            ? Number(options.duration) * 60_000
+            : MANUAL_CAPTURE_TIMEOUT_MS
+        await waitForCapture(proxy.capturedBodies, manualTimeoutMs, {
+          label: '等待 WorkBuddy 桌面端发送消息',
+        })
         if (proxy.capturedBodies.length > 0) {
           console.error(green(`  ✓ 已捕获请求，继续分析...`))
         }
@@ -263,6 +285,17 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
             '  1) 请确认 `which claude` 不是被包裹的函数；若 ~/.zshrc 有 claude() 函数定义（如 onesuite-pilot 拦截），会干扰重定向。\n' +
             '  2) 若为 OAuth 登录，可先设置 ANTHROPIC_API_KEY=<任意值> 再重跑（代理不校验 key）。\n' +
             '  3) 可临时跳过拦截重跑，或用 `stk diagnose --agent codebuddy` 验证代理链路是否正常。',
+        ),
+      )
+    } else if (agentName === 'workbuddy') {
+      console.error(
+        yellow(
+          '排查提示：WorkBuddy 需要手动选中注入的模型并发消息，请确认：\n' +
+            '  1) 是否点击了「新建任务」——在旧任务里切换模型不会触发新请求。\n' +
+            '  2) 模型下拉框中是否真的选中了 "stk-diagnose (token check)"（可能需向下滚动）。\n' +
+            '  3) 消息是否真的发出（发送后应能看到回复）。\n' +
+            `  4) 等待时间是否足够——默认 5 分钟，可用 --duration <分钟> 调整后重跑。\n` +
+            '  WorkBuddy 桌面端启动较慢，重新运行通常能正常捕获。',
         ),
       )
     }
@@ -415,17 +448,67 @@ function buildSpecContext(
 }
 
 /**
- * Wait until the proxy has captured at least one request, or the timeout elapses.
- * Used for agents that require manual triggering (e.g. WorkBuddy desktop), where
- * the user must restart the agent pointed at the proxy and fire a conversation.
- * Polls every 500ms so a long user interaction is not missed.
+ * Wait until the proxy has captured a *main chat* request, or the timeout
+ * elapses. Used for agents that require manual triggering (e.g. WorkBuddy
+ * desktop), where the user must restart the agent pointed at the proxy and fire
+ * a conversation. Polls every 500ms so a long user interaction is not missed.
+ *
+ * Waiting on a main-chat body rather than merely "any body" matters for
+ * WorkBuddy: selecting the injected model makes the desktop fire background
+ * helper requests (session-title generation etc.) on the same
+ * `/chat/completions` path *before* the real turn. Those helpers have no
+ * `tools` and too few messages, so `findMainChatBody` rejects them — returning
+ * on the first capture would hand the report a non-main body and fail with
+ * "未找到主对话请求".
+ *
+ * When `opts.label` is set, a countdown is printed every 30s so the user knows
+ * stk is still waiting (the manual WorkBuddy flow can take minutes) — without
+ * it, a silent multi-minute wait reads as a hang.
  */
-export async function waitForCapture(capturedBodies: unknown[], timeoutMs: number): Promise<void> {
+export async function waitForCapture(
+  capturedBodies: unknown[],
+  timeoutMs: number,
+  opts?: { label?: string },
+): Promise<void> {
   const deadline = Date.now() + timeoutMs
+  let nextTick = Date.now() + 30_000
   while (Date.now() < deadline) {
-    if (capturedBodies.length > 0) return
+    if (findMainChatBody(capturedBodies, 'first')) return
+    if (opts?.label && Date.now() >= nextTick) {
+      const remain = Math.ceil((deadline - Date.now()) / 1000)
+      console.error(cyan(`  … ${opts.label}（剩余约 ${remain}s，可随时 Ctrl+C 取消）`))
+      nextTick = Date.now() + 30_000
+    }
     await new Promise((r) => setTimeout(r, 500))
   }
+}
+
+/**
+ * Register one-shot SIGINT/SIGTERM cleanup for the injected stk-diagnose model.
+ * Without it, Ctrl+C during the manual wait leaves the model pointing at a
+ * proxy that is about to exit, polluting the user's WorkBuddy model list. The
+ * handler is idempotent (guarded by a flag) because the normal path also calls
+ * removeDiagnoseModel in its finally block.
+ */
+export function installModelCleanupOnSignal(
+  adapter: WorkBuddyAdapter,
+  getPrev: () => Array<Record<string, unknown>> | null,
+): void {
+  let cleaned = false
+  const cleanup = (): void => {
+    if (cleaned) return
+    cleaned = true
+    const prev = getPrev()
+    if (prev === null) return
+    adapter.removeDiagnoseModel(prev)
+    console.error(green(`\n  已移除诊断用自定义模型 "stk-diagnose"`))
+  }
+  const onSignal = (): void => {
+    cleanup()
+    process.exit(130)
+  }
+  process.once('SIGINT', onSignal)
+  process.once('SIGTERM', onSignal)
 }
 
 /**

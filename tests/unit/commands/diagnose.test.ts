@@ -2,10 +2,15 @@ import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { detectToolkitsViaRegistry, attachUsageStats } from '@/commands/diagnose.js'
+import {
+  detectToolkitsViaRegistry,
+  attachUsageStats,
+  installModelCleanupOnSignal,
+} from '@/commands/diagnose.js'
 import { collectUsageStats } from '@/collectors/usage-collector.js'
 import { loadRules } from '@/rules/loader.js'
 import type { ToolkitDetection } from '@/types/index.js'
+import type { WorkBuddyAdapter } from '@/adapters/workbuddy-adapter.js'
 import { startProxy } from '@/proxy/server.js'
 
 vi.mock('@/collectors/usage-collector.js', async (importOriginal) => {
@@ -13,9 +18,16 @@ vi.mock('@/collectors/usage-collector.js', async (importOriginal) => {
   return { ...actual, collectUsageStats: vi.fn(actual.collectUsageStats) }
 })
 
-vi.mock('@/proxy/server.js', () => {
-  const capturedBodies: unknown[] = [{ messages: [{ role: 'user', content: 'hello' }], tools: [] }]
+vi.mock('@/proxy/server.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/proxy/server.js')>()
+  const capturedBodies: unknown[] = [
+    {
+      messages: [{ role: 'system' }, { role: 'user', content: 'hello' }],
+      tools: [{ name: 'Read' }],
+    },
+  ]
   return {
+    ...actual,
     startProxy: vi.fn(async () => ({
       port: 0,
       server: { close: (cb: () => void) => cb() },
@@ -23,7 +35,8 @@ vi.mock('@/proxy/server.js', () => {
       captured: true,
     })),
     stopProxy: vi.fn(async () => {}),
-    findMainChatBody: vi.fn(() => capturedBodies[0]),
+    // Keep the real findMainChatBody: waitForCapture now polls it, so a blanket
+    // truthy stub would make the wait loop return instantly.
   }
 })
 
@@ -208,11 +221,28 @@ describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
 import { waitForCapture } from '@/commands/diagnose.js'
 
 describe('waitForCapture (manual-trigger agents)', () => {
-  it('resolves immediately once a request is captured', async () => {
-    const bodies = [{ model: 'x' }]
+  it('resolves immediately once a main chat request is captured', async () => {
+    const bodies = [{ messages: [{ role: 'system' }, { role: 'user' }], tools: [{ name: 'Read' }] }]
     const start = Date.now()
     await waitForCapture(bodies, 10_000)
     expect(Date.now() - start).toBeLessThan(1000)
+  })
+
+  it('keeps waiting past a helper request until the main chat request arrives', async () => {
+    // WorkBuddy fires title-generation helpers (no tools, 2 messages) on the
+    // same path before the real turn; the wait must not stop at those.
+    const bodies: unknown[] = [{ model: 'x', messages: [{ role: 'system' }, { role: 'user' }] }]
+    const start = Date.now()
+    setTimeout(() => {
+      bodies.push({
+        model: 'x',
+        messages: [{ role: 'system' }, { role: 'user' }],
+        tools: [{ name: 'Read' }],
+      })
+    }, 600)
+    await waitForCapture(bodies, 10_000)
+    expect(Date.now() - start).toBeGreaterThanOrEqual(500)
+    expect(bodies.length).toBe(2)
   })
 
   it('resolves after timeout when nothing is captured', async () => {
@@ -220,6 +250,68 @@ describe('waitForCapture (manual-trigger agents)', () => {
     const start = Date.now()
     await waitForCapture(bodies, 1200) // 1200ms > 500ms poll interval
     expect(Date.now() - start).toBeGreaterThanOrEqual(1000)
+  })
+
+  it('resolves after timeout when only helper requests were captured', async () => {
+    const bodies: unknown[] = [{ messages: [{ role: 'system' }, { role: 'user' }] }]
+    const start = Date.now()
+    await waitForCapture(bodies, 1200)
+    expect(Date.now() - start).toBeGreaterThanOrEqual(1000)
+  })
+
+  it('does not print progress before the 30s tick', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await waitForCapture([], 1200, { label: '等待 WorkBuddy' })
+      expect(spy).not.toHaveBeenCalled()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
+
+describe('installModelCleanupOnSignal', () => {
+  afterEach(() => {
+    process.removeAllListeners('SIGINT')
+    process.removeAllListeners('SIGTERM')
+    vi.restoreAllMocks()
+  })
+
+  it('registers SIGINT/SIGTERM handlers that restore models.json', () => {
+    const removeDiagnoseModel = vi.fn()
+    const adapter = { removeDiagnoseModel } as unknown as WorkBuddyAdapter
+    const prev = [{ id: 'keep-me' }]
+
+    installModelCleanupOnSignal(adapter, () => prev)
+    expect(process.listenerCount('SIGINT')).toBe(1)
+    expect(process.listenerCount('SIGTERM')).toBe(1)
+
+    // The handler exits the process; stub so the test runner survives.
+    vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+    process.emit('SIGINT')
+    expect(removeDiagnoseModel).toHaveBeenCalledWith(prev)
+  })
+
+  it('does nothing when no model was injected (prev is null)', () => {
+    const removeDiagnoseModel = vi.fn()
+    const adapter = { removeDiagnoseModel } as unknown as WorkBuddyAdapter
+
+    installModelCleanupOnSignal(adapter, () => null)
+    vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+    process.emit('SIGINT')
+    expect(removeDiagnoseModel).not.toHaveBeenCalled()
+  })
+
+  it('cleans up at most once even if both signals fire', () => {
+    const removeDiagnoseModel = vi.fn()
+    const adapter = { removeDiagnoseModel } as unknown as WorkBuddyAdapter
+    const prev = [{ id: 'x' }]
+
+    installModelCleanupOnSignal(adapter, () => prev)
+    vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+    process.emit('SIGTERM')
+    process.emit('SIGINT')
+    expect(removeDiagnoseModel).toHaveBeenCalledTimes(1)
   })
 })
 

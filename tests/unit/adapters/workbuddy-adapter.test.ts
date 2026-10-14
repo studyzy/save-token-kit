@@ -40,6 +40,14 @@ describe('WorkBuddyAdapter', () => {
     expect(paths.projectRulesDir).toContain('.workbuddy/rules')
   })
 
+  it('exposes a sessionsDir so usage stats are collected', () => {
+    // WorkBuddy's CLI kernel writes CodeBuddy-shaped session JSONL under
+    // <config>/projects; without this the diagnose report loses usageStats.
+    const paths = adapter.getConfigPaths()
+    expect(paths.sessionsDir).toBeDefined()
+    expect(paths.sessionsDir).toContain('.workbuddy/projects')
+  })
+
   it('resolveInstallPaths returns valid workbuddy dirs for init', () => {
     const paths = adapter.resolveInstallPaths(false)
     expect(paths.commandsDir).toContain('.workbuddy/commands')
@@ -107,7 +115,9 @@ describe('WorkBuddyAdapter models.json injection', () => {
 
     a.removeDiagnoseModel(prev)
     const restored = JSON.parse(readFileSync(`${dir}/models.json`, 'utf8'))
-    expect(restored).toEqual([{ id: 'existing', name: 'Existing', url: 'https://api.test/chat/completions' }])
+    expect(restored).toEqual([
+      { id: 'existing', name: 'Existing', url: 'https://api.test/chat/completions' },
+    ])
   })
 
   it('is idempotent: second inject returns null and does not duplicate', () => {

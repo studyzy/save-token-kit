@@ -7,6 +7,8 @@ import type {
   SkillEntry,
   ToolDef,
   ToolkitDetection,
+  UsageStats,
+  UsageTimeBucket,
 } from '../types/index.js'
 import type { FsCollectResult } from '../collectors/fs-collector.js'
 import type { RulesInfo } from '../types/rules.js'
@@ -445,5 +447,61 @@ export function renderMarkdown(report: DiagnosisReport, options?: { detail?: boo
   }
   lines.push('')
 
+  // --- Session-history usage statistics ---
+  // Objective invocation counts from the agent's own session JSONL, so the
+  // reader can see what is actually used vs merely declared. Only counts are
+  // shown (no judgments) — deciding what to disable is stk-analyze's job.
+  renderUsageStats(lines, report.usageStats)
+
   return lines.join('\n')
+}
+
+/** Top-N cap per ranking so the report stays scannable. */
+const USAGE_TOP_N = 10
+
+/**
+ * Render the session-history usage statistics section. Absent `usageStats`
+ * (agent without a sessions dir, or a failed scan) renders nothing. A scan
+ * that reached no files is called out explicitly — an all-zero table would
+ * otherwise read as "nothing was ever used", which is not a safe conclusion.
+ */
+function renderUsageStats(lines: string[], usage?: UsageStats): void {
+  if (!usage) return
+
+  lines.push('使用统计（来自会话历史）')
+  lines.push('-'.repeat(40))
+  lines.push(`扫描目录: ${usage.sessionsDir}`)
+  lines.push(
+    `扫描文件 ${usage.filesScanned} 个，解析失败行 ${usage.parseErrors}，无时间戳记录 ${usage.missingTimestamp}`,
+  )
+  if (usage.filesScanned === 0) {
+    lines.push('  注意: 未扫描到任何会话文件，以下计数为空不代表"未使用"')
+  }
+  lines.push('')
+
+  const dimensions: Array<[string, UsageTimeBucket]> = [
+    ['Tool 调用', usage.toolUsage],
+    ['Skill 使用', usage.skillUsage],
+    ['SubAgent 使用', usage.subagentUsage],
+    ['MCP Server 调用', usage.mcpServerUsage],
+  ]
+  for (const [label, bucket] of dimensions) {
+    if (bucket.all.total === 0) {
+      lines.push(`${label} (无记录)`)
+      lines.push('')
+      continue
+    }
+    lines.push(`${label} (全部 ${bucket.all.total} / 最近30天 ${bucket.last30Days.total})`)
+    for (const item of bucket.all.ranking.slice(0, USAGE_TOP_N)) {
+      const pct = ((item.count / bucket.all.total) * 100).toFixed(1)
+      const recent = bucket.last30Days.ranking.find((r) => r.name === item.name)?.count ?? 0
+      lines.push(
+        `  ${item.name.padEnd(40)} ${String(item.count).padStart(7)}  (${pct}%)  近30天 ${recent}`,
+      )
+    }
+    if (bucket.all.ranking.length > USAGE_TOP_N) {
+      lines.push(`  ... 共 ${bucket.all.ranking.length} 项`)
+    }
+    lines.push('')
+  }
 }

@@ -31,7 +31,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       '--live',
       'Live mode: forward to the real API and capture a real working session (Ctrl+C or --duration to stop)',
     )
-    .option('--duration <minutes>', 'Live-mode capture window in minutes (default 10)')
+    .option(
+      '--duration <minutes>',
+      'Capture window in minutes (default 10 in live mode, 5 for manual-trigger agents)',
+    )
     .option('--detail', 'Write the full-detail report instead of the slim summary')
     .action(
       async (options: {
