@@ -12,3 +12,4 @@ save-token/
 graphify-out/
 .serena/
 *.bak
+.workbuddy/
