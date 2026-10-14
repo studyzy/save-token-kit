@@ -106,6 +106,9 @@ export function scanFilesystem(adapter: PlatformAdapter, rules: MergedRules = lo
   for (const file of memoryPaths) {
     if (file) memoryFiles.push(summarizeFile(file))
   }
+  // Auto Memory directory (CodeBuddy/WorkBuddy/Claude): MEMORY.md index plus
+  // typed topic files under <sessionsDir>/<encoded-cwd>/memory/.
+  memoryFiles.push(...scanAutoMemory(adapter))
 
   const codebuddyMdSize = memoryFiles.find((c) => c.path === paths.codebuddyMd)?.sizeBytes ?? 0
   const historySize = summarizeFile(paths.historyFile).sizeBytes
@@ -359,6 +362,53 @@ function parseSkillFrontmatter(content: string): {
     model,
     context,
   }
+}
+
+/**
+ * Scan the Auto Memory directory (<sessionsDir>/<encoded-cwd>/memory/):
+ * MEMORY.md is the index whose first lines are always injected into the
+ * session context; other .md files are typed topic memories loaded on demand.
+ * Returns [] when the adapter has no sessions dir or the directory is absent.
+ */
+const AUTO_MEMORY_INDEX = 'MEMORY.md'
+/** Number of MEMORY.md index lines CodeBuddy loads into every session. */
+const AUTO_MEMORY_INDEX_LINES = 200
+
+function scanAutoMemory(adapter: PlatformAdapter): MemoryFileSummary[] {
+  const sessionsDir = adapter.getConfigPaths().sessionsDir
+  if (!sessionsDir) return []
+  // CodeBuddy encodes the project cwd by stripping the leading slash and
+  // replacing every "/" with "-" (e.g. /a/b → a-b).
+  const encodedCwd = process.cwd().replace(/^\//, '').replaceAll('/', '-')
+  const memoryDir = `${sessionsDir}/${encodedCwd}/memory`
+  if (!exists(memoryDir) || !isDirectory(memoryDir)) return []
+  const entries: MemoryFileSummary[] = []
+  for (const name of readDir(memoryDir)) {
+    const full = `${memoryDir}/${name}`
+    if (!name.endsWith('.md') || isDirectory(full)) continue
+    if (name === AUTO_MEMORY_INDEX) {
+      entries.push(summarizeAutoMemoryIndex(full))
+    } else {
+      entries.push(summarizeFile(full))
+    }
+  }
+  return entries
+}
+
+/**
+ * Summarize the MEMORY.md index. Only the first AUTO_MEMORY_INDEX_LINES lines
+ * reach the context, so lineCount/estimatedTokens reflect the loaded portion
+ * while sizeBytes stays the full file size.
+ */
+function summarizeAutoMemoryIndex(path: string): MemoryFileSummary {
+  const summary = summarizeFile(path)
+  if (!summary.exists) return summary
+  const lines = readFile(path).split('\n')
+  if (lines.length > AUTO_MEMORY_INDEX_LINES) {
+    summary.lineCount = AUTO_MEMORY_INDEX_LINES
+    summary.estimatedTokens = estimate(lines.slice(0, AUTO_MEMORY_INDEX_LINES).join('\n'))
+  }
+  return summary
 }
 
 function summarizeFile(path: string): MemoryFileSummary {

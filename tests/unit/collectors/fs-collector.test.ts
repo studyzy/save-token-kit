@@ -130,3 +130,44 @@ describe('scanFilesystem marketplace skills', () => {
     expect(crw?.sourcePath).toContain('plugins/cache/')
   })
 })
+
+describe('scanFilesystem auto memory', () => {
+  it('collects MEMORY.md index (context-capped) and topic files', () => {
+    // Build <sessionsDir>/<encoded-cwd>/memory/ like CodeBuddy's Auto Memory.
+    const sessionsDir = join(root, 'projects')
+    const memoryDir = join(
+      sessionsDir,
+      process.cwd().replace(/^\//, '').replaceAll('/', '-'),
+      'memory',
+    )
+    mkdirSync(memoryDir, { recursive: true })
+    // >200-line index: only the first 200 lines reach the context.
+    const index = Array.from({ length: 250 }, (_, i) => `- [m${i}](m${i}.md) — hook`).join('\n')
+    writeFileSync(join(memoryDir, 'MEMORY.md'), index)
+    writeFileSync(
+      join(memoryDir, 'project_topic.md'),
+      '---\nname: topic\ntype: project\n---\ncontent',
+    )
+
+    const withSessions = {
+      ...adapter,
+      getConfigPaths: () => ({ ...adapter.getConfigPaths(), sessionsDir }),
+    } as PlatformAdapter
+    const result = scanFilesystem(withSessions)
+    const memoryDirEntries = result.memoryFiles.filter((f) => f.path.includes('/memory/'))
+    expect(memoryDirEntries).toHaveLength(2)
+
+    const indexEntry = memoryDirEntries.find((f) => f.path.endsWith('MEMORY.md'))
+    expect(indexEntry?.exists).toBe(true)
+    expect(indexEntry?.lineCount).toBe(200)
+    expect(indexEntry?.estimatedTokens).toBeGreaterThan(0)
+
+    const topic = memoryDirEntries.find((f) => f.path.endsWith('project_topic.md'))
+    expect(topic?.exists).toBe(true)
+  })
+
+  it('returns no memory entries when sessionsDir is absent', () => {
+    const result = scanFilesystem(adapter)
+    expect(result.memoryFiles.every((f) => !f.path.includes('/memory/'))).toBe(true)
+  })
+})
