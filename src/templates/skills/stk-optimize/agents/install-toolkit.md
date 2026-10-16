@@ -7,6 +7,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: `"install-toolkit"`
 - `target`: Toolkit 名（如 `headroom`、`rtk`、`caveman`、`ponytail`、`i-have-adhd`）
 - `title`: 任务标题（如 "启用 Headroom"）

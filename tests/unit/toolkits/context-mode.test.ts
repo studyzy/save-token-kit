@@ -20,9 +20,9 @@ describe('context-mode（数据驱动）', () => {
   })
 
   it('detect reflects command availability', async () => {
-    const hit = buildRegistry(loadRules(), { commandExists: async (n) => n === 'context-mode' }).find(
-      (x) => x.name === 'context-mode',
-    )!
+    const hit = buildRegistry(loadRules(), {
+      commandExists: async (n) => n === 'context-mode',
+    }).find((x) => x.name === 'context-mode')!
     expect((await hit.buildDetection(baseCtx)).installed).toBe(true)
     const miss = buildRegistry(loadRules(), { commandExists: async () => false }).find(
       (x) => x.name === 'context-mode',

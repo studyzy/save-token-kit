@@ -12,10 +12,7 @@ const TMP_HOME = join(process.cwd(), 'tests', '.tmp-rtk-home')
 
 function writeConfigDir(): void {
   mkdirSync(join(TMP_HOME, '.codebuddy'), { recursive: true })
-  writeFileSync(
-    join(TMP_HOME, '.codebuddy', 'settings.json'),
-    JSON.stringify({ model: 'glm-5' }),
-  )
+  writeFileSync(join(TMP_HOME, '.codebuddy', 'settings.json'), JSON.stringify({ model: 'glm-5' }))
   writeFileSync(join(TMP_HOME, '.codebuddy', 'CODEBUDDY.md'), '# 全局规则\n')
 }
 
@@ -57,8 +54,12 @@ describe('rtk（数据驱动 + rtk-native handler）', () => {
 
   it('detect reflects command availability（注入 mock）', async () => {
     const ctx: SpecContext = { home: TMP_HOME, mcpList: [], hookList: [], proxyParsed: null }
-    expect((await getRtk({ commandExists: async (n) => n === 'rtk' }).buildDetection(ctx)).installed).toBe(true)
-    expect((await getRtk({ commandExists: async () => false }).buildDetection(ctx)).installed).toBe(false)
+    expect(
+      (await getRtk({ commandExists: async (n) => n === 'rtk' }).buildDetection(ctx)).installed,
+    ).toBe(true)
+    expect((await getRtk({ commandExists: async () => false }).buildDetection(ctx)).installed).toBe(
+      false,
+    )
   })
 
   it('enabled follows hook spec', async () => {
@@ -124,7 +125,9 @@ describe('rtk（数据驱动 + rtk-native handler）', () => {
       )
       expect(cmds).toContain('rtk hook claude')
       expect(existsSync(join(TMP_HOME, '.codebuddy', 'RTK.md'))).toBe(true)
-      expect(readFileSync(join(TMP_HOME, '.codebuddy', 'CODEBUDDY.md'), 'utf8')).toContain('@RTK.md')
+      expect(readFileSync(join(TMP_HOME, '.codebuddy', 'CODEBUDDY.md'), 'utf8')).toContain(
+        '@RTK.md',
+      )
     })
 
     it('configureNative：settings.json 注入 hook / RTK.md 写入 / CODEBUDDY.md 追加引用', () => {
@@ -139,7 +142,9 @@ describe('rtk（数据驱动 + rtk-native handler）', () => {
       )
       expect(cmds).toContain('rtk hook claude')
       expect(existsSync(join(TMP_HOME, '.codebuddy', 'RTK.md'))).toBe(true)
-      expect(readFileSync(join(TMP_HOME, '.codebuddy', 'CODEBUDDY.md'), 'utf8')).toContain('@RTK.md')
+      expect(readFileSync(join(TMP_HOME, '.codebuddy', 'CODEBUDDY.md'), 'utf8')).toContain(
+        '@RTK.md',
+      )
     })
 
     it('幂等：重复执行不产生重复 hook / 引用', () => {
@@ -171,7 +176,9 @@ describe('rtk（数据驱动 + rtk-native handler）', () => {
       const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
         hooks?: { PreToolUse?: Array<{ hooks?: Array<{ command?: string }> }> }
       }
-      settings.hooks = { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'rtk hook claude' }] }] }
+      settings.hooks = {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'rtk hook claude' }] }],
+      }
       writeFileSync(settingsPath, JSON.stringify(settings))
       writeFileSync(join(TMP_HOME, '.codebuddy', 'RTK.md'), '# RTK\n')
       writeFileSync(join(TMP_HOME, '.codebuddy', 'CODEBUDDY.md'), '# 规则\n@RTK.md\n')
@@ -181,7 +188,9 @@ describe('rtk（数据驱动 + rtk-native handler）', () => {
       expect(calls).toEqual(['brew install rtk', 'rtk init -g --agent codebuddy'])
       expect(result.ok).toBe(true)
       expect(result.steps.some((s) => s.cmd.startsWith('fallback:'))).toBe(false)
-      expect(result.steps.some((s) => s.cmd.startsWith('verify: rtk init 已完成全部配置'))).toBe(true)
+      expect(result.steps.some((s) => s.cmd.startsWith('verify: rtk init 已完成全部配置'))).toBe(
+        true,
+      )
     })
 
     it('fallback 写入失败：只读目录 → RTK.md 写入与 @RTK.md 追加均报错，ok=false', async () => {
@@ -191,7 +200,9 @@ describe('rtk（数据驱动 + rtk-native handler）', () => {
       const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
         hooks?: { PreToolUse?: Array<{ hooks?: Array<{ command?: string }> }> }
       }
-      settings.hooks = { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'rtk hook claude' }] }] }
+      settings.hooks = {
+        PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'rtk hook claude' }] }],
+      }
       writeFileSync(settingsPath, JSON.stringify(settings))
       // 删除主文件：写入已存在文件无需目录写权限，需走「创建新文件」路径才能触发失败
       rmSync(join(dir, 'CODEBUDDY.md'), { force: true })

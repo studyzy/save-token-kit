@@ -7,12 +7,14 @@
 ## Goals / Non-Goals
 
 **Goals:**
+
 - 将 stk-optimize 的执行逻辑从主 SKILL.md 中拆分到独立子 Agent
 - 每个子 Agent 处理一类 operationType，输出执行结果
 - 主 SKILL.md 保持精简：只做解析、筛选、路由、状态汇总
 - 子 Agent 提示词格式与 stk-analyze 保持一致（角色与目标、输入、执行逻辑、输出格式、边界）
 
 **Non-Goals:**
+
 - 不修改 tasks.md 格式
 - 不修改 CLI 代码或类型定义
 - 不改变 stk-optimize 对外行为（用户看到的流程不变）
@@ -25,6 +27,7 @@
 stk-analyze 按诊断对象（MCP/Plugin/Skill）拆分，因为这些对象是并行的。stk-optimize 的核心差异在于：任务是**串行执行**的，且每个任务有明确的 `operationType` 决定执行动作。
 
 按 operationType 拆分更自然：
+
 - `install-tool` → agent: install-tool
 - `disable-skill` / `migrate-skill` → agent: skill-opt
 - `disable-mcp` / `defer-mcp` → agent: mcp-opt
@@ -44,6 +47,7 @@ stk-analyze 按诊断对象（MCP/Plugin/Skill）拆分，因为这些对象是�
 与 stk-analyze 的并行派发不同，stk-optimize 的任务有顺序依赖（先安装工具，再禁用 MCP，再修改配置...），且每条任务完成后需回写 tasks.md。因此主 SKILL 逐条派发子 Agent，等待完成后回写，再处理下一条。
 
 **备选方案**：批量派发所有子 Agent。被拒绝，因为：
+
 - 任务有顺序依赖（如先装 stk 才能用 stk install）
 - 需要逐条回写 tasks.md 保证进度可追踪
 - 某任务失败不应影响后续判断（如工具安装失败，后续依赖该工具的配置修改应跳过）
@@ -62,18 +66,18 @@ stk-analyze 按诊断对象（MCP/Plugin/Skill）拆分，因为这些对象是�
 
 使用描述性文件名，无编号前缀：
 
-| 文件名 | operationType | 职责 |
-|--------|---------------|------|
-| `install-tool.md` | `install-tool` | 执行 `stk install` 安装工具 |
-| `skill-opt.md` | `disable-skill`, `migrate-skill` | 修改 settings.json 禁用/迁移 Skill |
-| `mcp-opt.md` | `disable-mcp`, `defer-mcp` | 修改 .mcp.json |
-| `cli-replace-tapd.md` | `replace-mcp-with-cli`（TAPD） | 安装 tapd-ai-cli、引导认证、禁用 TAPD MCP |
-| `cli-replace-gongfeng.md` | `replace-mcp-with-cli`（工蜂） | 安装 gongfeng-cli、引导认证、禁用工蜂 MCP |
-| `cli-replace-gh.md` | `replace-mcp-with-cli`（GitHub） | 安装 gh CLI、引导认证、禁用 GitHub MCP |
-| `plugin-opt.md` | `disable-plugin`, `migrate-plugin` | 修改 settings.json 禁用/迁移 Plugin |
-| `codebuddy-md.md` | `codebuddy-md-review` | 精简/优化 CODEBUDDY.md |
-| `rules-opt.md` | `rules-opt` | 修改 rules 配置（加 paths、拆分等） |
-| `generic.md` | 其他 | 兜底，按 detail 描述执行 |
+| 文件名                    | operationType                      | 职责                                      |
+| ------------------------- | ---------------------------------- | ----------------------------------------- |
+| `install-tool.md`         | `install-tool`                     | 执行 `stk install` 安装工具               |
+| `skill-opt.md`            | `disable-skill`, `migrate-skill`   | 修改 settings.json 禁用/迁移 Skill        |
+| `mcp-opt.md`              | `disable-mcp`, `defer-mcp`         | 修改 .mcp.json                            |
+| `cli-replace-tapd.md`     | `replace-mcp-with-cli`（TAPD）     | 安装 tapd-ai-cli、引导认证、禁用 TAPD MCP |
+| `cli-replace-gongfeng.md` | `replace-mcp-with-cli`（工蜂）     | 安装 gongfeng-cli、引导认证、禁用工蜂 MCP |
+| `cli-replace-gh.md`       | `replace-mcp-with-cli`（GitHub）   | 安装 gh CLI、引导认证、禁用 GitHub MCP    |
+| `plugin-opt.md`           | `disable-plugin`, `migrate-plugin` | 修改 settings.json 禁用/迁移 Plugin       |
+| `codebuddy-md.md`         | `codebuddy-md-review`              | 精简/优化 CODEBUDDY.md                    |
+| `rules-opt.md`            | `rules-opt`                        | 修改 rules 配置（加 paths、拆分等）       |
+| `generic.md`              | 其他                               | 兜底，按 detail 描述执行                  |
 
 ## Risks / Trade-offs
 

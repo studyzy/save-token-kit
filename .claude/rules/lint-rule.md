@@ -1,7 +1,8 @@
 ---
 alwaysApply: false
-paths: "src/**/*.ts"
+paths: 'src/**/*.ts'
 ---
+
 # Glob: presentation/**
 
 ## 委派规则：Lint 检查

@@ -37,12 +37,12 @@
 
 很多早期多 Agent 系统喜欢这样设计：
 
-* 架构师 Agent
-* 程序员 Agent
-* 测试 Agent
-* 安全专家 Agent
-* 产品经理 Agent
-* Reviewer Agent
+- 架构师 Agent
+- 程序员 Agent
+- 测试 Agent
+- 安全专家 Agent
+- 产品经理 Agent
+- Reviewer Agent
 
 然后让它们互相聊天。
 
@@ -292,12 +292,8 @@ Agent A 和 Agent B 讨论了 5000 Token，
 {
   "artifact": "ArchitectureDecision",
   "decision": "OAuth2 authorization code flow",
-  "constraints": [
-    "保持现有JWT兼容"
-  ],
-  "interfaces": [
-    "POST /auth/oauth/callback"
-  ]
+  "constraints": ["保持现有JWT兼容"],
+  "interfaces": ["POST /auth/oauth/callback"]
 }
 ```
 
@@ -340,10 +336,7 @@ type AgentResult struct {
   "artifacts": [
     {
       "type": "code_analysis",
-      "files": [
-        "auth/service.go",
-        "auth/router.go"
-      ],
+      "files": ["auth/service.go", "auth/router.go"],
       "findings": [
         {
           "id": "AUTH-001",
@@ -646,7 +639,7 @@ Dependencies 是否全部完成？
 
 例如：
 
-| Agent    | 权限                      |
+| Agent    | 权限                    |
 | -------- | ----------------------- |
 | Planner  | Read                    |
 | Research | Read + Search           |

@@ -105,7 +105,11 @@
         "description": "lean-ctx — 读取筛选 + 跨会话记忆 60-90%",
         "saving": "60-90% 读取筛选",
         "detect": { "kind": "command", "name": "lean-ctx" },
-        "install": { "default": "brew install lean-ctx", "verify": "lean-ctx doctor", "config": { "default": "lean-ctx setup" } }
+        "install": {
+          "default": "brew install lean-ctx",
+          "verify": "lean-ctx doctor",
+          "config": { "default": "lean-ctx setup" }
+        }
       },
       {
         "id": "graphify",
@@ -122,7 +126,10 @@
           "default": "uv tool install graphifyy",
           "verify": "graphify --version",
           "config": { "default": "graphify install --platform {agent}" },
-          "byAgent": { "codebuddy": "graphify install --platform codebuddy", "codex": "graphify install --platform codex" }
+          "byAgent": {
+            "codebuddy": "graphify install --platform codebuddy",
+            "codex": "graphify install --platform codex"
+          }
         }
       },
       {
@@ -145,7 +152,9 @@
         "install": {
           "default": "claude: /plugin marketplace add DietrichGebert/ponytail && /plugin install ponytail",
           "verify": "ls ~/.codebuddy/plugins/marketplaces/ponytail/",
-          "byAgent": { "codebuddy": "codebuddy plugin marketplace add https://github.com/studyzy/ponytail" }
+          "byAgent": {
+            "codebuddy": "codebuddy plugin marketplace add https://github.com/studyzy/ponytail"
+          }
         }
       },
       {
@@ -169,7 +178,9 @@
         "install": {
           "default": "claude plugin marketplace add ayghri/i-have-adhd",
           "verify": "ls ~/.codebuddy/plugins/marketplaces/i-have-adhd/",
-          "byAgent": { "codebuddy": "codebuddy plugin marketplace add ayghri/i-have-adhd && codebuddy plugin install i-have-adhd@i-have-adhd" }
+          "byAgent": {
+            "codebuddy": "codebuddy plugin marketplace add ayghri/i-have-adhd && codebuddy plugin install i-have-adhd@i-have-adhd"
+          }
         }
       },
       {
@@ -183,11 +194,16 @@
         "saving": "减少不必要的 diff/重写/盲目假设",
         "level": "中级",
         "estTokens": 10000,
-        "detect": { "kind": "path", "path": "~/.codebuddy/plugins/marketplaces/andrej-karpathy-skills/" },
+        "detect": {
+          "kind": "path",
+          "path": "~/.codebuddy/plugins/marketplaces/andrej-karpathy-skills/"
+        },
         "install": {
           "default": "claude: /plugin marketplace add multica-ai/andrej-karpathy-skills && /plugin install andrej-karpathy-skills@karpathy-skills",
           "verify": "ls ~/.codebuddy/plugins/marketplaces/andrej-karpathy-skills/",
-          "byAgent": { "codebuddy": "codebuddy plugin marketplace add https://github.com/multica-ai/andrej-karpathy-skills && codebuddy plugin install andrej-karpathy-skills@karpathy-skills" }
+          "byAgent": {
+            "codebuddy": "codebuddy plugin marketplace add https://github.com/multica-ai/andrej-karpathy-skills && codebuddy plugin install andrej-karpathy-skills@karpathy-skills"
+          }
         }
       },
       {
@@ -218,7 +234,11 @@
         "install": {
           "default": "go install github.com/vincentkoc/tokenjuice/cmd/tokenjuice@latest",
           "verify": "tokenjuice --help",
-          "byAgent": { "claude": "tokenjuice install claude-code", "codex": "tokenjuice install codex", "codebuddy": "tokenjuice install codebuddy" }
+          "byAgent": {
+            "claude": "tokenjuice install claude-code",
+            "codex": "tokenjuice install codex",
+            "codebuddy": "tokenjuice install codebuddy"
+          }
         }
       },
       {
@@ -253,7 +273,9 @@
           "default": "npm i -g @colbymchenry/codegraph",
           "verify": "codegraph --version",
           "config": { "default": "codegraph install --platform {agent}" },
-          "byAgent": { "codebuddy": "将 codegraph serve --mcp 手动写入 ~/.codebuddy/.mcp.json 的 mcpServers" }
+          "byAgent": {
+            "codebuddy": "将 codegraph serve --mcp 手动写入 ~/.codebuddy/.mcp.json 的 mcpServers"
+          }
         }
       },
       {

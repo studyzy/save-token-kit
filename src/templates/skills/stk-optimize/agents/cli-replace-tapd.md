@@ -7,6 +7,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: `"replace-mcp-with-cli"`
 - `target`: TAPD MCP 名称（如 `tapd` / `mcp-server-tapd`）
 - `title`: 任务标��（如 "用 tapd CLI 替代 MCP: mcp-server-tapd"）
@@ -21,6 +22,7 @@ which go
 ```
 
 若 `go` 不可用，提示用户安装 Go 后重试：
+
 - macOS: `brew install go`
 - 通用: https://go.dev/dl/
 - 回报失败，不继续后续步骤。

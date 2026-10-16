@@ -214,7 +214,10 @@ describe('mock server 三种协议集成', () => {
 
       const outDir = join(tmp, 'save-token')
       mkdirSync(outDir, { recursive: true })
-      writeFileSync(join(outDir, 'proxy-raw-body.json'), JSON.stringify(proxy.capturedBodies, null, 2))
+      writeFileSync(
+        join(outDir, 'proxy-raw-body.json'),
+        JSON.stringify(proxy.capturedBodies, null, 2),
+      )
       writeFileSync(join(outDir, 'diagnosis-report.json'), JSON.stringify(parsed, null, 2))
 
       expect(existsSync(join(outDir, 'diagnosis-report.json'))).toBe(true)

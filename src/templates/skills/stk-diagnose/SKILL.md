@@ -27,7 +27,9 @@ disable-model-invocation: true
    - 选「暂不安装」/ Other → 给出手动安装指引（上述命令），**终止本次流程**，不继续后续步骤。
 
    安装失败（如无权限）时不要反复重试，如实报告错误并附上手动安装指引。
+
 2. 检测当前 AI Agent 运行环境，选择对应的 `--agent` 参数。一台机器可能同时安装多个 Agent，且 `CODEBUDDY_BASE_URL` 这类**配置类**环境变量可能被用户全局设置（如指向自定义 API 或本工具代理），在任意 Agent 会话里都存在——因此只能以**当前会话注入的会话级环境变量**判定，不能用"是否安装了某个 Agent"或配置类变量判断：
+
    ```bash
    # WorkBuddy 桌面会话注入 WORKBUDDY_* 变量（须在 CodeBuddy 判定之前，因两者同内核可能同时设置 CODEBUDDY_SESSION_ID）
    if [ -n "$WORKBUDDY_CONFIG_DIR" ] || [ -n "$WORKBUDDY_APP_NAME" ]; then
@@ -46,7 +48,9 @@ disable-model-invocation: true
      AGENT=
    fi
    ```
+
    若 `AGENT` 为空，先用 `AskUserQuestion` 询问用户当前运行在哪个 Agent 中，确认后再执行：
+
    ```bash
    stk diagnose --agent "$AGENT" --report-path=./save-token/diagnosis-report.md
    ```
@@ -63,6 +67,7 @@ disable-model-invocation: true
    > 说明：CodeBuddy 为了兼容也会设置 `CLAUDE_SESSION_ID` / `CLAUDE_PROJECT_DIR` 等变量，
    > 因此不能以这些变量判定为 Claude Code；请以 `CLAUDE_CODE_SESSION_ID` / `CLAUDE_PID`（Claude Code 官方注入）为准。
    > 同理，`CODEBUDDY_BASE_URL` 是配置 API 端点/代理的变量（可能被全局设置），不能作为"当前运行在 CodeBuddy"的依据，故仅用 `CODEBUDDY_SESSION_ID` 判定。
+
 3. 读取 `./save-token/diagnosis-report.md`，在对话中展示诊断报告。
 4. **使用次数统计**：`.md` 报告不含 Tools / Skill / MCP / SubAgent 的调用次数；这些数据在 `./save-token/diagnosis-report.json` 的 `usageStats` 字段（`mcpServerUsage` / `skillUsage` / `subagentUsage`，含 `last30Days.ranking`）。展示时需从 JSON 补充各维度"最近 30 天调用排名"一并呈现；若 `usageStats` 缺失或 `filesScanned === 0`，如实说明"无会话历史数据"，不得当作 0 次调用。
 5. 提醒用户下一步运行 `/stk-analyze`，基于本次诊断数据给出节省 Token 的优化建议。

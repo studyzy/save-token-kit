@@ -7,6 +7,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: `"replace-mcp-with-cli"`
 - `target`: 工蜂 MCP 名称（如 `gongfeng` / `gongfeng-mcp`）
 - `title`: 任务标题（如 "用 gongfeng CLI 替代 MCP: gongfeng-mcp"）
@@ -21,6 +22,7 @@ which go
 ```
 
 若 `go` 不可用，提示用户安装 Go 后重试：
+
 - macOS: `brew install go`
 - 通用: https://go.dev/dl/
 - 回报失败，不继续后续步骤。

@@ -7,6 +7,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: 其他（不在已知 Agent 覆盖范围）
 - `target`: 任务目标
 - `title`: 任务标题

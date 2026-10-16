@@ -29,7 +29,10 @@ function emit(out: UpdateOutput, json: boolean): void {
   if (out.action === 'updated') console.log(`规则库已更新: ${out.from} -> ${out.to}`)
   else if (out.action === 'up-to-date') console.log(`规则库已是最新: ${out.to}`)
   else if (out.error) console.log(`检查失败: ${out.error}`)
-  else console.log(`发现新版本: ${out.latest} (当前 ${out.from ?? '未安装'})，运行 stk rules update 安装`)
+  else
+    console.log(
+      `发现新版本: ${out.latest} (当前 ${out.from ?? '未安装'})，运行 stk rules update 安装`,
+    )
 }
 
 function fail(out: UpdateOutput, json: boolean, error: string): void {
@@ -109,10 +112,14 @@ export async function runRulesStatus(options: { json?: boolean } = {}): Promise<
     )
     return
   }
-  console.log(`生效规则库: ${merged.rulesInfo.packVersion}${merged.rulesInfo.fallbackInUse ? ' (内置兜底)' : ''}`)
+  console.log(
+    `生效规则库: ${merged.rulesInfo.packVersion}${merged.rulesInfo.fallbackInUse ? ' (内置兜底)' : ''}`,
+  )
   for (const s of merged.rulesInfo.sources) {
     console.log(`  ${s.layer.padEnd(8)} ${s.result}`)
   }
-  console.log(`已装版本: ${installed ?? '无'} | 上次检查: ${meta.lastCheckAt ?? '从未'} | 上次更新: ${meta.lastUpdatedAt ?? '从未'}`)
+  console.log(
+    `已装版本: ${installed ?? '无'} | 上次检查: ${meta.lastCheckAt ?? '从未'} | 上次更新: ${meta.lastUpdatedAt ?? '从未'}`,
+  )
   console.log(`自动检查: ${meta.autoCheckDisabled ? '关闭' : '开启 (24h)'}`)
 }

@@ -9,10 +9,7 @@ const HOME = join(process.cwd(), 'tests', '.tmp-i-have-adhd-home')
 
 function writeSettings(enabledPlugins: Record<string, boolean>): void {
   mkdirSync(join(HOME, '.codebuddy'), { recursive: true })
-  writeFileSync(
-    join(HOME, '.codebuddy', 'settings.json'),
-    JSON.stringify({ enabledPlugins }),
-  )
+  writeFileSync(join(HOME, '.codebuddy', 'settings.json'), JSON.stringify({ enabledPlugins }))
 }
 
 function makeCtx(proxyPlugins: string[] = []): SpecContext {

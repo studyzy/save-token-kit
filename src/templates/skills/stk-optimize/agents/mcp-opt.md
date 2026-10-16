@@ -9,6 +9,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: `"disable-mcp"` | `"defer-mcp"`
 - `target`: MCP server 名称
 - `title`: 任务标题
@@ -17,12 +18,12 @@
 
 ## 配置路径（按当前平台选择，勿写死）
 
-| 平台 | user 级 MCP 配置 | 说明 |
-| --- | --- | --- |
-| CodeBuddy | `~/.codebuddy/.mcp.json` | JSON |
-| WorkBuddy | `~/.workbuddy/.mcp.json` | JSON |
-| Claude Code | `~/.claude/.mcp.json` | JSON |
-| CodeX | `~/.codex/config.toml` | TOML 的 `[mcp_servers]` 段 |
+| 平台        | user 级 MCP 配置         | 说明                       |
+| ----------- | ------------------------ | -------------------------- |
+| CodeBuddy   | `~/.codebuddy/.mcp.json` | JSON                       |
+| WorkBuddy   | `~/.workbuddy/.mcp.json` | JSON                       |
+| Claude Code | `~/.claude/.mcp.json`    | JSON                       |
+| CodeX       | `~/.codex/config.toml`   | TOML 的 `[mcp_servers]` 段 |
 
 - project 级一律为项目根 `.mcp.json`（CodeX 例外：项目级也在 `config.toml`）。
 - 下方示例以 CodeBuddy 路径书写；**执行前必须按诊断 `agentName` 替换为对应平台路径**，避免改到其他 Agent 的配置。

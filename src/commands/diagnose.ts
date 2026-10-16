@@ -369,7 +369,9 @@ async function buildAndWriteReport(
   // so it is written only under --debug. Default runs never land it on disk.
   if (options.debug) {
     writeFileSync(join(outDir, 'proxy-raw-body.json'), JSON.stringify(mainBody, null, 2))
-    console.error(yellow(`  ⚠️ --debug：已写入 proxy-raw-body.json（含完整对话正文，分享前请脱敏）`))
+    console.error(
+      yellow(`  ⚠️ --debug：已写入 proxy-raw-body.json（含完整对话正文，分享前请脱敏）`),
+    )
   }
 
   // A warning file alongside the artifacts so a shared ./save-token/ folder

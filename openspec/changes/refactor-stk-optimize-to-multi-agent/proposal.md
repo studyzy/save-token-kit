@@ -13,6 +13,7 @@
 ## Capabilities
 
 ### New Capabilities
+
 - `optimize-task-dispatcher`: 主 SKILL 的任务解析、等级筛选、按 operationType 路由派发逻辑
 - `optimize-agent-install-tool`: 处理 `install-tool` 类型任务的子 Agent（stk install 工具安装）
 - `optimize-agent-skill-opt`: 处理 `disable-skill` 类型任务的子 Agent（禁用 Skill）
@@ -25,6 +26,7 @@
 - `optimize-agent-generic`: 处理其他 operationType 或未归类任务的兜底子 Agent
 
 ### Modified Capabilities
+
 - `stk-optimize`: SKILL.md 执行流程从内联分支改为子 Agent 编排（不改变对外行为）
 
 ## Impact

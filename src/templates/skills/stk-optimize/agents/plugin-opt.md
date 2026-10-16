@@ -7,6 +7,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: `"disable-plugin"` | `"migrate-plugin"`
 - `target`: Plugin 名称
 - `title`: 任务标题
@@ -16,11 +17,11 @@
 
 ## 配置路径（按当前平台选择，勿写死）
 
-| 平台 | user 级 settings | project 级 settings |
-| --- | --- | --- |
-| CodeBuddy | `~/.codebuddy/settings.json` | `./.codebuddy/settings.json` |
-| WorkBuddy | `~/.workbuddy/settings.json` | `./.workbuddy/settings.json` |
-| Claude Code | `~/.claude/settings.json` | `./.claude/settings.json` |
+| 平台        | user 级 settings             | project 级 settings          |
+| ----------- | ---------------------------- | ---------------------------- |
+| CodeBuddy   | `~/.codebuddy/settings.json` | `./.codebuddy/settings.json` |
+| WorkBuddy   | `~/.workbuddy/settings.json` | `./.workbuddy/settings.json` |
+| Claude Code | `~/.claude/settings.json`    | `./.claude/settings.json`    |
 
 - Plugin 是 CodeBuddy / WorkBuddy / Claude Code 的概念；**CodeX 无插件机制，跳过本 Agent**。
 - **执行前必须按诊断 `agentName` 替换为对应平台路径**，避免改到其他 Agent 的配置（例如给 claude 用户改 codebuddy 的 `enabledPlugins`）。

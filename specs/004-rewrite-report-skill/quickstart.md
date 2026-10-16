@@ -10,11 +10,11 @@
 
 `./save-token/` 下需具备：
 
-| 文件 | 来源 | 说明 |
-| --- | --- | --- |
-| `diagnosis-report.json` | `stk diagnose`（优化前） | 基线，缺失则报错引导 |
+| 文件                     | 来源                         | 说明                           |
+| ------------------------ | ---------------------------- | ------------------------------ |
+| `diagnosis-report.json`  | `stk diagnose`（优化前）     | 基线，缺失则报错引导           |
 | `diagnosis-report2.json` | `stk diagnose`（优化后重采） | proxy 实时数据，缺失则引导重采 |
-| `tasks.json` | `/stk-optimize` 执行后 | 任务归因源，可选 |
+| `tasks.json`             | `/stk-optimize` 执行后       | 任务归因源，可选               |
 
 ## 步骤
 

@@ -66,7 +66,10 @@ interface HookConfig {
  * Scan CodeBuddy config directory via filesystem and assemble structured results.
  * `rules` defaults to the process-start rules snapshot when omitted.
  */
-export function scanFilesystem(adapter: PlatformAdapter, rules: MergedRules = loadRules()): FsCollectResult {
+export function scanFilesystem(
+  adapter: PlatformAdapter,
+  rules: MergedRules = loadRules(),
+): FsCollectResult {
   const paths = adapter.getConfigPaths()
 
   const mcpList = scanMcpConfig(paths.mcp, rules)

@@ -50,14 +50,19 @@ function validateData(data: unknown): string | null {
     return 'low-frequency-plugins 必须为字符串数组'
   }
   const mcp = data['mcp-alternatives']
-  if (mcp !== undefined && (!isPlainObject(mcp) || !Object.values(mcp).every((v) => typeof v === 'string'))) {
+  if (
+    mcp !== undefined &&
+    (!isPlainObject(mcp) || !Object.values(mcp).every((v) => typeof v === 'string'))
+  ) {
     return 'mcp-alternatives 必须为字符串映射'
   }
   const toolkits = data['toolkits']
   if (
     toolkits !== undefined &&
     (!Array.isArray(toolkits) ||
-      !toolkits.every((x) => isPlainObject(x) && typeof x.id === 'string' && typeof x.type === 'string'))
+      !toolkits.every(
+        (x) => isPlainObject(x) && typeof x.id === 'string' && typeof x.type === 'string',
+      ))
   ) {
     return 'toolkits 形态非法'
   }
@@ -66,15 +71,25 @@ function validateData(data: unknown): string | null {
   const toolkitSpecWarn = validateToolkitSpec(toolkits)
   if (toolkitSpecWarn) return toolkitSpecWarn
   const thresholds = data['thresholds']
-  if (thresholds !== undefined && (!isPlainObject(thresholds) || !Object.values(thresholds).every((v) => typeof v === 'number'))) {
+  if (
+    thresholds !== undefined &&
+    (!isPlainObject(thresholds) || !Object.values(thresholds).every((v) => typeof v === 'number'))
+  ) {
     return 'thresholds 必须为数值映射'
   }
   const levels = data['levels']
-  if (levels !== undefined && (!isPlainObject(levels) || !Object.values(levels).every((v) => VALID_LEVELS.includes(v as Level)))) {
+  if (
+    levels !== undefined &&
+    (!isPlainObject(levels) ||
+      !Object.values(levels).every((v) => VALID_LEVELS.includes(v as Level)))
+  ) {
     return 'levels 取值必须为 初级/中级/高级'
   }
   const prompts = data['prompts']
-  if (prompts !== undefined && (!isPlainObject(prompts) || !Object.values(prompts).every((v) => typeof v === 'string'))) {
+  if (
+    prompts !== undefined &&
+    (!isPlainObject(prompts) || !Object.values(prompts).every((v) => typeof v === 'string'))
+  ) {
     return 'prompts 必须为字符串映射'
   }
   return null
@@ -91,15 +106,21 @@ function validateToolkitMeta(toolkits: unknown): string | null {
   if (!Array.isArray(toolkits)) return null
   for (const t of toolkits as Array<Record<string, unknown>>) {
     const id = t.id as string
-    if (t.repo !== undefined && typeof t.repo !== 'string') return `toolkits[${id}].repo 必须为字符串`
-    if (t.agentNote !== undefined && typeof t.agentNote !== 'string') return `toolkits[${id}].agentNote 必须为字符串`
+    if (t.repo !== undefined && typeof t.repo !== 'string')
+      return `toolkits[${id}].repo 必须为字符串`
+    if (t.agentNote !== undefined && typeof t.agentNote !== 'string')
+      return `toolkits[${id}].agentNote 必须为字符串`
     for (const [field, valueOf] of [
       ['agents', (v: unknown) => typeof v === 'boolean'],
       ['agentNotes', (v: unknown) => typeof v === 'string'],
     ] as const) {
       const v = t[field]
       if (v === undefined) continue
-      if (!isPlainObject(v) || !Object.keys(v).every((k) => (TOOLKIT_AGENT_KEYS as readonly string[]).includes(k)) || !Object.values(v).every(valueOf)) {
+      if (
+        !isPlainObject(v) ||
+        !Object.keys(v).every((k) => (TOOLKIT_AGENT_KEYS as readonly string[]).includes(k)) ||
+        !Object.values(v).every(valueOf)
+      ) {
         return `toolkits[${id}].${field} 必须为 ${TOOLKIT_AGENT_KEYS.join('/')} 键的映射（值 ${field === 'agents' ? '布尔' : '字符串'}）`
       }
     }
@@ -112,9 +133,13 @@ function validateToolkitMeta(toolkits: unknown): string | null {
     }
     if (t.install !== undefined) {
       if (!isPlainObject(t.install)) return `toolkits[${id}].install 必须为对象`
-      if (t.install.default !== undefined && typeof t.install.default !== 'string') return `toolkits[${id}].install.default 必须为字符串`
+      if (t.install.default !== undefined && typeof t.install.default !== 'string')
+        return `toolkits[${id}].install.default 必须为字符串`
       if (t.install.byAgent !== undefined) {
-        if (!isPlainObject(t.install.byAgent) || !Object.values(t.install.byAgent).every((v) => typeof v === 'string')) {
+        if (
+          !isPlainObject(t.install.byAgent) ||
+          !Object.values(t.install.byAgent).every((v) => typeof v === 'string')
+        ) {
           return `toolkits[${id}].install.byAgent 必须为字符串映射`
         }
       }
@@ -123,7 +148,15 @@ function validateToolkitMeta(toolkits: unknown): string | null {
   return null
 }
 
-const SPEC_KINDS = ['command', 'path', 'mcp', 'plugin-enabled', 'proxy-plugin', 'hook', 'process'] as const
+const SPEC_KINDS = [
+  'command',
+  'path',
+  'mcp',
+  'plugin-enabled',
+  'proxy-plugin',
+  'hook',
+  'process',
+] as const
 const SPEC_SOURCES = ['fs', 'proxy', 'any'] as const
 const MAX_SPEC_DEPTH = 3
 
@@ -162,7 +195,8 @@ function validateSpecNode(spec: unknown, path: string, depth: number): string | 
   if (kind === 'mcp') {
     const names = spec['names']
     if (names === undefined) return `${path} 缺少 mcp 必需参数 names`
-    if (!Array.isArray(names) || !names.every((x) => typeof x === 'string')) return `${path}.names 必须为字符串数组`
+    if (!Array.isArray(names) || !names.every((x) => typeof x === 'string'))
+      return `${path}.names 必须为字符串数组`
   }
   const source = spec['source']
   if (source !== undefined && !(SPEC_SOURCES as readonly string[]).includes(source as string)) {
@@ -172,7 +206,11 @@ function validateSpecNode(spec: unknown, path: string, depth: number): string | 
 }
 
 /** Recurse into all/any combinator children. */
-function validateSpecChildren(spec: Record<string, unknown>, path: string, depth: number): string | null {
+function validateSpecChildren(
+  spec: Record<string, unknown>,
+  path: string,
+  depth: number,
+): string | null {
   for (const combinator of ['all', 'any'] as const) {
     const children = spec[combinator]
     if (children === undefined) continue
@@ -199,12 +237,17 @@ function validateToolkitSpec(toolkits: unknown): string | null {
     if (t.level !== undefined && !(VALID_LEVELS as readonly string[]).includes(t.level as string)) {
       return `toolkits[${id}].level 取值必须为 ${VALID_LEVELS.join('/')}`
     }
-    if (t.estTokens !== undefined && (typeof t.estTokens !== 'number' || !Number.isInteger(t.estTokens) || t.estTokens < 0)) {
+    if (
+      t.estTokens !== undefined &&
+      (typeof t.estTokens !== 'number' || !Number.isInteger(t.estTokens) || t.estTokens < 0)
+    ) {
       return `toolkits[${id}].estTokens 必须为非负整数`
     }
     if (t.install !== undefined && isPlainObject(t.install)) {
-      if (t.install.verify !== undefined && typeof t.install.verify !== 'string') return `toolkits[${id}].install.verify 必须为字符串`
-      if (t.install.handler !== undefined && typeof t.install.handler !== 'string') return `toolkits[${id}].install.handler 必须为字符串`
+      if (t.install.verify !== undefined && typeof t.install.verify !== 'string')
+        return `toolkits[${id}].install.verify 必须为字符串`
+      if (t.install.handler !== undefined && typeof t.install.handler !== 'string')
+        return `toolkits[${id}].install.handler 必须为字符串`
     }
   }
   return null
@@ -219,7 +262,10 @@ function toDatasets(pack: SingleRulesFile): PackDatasets {
     toolkits: (d['toolkits'] as ToolkitCatalogEntry[]) ?? [],
     thresholds: (d['thresholds'] as Record<string, number>) ?? {},
     levels: (d['levels'] as Record<string, Level>) ?? {},
-    prompts: (pack.prompts ?? (d['prompts'] as Record<string, string>) ?? {}) as Record<string, string>,
+    prompts: (pack.prompts ?? (d['prompts'] as Record<string, string>) ?? {}) as Record<
+      string,
+      string
+    >,
   }
 }
 
@@ -232,18 +278,31 @@ interface LoadedPack {
  * Validate one single rules file (parsed JSON). Follows the compat gate:
  * schemaVersion → engines range → data shape. Returns rejected-* on failure.
  */
-export function validateRulesFile(raw: unknown): { source: Omit<RuleSource, 'path' | 'layer'>; pack?: LoadedPack } {
+export function validateRulesFile(raw: unknown): {
+  source: Omit<RuleSource, 'path' | 'layer'>
+  pack?: LoadedPack
+} {
   const base = { result: 'empty' as SourceResult, warnings: [] as string[] }
-  if (!isPlainObject(raw)) return { source: { ...base, result: 'rejected-corrupted', warnings: ['不是合法 JSON 对象'] } }
+  if (!isPlainObject(raw))
+    return { source: { ...base, result: 'rejected-corrupted', warnings: ['不是合法 JSON 对象'] } }
   const { schemaVersion, packVersion, engines, data, prompts } = raw as Partial<SingleRulesFile>
-  if (typeof schemaVersion !== 'number' || typeof packVersion !== 'string' || !isPlainObject(engines) || typeof engines.stk !== 'string') {
-    return { source: { ...base, result: 'rejected-corrupted', warnings: ['版本清单字段缺失或非法'] } }
+  if (
+    typeof schemaVersion !== 'number' ||
+    typeof packVersion !== 'string' ||
+    !isPlainObject(engines) ||
+    typeof engines.stk !== 'string'
+  ) {
+    return {
+      source: { ...base, result: 'rejected-corrupted', warnings: ['版本清单字段缺失或非法'] },
+    }
   }
   if (schemaVersion > SUPPORTED_SCHEMA_VERSION) {
     return {
       source: {
         result: 'rejected-incompatible',
-        warnings: [`规则包 schemaVersion ${schemaVersion} 高于引擎支持的 ${SUPPORTED_SCHEMA_VERSION}`],
+        warnings: [
+          `规则包 schemaVersion ${schemaVersion} 高于引擎支持的 ${SUPPORTED_SCHEMA_VERSION}`,
+        ],
       },
     }
   }
@@ -259,7 +318,14 @@ export function validateRulesFile(raw: unknown): { source: Omit<RuleSource, 'pat
   if (dataWarn) {
     return { source: { result: 'rejected-corrupted', warnings: [dataWarn] } }
   }
-  const pack: SingleRulesFile = { schemaVersion, packVersion, releasedAt: '', engines, data: data ?? {}, prompts: prompts ?? {} }
+  const pack: SingleRulesFile = {
+    schemaVersion,
+    packVersion,
+    releasedAt: '',
+    engines,
+    data: data ?? {},
+    prompts: prompts ?? {},
+  }
   return {
     source: { result: 'ok', warnings: [] },
     pack: { packVersion, datasets: toDatasets(pack) },
@@ -306,7 +372,13 @@ function readRawLayer(dir: string, layer: RuleLayer): { source: RuleSource; pack
     } catch {
       return { source: { ...base, result: 'rejected-corrupted', warnings: [`${f} 不是合法 JSON`] } }
     }
-    const single = { schemaVersion: 1, packVersion: '', releasedAt: '', engines: { stk: '>=0.0.0' }, data: { [name]: raw } }
+    const single = {
+      schemaVersion: 1,
+      packVersion: '',
+      releasedAt: '',
+      engines: { stk: '>=0.0.0' },
+      data: { [name]: raw },
+    }
     const warn = validateData(single.data)
     if (warn) {
       return { source: { ...base, result: 'rejected-corrupted', warnings: [`${f}: ${warn}`] } }
@@ -345,7 +417,13 @@ export function loadRules(options: LoadRulesOptions = {}): MergedRules {
   if (!fallbackValid.pack) {
     for (const w of fallbackValid.source.warnings) printWarning(`内置兜底: ${w}`)
   }
-  sources.push({ layer: 'builtin', path: 'src/rules/fallback.json (bundled)', packVersion: builtinPack.packVersion, result: 'ok', warnings: [] })
+  sources.push({
+    layer: 'builtin',
+    path: 'src/rules/fallback.json (bundled)',
+    packVersion: builtinPack.packVersion,
+    result: 'ok',
+    warnings: [],
+  })
 
   const merged: MergedRules = {
     lowFrequencyPlugins: new Set<string>(),

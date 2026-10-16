@@ -57,9 +57,19 @@ CodeBuddy 将会话事件流记录在 `~/.codebuddy/projects/<编码后的项目
 `src/types/index.ts` 新增：
 
 ```ts
-interface UsageRankItem { name: string; count: number }
-interface UsageDimension { total: number; ranking: UsageRankItem[] }
-interface UsageTimeBucket { all: UsageDimension; last90Days: UsageDimension; last30Days: UsageDimension }
+interface UsageRankItem {
+  name: string
+  count: number
+}
+interface UsageDimension {
+  total: number
+  ranking: UsageRankItem[]
+}
+interface UsageTimeBucket {
+  all: UsageDimension
+  last90Days: UsageDimension
+  last30Days: UsageDimension
+}
 interface UsageStats {
   scannedAt: string
   sessionsDir: string
@@ -69,8 +79,8 @@ interface UsageStats {
   toolUsage: UsageTimeBucket
   skillUsage: UsageTimeBucket
   subagentUsage: UsageTimeBucket
-  mcpServerUsage: UsageTimeBucket   // 仅 server 维度
-  mcpToolUsage: UsageTimeBucket     // mcp__ 全名维度
+  mcpServerUsage: UsageTimeBucket // 仅 server 维度
+  mcpToolUsage: UsageTimeBucket // mcp__ 全名维度
 }
 ```
 

@@ -98,7 +98,10 @@ export function verifyNativeArtifacts(global: boolean, agent: string): string[] 
 }
 
 /** 解析目标 Agent 的 settings / 指令主文件 / RTK.md 路径。 */
-function configPathsFor(agent: string, global: boolean): {
+function configPathsFor(
+  agent: string,
+  global: boolean,
+): {
   settings: string
   memoryMd: string
   doc: string
@@ -150,12 +153,19 @@ export function configureNative(global: boolean, agent: string): InstallStep[] {
       hooks.PreToolUse = pre
       config.hooks = hooks
       writeFileSync(settings, JSON.stringify(config, null, 2))
-      steps.push({ cmd: `settings.json: hooks.PreToolUse[Bash] += ${RTK_HOOK_COMMAND} (${settings})`, ok: true })
+      steps.push({
+        cmd: `settings.json: hooks.PreToolUse[Bash] += ${RTK_HOOK_COMMAND} (${settings})`,
+        ok: true,
+      })
     } else {
       steps.push({ cmd: `settings.json: ${RTK_HOOK_COMMAND} hook 已存在 (${settings})`, ok: true })
     }
   } catch (e) {
-    steps.push({ cmd: `settings.json: 写入失败 (${settings})`, ok: false, error: (e as Error).message })
+    steps.push({
+      cmd: `settings.json: 写入失败 (${settings})`,
+      ok: false,
+      error: (e as Error).message,
+    })
     return steps
   }
 
@@ -185,7 +195,11 @@ export function configureNative(global: boolean, agent: string): InstallStep[] {
       steps.push({ cmd: `${basename(memoryMd)} 已含 @RTK.md 引用 (${memoryMd})`, ok: true })
     }
   } catch (e) {
-    steps.push({ cmd: `${basename(memoryMd)} 追加 @RTK.md 失败 (${memoryMd})`, ok: false, error: (e as Error).message })
+    steps.push({
+      cmd: `${basename(memoryMd)} 追加 @RTK.md 失败 (${memoryMd})`,
+      ok: false,
+      error: (e as Error).message,
+    })
   }
 
   return steps

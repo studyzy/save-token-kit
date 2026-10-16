@@ -36,7 +36,8 @@ function collectDeltas(
     if (b && a) {
       const delta = a.tokens - b.tokens
       const note = a.note && b.note && a.note !== b.note ? `${b.note} → ${a.note}` : undefined
-      if (delta !== 0 || note) changed.push({ name: e.name, before: b.tokens, after: a.tokens, delta, note })
+      if (delta !== 0 || note)
+        changed.push({ name: e.name, before: b.tokens, after: a.tokens, delta, note })
     } else if (a) {
       added.push(e.name)
     } else if (b) {
@@ -134,11 +135,18 @@ export function diffReports(before: DiagnosisReport, after: DiagnosisReport): st
     for (const s of r.skillList) m.set(s.name, { tokens: s.estimatedTokens })
     return m
   }
-  const skillNames = [
-    ...new Set([...before.skillList, ...after.skillList].map((s) => s.name)),
-  ].map((name) => ({ name, tokens: 0 }))
+  const skillNames = [...new Set([...before.skillList, ...after.skillList].map((s) => s.name))].map(
+    (name) => ({ name, tokens: 0 }),
+  )
   const skillDeltas = collectDeltas(skillNames, skillMap(before), skillMap(after))
-  renderSection(lines, 'Skill 变化', 'tok', skillDeltas.changed, skillDeltas.added, skillDeltas.removed)
+  renderSection(
+    lines,
+    'Skill 变化',
+    'tok',
+    skillDeltas.changed,
+    skillDeltas.added,
+    skillDeltas.removed,
+  )
 
   // --- Memory files ---
   const memMap = (r: DiagnosisReport): Map<string, { tokens: number; note?: string }> => {

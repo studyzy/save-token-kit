@@ -73,9 +73,11 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     .option('-g, --global', 'Install to global ~/.codebuddy/ (default)')
     .option('--local', 'Install to project-level .codebuddy/ instead of global')
     .option('--agent <name>', 'Target AI agent (default: codebuddy)', { default: 'codebuddy' })
-    .action(async (toolkit: string, options: { global?: boolean; local?: boolean; agent: string }) => {
-      await runInstall(toolkit, options)
-    })
+    .action(
+      async (toolkit: string, options: { global?: boolean; local?: boolean; agent: string }) => {
+        await runInstall(toolkit, options)
+      },
+    )
 
   cli
     .command('uninstall', 'Remove the stk SKILL files installed by `stk init`')
@@ -108,7 +110,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     })
 
   cli
-    .command('diff [before] [after]', 'Compare two diagnosis reports and write save-token/diff-report.md')
+    .command(
+      'diff [before] [after]',
+      'Compare two diagnosis reports and write save-token/diff-report.md',
+    )
     .action(async (before?: string, after?: string) => {
       await runDiff({ before, after })
     })
@@ -124,21 +129,16 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
     .command('rules <action>', '规则库管理 (update: 更新优化规则包 | status: 查看规则库状态)')
     .option('--check', '仅检查新版本，不安装')
     .option('--json', '机器可读输出')
-    .action(
-      async (
-        action: string,
-        options: { check?: boolean; json?: boolean },
-      ) => {
-        if (action === 'update') {
-          await runRulesUpdate(options)
-        } else if (action === 'status') {
-          await runRulesStatus(options)
-        } else {
-          console.error(`未知的 rules 子命令: ${action}（可用: update | status）`)
-          process.exitCode = 1
-        }
-      },
-    )
+    .action(async (action: string, options: { check?: boolean; json?: boolean }) => {
+      if (action === 'update') {
+        await runRulesUpdate(options)
+      } else if (action === 'status') {
+        await runRulesStatus(options)
+      } else {
+        console.error(`未知的 rules 子命令: ${action}（可用: update | status）`)
+        process.exitCode = 1
+      }
+    })
 
   cli.help()
   cli.version(VERSION)

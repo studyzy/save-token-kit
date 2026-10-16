@@ -6,38 +6,44 @@ stk（save-token-kit）的优化经验库：**一个 JSON 文件承载全部规�
 
 ```jsonc
 {
-  "schemaVersion": 1,          // 数据格式版本；高于引擎支持值 → 整包拒载
-  "packVersion": "1.0.0",      // 语义化版本；发布新经验时递增（与内容变更同步）
+  "schemaVersion": 1, // 数据格式版本；高于引擎支持值 → 整包拒载
+  "packVersion": "1.0.0", // 语义化版本；发布新经验时递增（与内容变更同步）
   "releasedAt": "2026-09-24T00:00:00Z",
-  "engines": { "stk": ">=0.6" },  // 兼容的 stk 版本区间；当前引擎不在区间内 → 拒载并回退兜底
+  "engines": { "stk": ">=0.6" }, // 兼容的 stk 版本区间；当前引擎不在区间内 → 拒载并回退兜底
   "data": {
-    "low-frequency-plugins": [          // 低频插件名单（元素为 pluginId@marketplace）
-      "pptx@codebuddy-plugins-official"
+    "low-frequency-plugins": [
+      // 低频插件名单（元素为 pluginId@marketplace）
+      "pptx@codebuddy-plugins-official",
     ],
-    "mcp-alternatives": {               // MCP server → 更省 Token 的 CLI 替代
-      "mcp-server-tapd": "tapd-cli"
+    "mcp-alternatives": {
+      // MCP server → 更省 Token 的 CLI 替代
+      "mcp-server-tapd": "tapd-cli",
     },
-    "toolkits": [                       // 第三方省 Token Toolkit 目录（纯数据；探测/安装逻辑在引擎）
-      { "id": "rtk", "type": "cli" }   // type: cli | plugin | mcp
+    "toolkits": [
+      // 第三方省 Token Toolkit 目录（纯数据；探测/安装逻辑在引擎）
+      { "id": "rtk", "type": "cli" }, // type: cli | plugin | mcp
     ],
-    "thresholds": {                     // 判定阈值（数值映射）
+    "thresholds": {
+      // 判定阈值（数值映射）
       "memoryMdMaxLines": 150,
       "userMemoryMaxLines": 50,
       "ruleFileMaxLines": 30,
       "totalMaxLines": 250,
       "impactHighBytes": 5120,
-      "impactMediumBytes": 1024
+      "impactMediumBytes": 1024,
     },
-    "levels": {                         // 建议分级：初级 | 中级 | 高级；"*" 为兜底键
+    "levels": {
+      // 建议分级：初级 | 中级 | 高级；"*" 为兜底键
       "rtk": "初级",
       "headroom": "高级",
-      "*": "中级"
-    }
+      "*": "中级",
+    },
   },
-  "prompts": {                          // 平台经验片段（Markdown 字符串），stk init 时渲染进技能模板
+  "prompts": {
+    // 平台经验片段（Markdown 字符串），stk init 时渲染进技能模板
     "tool-opt.codebuddy": "...",
-    "tool-opt.claude": "..."
-  }
+    "tool-opt.claude": "...",
+  },
 }
 ```
 

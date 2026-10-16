@@ -28,7 +28,11 @@ afterAll(() => {
 describe('evaluateSpec — command', () => {
   it('命令存在 → true', async () => {
     const ce = vi.fn().mockResolvedValue(true)
-    const ok = await evaluateSpec({ kind: 'command', name: 'rtk' }, ctx(), deps({ commandExists: ce }))
+    const ok = await evaluateSpec(
+      { kind: 'command', name: 'rtk' },
+      ctx(),
+      deps({ commandExists: ce }),
+    )
     expect(ok).toBe(true)
     expect(ce).toHaveBeenCalledWith('rtk')
   })
@@ -46,7 +50,11 @@ describe('evaluateSpec — command', () => {
     const ok = await evaluateSpec(
       { kind: 'command', name: 'rtk' },
       ctx(),
-      deps({ commandExists: async () => { throw new Error('boom') } }),
+      deps({
+        commandExists: async () => {
+          throw new Error('boom')
+        },
+      }),
     )
     expect(ok).toBe(false)
   })
@@ -61,17 +69,17 @@ describe('evaluateSpec — path', () => {
   })
 
   it('不存在的绝对路径 → false', async () => {
-    const ok = await evaluateSpec(
-      { kind: 'path', path: join(tmpBase, 'missing') },
-      ctx(),
-      deps(),
-    )
+    const ok = await evaluateSpec({ kind: 'path', path: join(tmpBase, 'missing') }, ctx(), deps())
     expect(ok).toBe(false)
   })
 
   it('~ 前缀按 ctx.home 展开', async () => {
     mkdirSync(join(tmpBase, '.stk-check'), { recursive: true })
-    const ok = await evaluateSpec({ kind: 'path', path: '~/.stk-check' }, ctx({ home: tmpBase }), deps())
+    const ok = await evaluateSpec(
+      { kind: 'path', path: '~/.stk-check' },
+      ctx({ home: tmpBase }),
+      deps(),
+    )
     expect(ok).toBe(true)
   })
 
@@ -87,11 +95,7 @@ describe('evaluateSpec — path', () => {
   it('相对路径基于 deps.cwd', async () => {
     const dir = join(tmpBase, 'rel-base')
     mkdirSync(join(dir, 'graphify-out'), { recursive: true })
-    const ok = await evaluateSpec(
-      { kind: 'path', path: 'graphify-out' },
-      ctx(),
-      deps({ cwd: dir }),
-    )
+    const ok = await evaluateSpec({ kind: 'path', path: 'graphify-out' }, ctx(), deps({ cwd: dir }))
     expect(ok).toBe(true)
   })
 
@@ -176,11 +180,7 @@ describe('evaluateSpec — plugin-enabled', () => {
   })
 
   it('settingsJson 缺省 → false', async () => {
-    const ok = await evaluateSpec(
-      { kind: 'plugin-enabled', key: 'caveman@caveman' },
-      ctx(),
-      deps(),
-    )
+    const ok = await evaluateSpec({ kind: 'plugin-enabled', key: 'caveman@caveman' }, ctx(), deps())
     expect(ok).toBe(false)
   })
 })
@@ -303,18 +303,23 @@ describe('evaluateSpec — process', () => {
     const ok = await evaluateSpec(
       { kind: 'process', pattern: 'headroom' },
       ctx(),
-      deps({ listProcesses: async () => { throw new Error('ps failed') } }),
+      deps({
+        listProcesses: async () => {
+          throw new Error('ps failed')
+        },
+      }),
     )
     expect(ok).toBe(false)
   })
 })
 
 describe('evaluateSpec — 组合器', () => {
-  const ce = vi.fn()
-    .mockResolvedValueOnce(true)   // all: 第一项 true
-    .mockResolvedValueOnce(false)  // all: 第二项 false → 短路
-    .mockResolvedValueOnce(false)  // any: 第一项 false
-    .mockResolvedValueOnce(true)   // any: 第二项 true → 短路
+  const ce = vi
+    .fn()
+    .mockResolvedValueOnce(true) // all: 第一项 true
+    .mockResolvedValueOnce(false) // all: 第二项 false → 短路
+    .mockResolvedValueOnce(false) // any: 第一项 false
+    .mockResolvedValueOnce(true) // any: 第二项 true → 短路
 
   it('all 全真 → true，且短路（第三项不被求值）', async () => {
     const ok = await evaluateSpec(
@@ -376,7 +381,12 @@ describe('evaluateSpec — 组合器', () => {
       {
         all: [
           { kind: 'command', name: 'headroom' },
-          { any: [{ kind: 'mcp', names: ['headroom'] }, { kind: 'process', pattern: 'headroom' }] },
+          {
+            any: [
+              { kind: 'mcp', names: ['headroom'] },
+              { kind: 'process', pattern: 'headroom' },
+            ],
+          },
         ],
       },
       ctx(),
@@ -391,8 +401,8 @@ describe('evaluateSpec — 组合器', () => {
 
 describe('evaluateSpec — 防御', () => {
   it('未知 kind → throw', async () => {
-    await expect(
-      evaluateSpec({ kind: 'telepathy' } as never, ctx(), deps()),
-    ).rejects.toThrow(/unknown kind/i)
+    await expect(evaluateSpec({ kind: 'telepathy' } as never, ctx(), deps())).rejects.toThrow(
+      /unknown kind/i,
+    )
   })
 })

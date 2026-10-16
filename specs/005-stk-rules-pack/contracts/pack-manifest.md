@@ -34,6 +34,7 @@
 ```
 
 **约束**:
+
 - `packVersion` MUST 与 `package.json#version` 一致，不一致视为 `rejected-corrupted`
 - `schemaVersion` 为整数；引擎仅实现已知值（当前 1），更高 → `rejected-incompatible`
 - `engines.stk` 语法：逗号分隔的 `>=X.Y.Z` / `<X.Y.Z` / `=X.Y.Z`（AND 语义）

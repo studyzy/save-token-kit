@@ -24,7 +24,11 @@ describe('multi-source stacking (builtin < library < user < project)', () => {
     // library: github -> my-cli (from valid-pack fixture)
     writeDataset(user, 'mcp-alternatives', { github: 'user-cli' })
     writeDataset(project, 'mcp-alternatives', { github: 'project-cli' })
-    const merged = loadRules({ rulesFile: FX('valid-pack') + '/stk-rules.json', userDir: user, projectDir: project })
+    const merged = loadRules({
+      rulesFile: FX('valid-pack') + '/stk-rules.json',
+      userDir: user,
+      projectDir: project,
+    })
     expect(merged.mcpAlternatives['github']).toBe('project-cli')
     expect(merged.mcpAlternatives['mcp-server-tapd']).toBe('my-tapd') // from library
     expect(merged.mcpAlternatives['notion']).toBe('notion-cli') // from builtin
@@ -33,7 +37,11 @@ describe('multi-source stacking (builtin < library < user < project)', () => {
   it('falls back to user layer when project omits the key', () => {
     const project2 = tmpDir()
     writeDataset(project2, 'thresholds', { memoryMdSuggestLines: 180 })
-    const merged = loadRules({ rulesFile: FX('valid-pack') + '/stk-rules.json', userDir: user, projectDir: project2 })
+    const merged = loadRules({
+      rulesFile: FX('valid-pack') + '/stk-rules.json',
+      userDir: user,
+      projectDir: project2,
+    })
     expect(merged.mcpAlternatives['github']).toBe('user-cli')
     expect(merged.thresholds['memoryMdSuggestLines']).toBe(180)
   })
@@ -42,7 +50,11 @@ describe('multi-source stacking (builtin < library < user < project)', () => {
     const user3 = tmpDir()
     const project3 = tmpDir()
     writeDataset(user3, 'low-frequency-plugins', ['!github-mcp'])
-    const merged = loadRules({ rulesFile: FX('empty-home') + '/stk-rules.json', userDir: user3, projectDir: project3 })
+    const merged = loadRules({
+      rulesFile: FX('empty-home') + '/stk-rules.json',
+      userDir: user3,
+      projectDir: project3,
+    })
     expect(merged.lowFrequencyPlugins.has('github-mcp')).toBe(false)
     expect(merged.lowFrequencyPlugins.has('pptx@codebuddy-plugins-official')).toBe(true)
   })
@@ -50,7 +62,11 @@ describe('multi-source stacking (builtin < library < user < project)', () => {
   it('treats "*" level key as fallback and allows upper-layer override', () => {
     const project4 = tmpDir()
     writeDataset(project4, 'levels', { '*': '高级' })
-    const merged = loadRules({ rulesFile: FX('empty-home') + '/stk-rules.json', userDir: tmpDir(), projectDir: project4 })
+    const merged = loadRules({
+      rulesFile: FX('empty-home') + '/stk-rules.json',
+      userDir: tmpDir(),
+      projectDir: project4,
+    })
     expect(merged.levels['*']).toBe('高级')
     expect(merged.levels['rtk']).toBe('初级') // explicit key from builtin unaffected
   })
@@ -60,7 +76,11 @@ describe('multi-source stacking (builtin < library < user < project)', () => {
     const project5 = tmpDir()
     writeFileSync(join(user5, 'thresholds.json'), '{ not json')
     writeDataset(project5, 'mcp-alternatives', { github: 'ok' })
-    const merged = loadRules({ rulesFile: FX('empty-home') + '/stk-rules.json', userDir: user5, projectDir: project5 })
+    const merged = loadRules({
+      rulesFile: FX('empty-home') + '/stk-rules.json',
+      userDir: user5,
+      projectDir: project5,
+    })
     const u = merged.rulesInfo.sources.find((s) => s.layer === 'user')
     const p = merged.rulesInfo.sources.find((s) => s.layer === 'project')
     expect(u?.result).toBe('rejected-corrupted')

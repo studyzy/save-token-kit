@@ -8,6 +8,7 @@
 
 ```markdown
 <!-- stk:rules:prompts/<name> -->
+
 <默认内容（兜底）>
 <!-- /stk:rules:prompts/<name> -->
 ```

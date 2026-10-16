@@ -10,12 +10,12 @@
 
 1. `commands/diagnose.ts` 启动透明 HTTP 代理（`proxy/server.ts` 的 `startProxy`），监听 `127.0.0.1`，按 agent 拦截对应路径前缀的 POST 请求体并原样转发到真实上游 API。各平台拦截前缀与上游来源：
 
-   | Agent | 拦截路径前缀 | 上游 base URL 来源 |
-   |---|---|---|
-   | CodeBuddy | `/v1/` | `CODEBUDDY_BASE_URL`（默认 `https://tencent.sso.copilot.tencent.com`） |
+   | Agent     | 拦截路径前缀        | 上游 base URL 来源                                                                        |
+   | --------- | ------------------- | ----------------------------------------------------------------------------------------- |
+   | CodeBuddy | `/v1/`              | `CODEBUDDY_BASE_URL`（默认 `https://tencent.sso.copilot.tencent.com`）                    |
    | WorkBuddy | `/chat/completions` | `CODEBUDDY_BASE_URL`（默认 `https://copilot.tencent.com`，实际走 `/v2/chat/completions`） |
-   | Claude | `/v1/` | `ANTHROPIC_BASE_URL` > `settings.json` env > `https://api.anthropic.com` |
-   | CodeX | `/v1/` | `config.toml` 中 provider 的 `base_url`，回退 `https://api.openai.com` |
+   | Claude    | `/v1/`              | `ANTHROPIC_BASE_URL` > `settings.json` env > `https://api.anthropic.com`                  |
+   | CodeX     | `/v1/`              | `config.toml` 中 provider 的 `base_url`，回退 `https://api.openai.com`                    |
 
    端口占用时回退随机端口（`server.ts` tryListen），并打印黄色警告。请求体按 `content-encoding` 解压**副本**用于解析/捕获/落盘（gzip/deflate/br 走 Node 内置 `zlib`；zstd 等未知编码跳过解析），转发始终使用原始字节（双轨）；超过 `MAX_PROXY_BODY_BYTES` 的请求体跳过解析但仍原样转发。
 

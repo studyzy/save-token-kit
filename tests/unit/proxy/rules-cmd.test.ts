@@ -9,11 +9,7 @@ vi.mock('../../../src/rules/loader.js', () => ({
 }))
 
 import { runRulesUpdate } from '../../../src/commands/rules.js'
-import {
-  fetchRemotePack,
-  installRaw,
-  readInstalledVersion,
-} from '../../../src/rules/update.js'
+import { fetchRemotePack, installRaw, readInstalledVersion } from '../../../src/rules/update.js'
 
 vi.mock('../../../src/rules/update.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../src/rules/update.js')>()

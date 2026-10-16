@@ -16,7 +16,9 @@ describe('codebase-memory（数据驱动）', () => {
     expect(t.name).toBe('codebase-memory')
     expect(t.type).toBe('mcp')
     expect(t.installCommand).toContain('codebase-memory-mcp')
-    expect(loadRules().toolkits['codebase-memory']?.install?.verify).toContain('codebase-memory-mcp')
+    expect(loadRules().toolkits['codebase-memory']?.install?.verify).toContain(
+      'codebase-memory-mcp',
+    )
   })
 
   it('detects not installed when mcp list empty', async () => {

@@ -6,18 +6,23 @@
 ## 输入实体（读取，来自 `./save-token/`）
 
 ### 1. 优化前诊断 — `DiagnosisReport` (diagnosis-report.json)
+
 来源：`stk diagnose`（优化前）
 关键字段：
+
 - `contextOverview.totalEstimatedTokens` — 前总 Token
 - `contextOverview.breakdown: ContextItem[]` — 前分类明细（type / estimatedTokens / percentage）
 
 ### 2. 优化后诊断 — `DiagnosisReport` (diagnosis-report2.json)
+
 来源：`stk diagnose`（优化后，proxy 重采）
 关键字段：同上（后值）
 
 ### 3. 任务执行结果 — `TasksFile` (tasks.json)
+
 来源：`/stk-optimize` 落盘
 关键字段：
+
 - `tasks: OptimizationTask[]`
   - `suggestionId` — 与前后报告归因关联键
   - `status`: 'completed' | 'failed' | 'skipped' | 'partial'
@@ -27,7 +32,9 @@
 ## 输出实体（写入，本功能产出）
 
 ### 4. 对比报告 — `SaveTokenReport` (save-token-report.json)
+
 契约：`src/types/index.ts:407-424`
+
 - `generatedAt`, `beforeSource`, `afterSource`
 - `beforeTotalTokens`, `afterTotalTokens`
 - `changes: TokenChange[]` — 每分类前后 delta（`category`/`beforeTokens`/`afterTokens`/`deltaTokens`/`deltaPercentage`）

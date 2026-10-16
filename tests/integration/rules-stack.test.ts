@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { fileURLToPath } from 'node:url'
 import { loadRules } from '../../src/rules/loader.js'
 
-const FX = (name: string) => fileURLToPath(new URL(`../unit/rules/fixtures/${name}`, import.meta.url))
+const FX = (name: string) =>
+  fileURLToPath(new URL(`../unit/rules/fixtures/${name}`, import.meta.url))
 
 /**
  * Integration: real filesystem + real bundled pack, full loadRules pipeline.

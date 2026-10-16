@@ -7,6 +7,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: `"replace-mcp-with-cli"`
 - `target`: GitHub MCP 名称（如 `github` / `github-mcp`）
 - `title`: 任务标题（如 "用 gh CLI 替代 MCP: github"）
@@ -27,11 +28,13 @@ which gh && gh --version
 按系统类型：
 
 **macOS：**
+
 ```bash
 brew install gh
 ```
 
 **Linux (Debian/Ubuntu)：**
+
 ```bash
 (type -p wget >/dev/null || sudo apt-get install wget -y) && \
 sudo mkdir -p -m 755 /etc/apt/keyrings && \

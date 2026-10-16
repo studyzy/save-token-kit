@@ -51,12 +51,12 @@ stk init
 
 完成后，对应 Agent 的对话中即可使用以下命令：
 
-| 命令            | 作用                                     |
-| --------------- | ---------------------------------------- |
-| `/stk-diagnose` | 采集当前会话 Token 占用基线数据          |
-| `/stk-analyze`  | 分析 Token 优化空间，给出节省建议        |
-| `/stk-optimize` | 执行优化操作                             |
-| `/stk-report`   | 生成优化前后的 Token 对比报告            |
+| 命令            | 作用                              |
+| --------------- | --------------------------------- |
+| `/stk-diagnose` | 采集当前会话 Token 占用基线数据   |
+| `/stk-analyze`  | 分析 Token 优化空间，给出节省建议 |
+| `/stk-optimize` | 执行优化操作                      |
+| `/stk-report`   | 生成优化前后的 Token 对比报告     |
 
 ### 2. 诊断 Token 占用
 
@@ -87,10 +87,10 @@ stk diagnose --report-path ./save-token/diagnosis-report.md
 
 各阶段产物：
 
-| 文件                     | 阶段          | 说明                              |
-| ------------------------ | ------------- | --------------------------------- |
-| `analysis.json`          | `/stk-analyze` | 优化建议（机器可读）             |
-| `save-token-report.json` | `/stk-report`  | 前后 Token 对比报告              |
+| 文件                     | 阶段           | 说明                 |
+| ------------------------ | -------------- | -------------------- |
+| `analysis.json`          | `/stk-analyze` | 优化建议（机器可读） |
+| `save-token-report.json` | `/stk-report`  | 前后 Token 对比报告  |
 
 优化后再次运行 `stk diagnose --report-path ./save-token/diagnosis-report2.md` 即可对比效果。
 
@@ -100,51 +100,51 @@ stk diagnose --report-path ./save-token/diagnosis-report.md
 
 拦截 LLM 请求体，产出 Token 诊断报告。
 
-| 选项                    | 默认值      | 说明                                                          |
-| ----------------------- | ----------- | ------------------------------------------------------------- |
-| `--agent <name>`        | `codebuddy` | 目标 Agent（`codebuddy` / `workbuddy` / `claude` / `codex`）   |
-| `--port <number>`       | `8899`      | 代理端口（占用时自动回退随机端口）                            |
-| `--report-path <path>`  | 控制台输出  | 将 Markdown 报告写入指定路径而非打印到控制台                  |
+| 选项                   | 默认值      | 说明                                                         |
+| ---------------------- | ----------- | ------------------------------------------------------------ |
+| `--agent <name>`       | `codebuddy` | 目标 Agent（`codebuddy` / `workbuddy` / `claude` / `codex`） |
+| `--port <number>`      | `8899`      | 代理端口（占用时自动回退随机端口）                           |
+| `--report-path <path>` | 控制台输出  | 将 Markdown 报告写入指定路径而非打印到控制台                 |
 
 ### `stk init`
 
 为指定 AI Agent 安装 SKILL 文件。
 
-| 选项             | 说明                                                          |
-| ---------------- | ------------------------------------------------------------- |
-| `--agent <name>` | 目标 Agent（`codebuddy` / `workbuddy` / `claude` / `codex`，默认 `codebuddy`）|
-| `--local`        | 安装到项目级 `.codebuddy/`（默认全局 `~/.codebuddy/`）        |
-| `--force`        | 覆盖已存在的文件                                              |
+| 选项             | 说明                                                                           |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `--agent <name>` | 目标 Agent（`codebuddy` / `workbuddy` / `claude` / `codex`，默认 `codebuddy`） |
+| `--local`        | 安装到项目级 `.codebuddy/`（默认全局 `~/.codebuddy/`）                         |
+| `--force`        | 覆盖已存在的文件                                                               |
 
 ### `stk install <toolkit>`
 
 安装第三方省 Token Toolkit 并注册到 AI Agent。
 
-| 选项            | 说明                                                          |
-| --------------- | ------------------------------------------------------------- |
-| `-g, --global`  | 安装到全局 `~/.codebuddy/`（默认）                            |
-| `--local`       | 安装到项目级 `.codebuddy/`                                    |
-| `--agent <name>`| 目标 Agent（默认 `codebuddy`）                                |
+| 选项             | 说明                               |
+| ---------------- | ---------------------------------- |
+| `-g, --global`   | 安装到全局 `~/.codebuddy/`（默认） |
+| `--local`        | 安装到项目级 `.codebuddy/`         |
+| `--agent <name>` | 目标 Agent（默认 `codebuddy`）     |
 
 ### `stk uninstall`
 
 删除 `stk init` 安装的 stk SKILL 文件。只删除 stk 自己的 5 个 SKILL 目录（`stk`、`stk-diagnose`、`stk-analyze`、`stk-optimize`、`stk-report`），不触碰同目录下的其他 SKILL。
 
-| 选项             | 说明                                                                       |
-| ---------------- | -------------------------------------------------------------------------- |
-| `--agent <name>` | 目标 Agent（默认 `codebuddy`）                                             |
-| `--local`        | 删除项目级 `.codebuddy/` 下的安装（默认全局 `~/.codebuddy/`）              |
-| `--force`        | 跳过确认直接删除；非交互环境（脚本/CI）下必须显式传 `--force` 才会执行     |
+| 选项             | 说明                                                                   |
+| ---------------- | ---------------------------------------------------------------------- |
+| `--agent <name>` | 目标 Agent（默认 `codebuddy`）                                         |
+| `--local`        | 删除项目级 `.codebuddy/` 下的安装（默认全局 `~/.codebuddy/`）          |
+| `--force`        | 跳过确认直接删除；非交互环境（脚本/CI）下必须显式传 `--force` 才会执行 |
 
 ### `stk proxy`
 
 启动代理并记录所有 CodeBuddy API 请求/响应到磁盘。
 
-| 选项              | 说明                                              |
-| ----------------- | ------------------------------------------------- |
-| `--port <number>` | 代理端口（默认随机）                              |
-| `--upstream <url>`| 上游 API 地址（默认 `CODEBUDDY_API_BASE` 环境变量）|
-| `--trace-dir`     | 覆盖 trace 输出目录                              |
+| 选项               | 说明                                                |
+| ------------------ | --------------------------------------------------- |
+| `--port <number>`  | 代理端口（默认随机）                                |
+| `--upstream <url>` | 上游 API 地址（默认 `CODEBUDDY_API_BASE` 环境变量） |
+| `--trace-dir`      | 覆盖 trace 输出目录                                 |
 
 ## 架构
 

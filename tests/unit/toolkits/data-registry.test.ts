@@ -163,8 +163,12 @@ describe('buildRegistry + buildDetection (constructed data, injected deps)', () 
 })
 
 /** 构造一个带 detect 的通用安装测试条目。 */
-const entryWith = (install: ToolkitCatalogEntry['install']): ToolkitCatalogEntry =>
-  ({ id: 'g-tool', type: 'cli', detect: { kind: 'command', name: 'g-tool' }, install })
+const entryWith = (install: ToolkitCatalogEntry['install']): ToolkitCatalogEntry => ({
+  id: 'g-tool',
+  type: 'cli',
+  detect: { kind: 'command', name: 'g-tool' },
+  install,
+})
 
 describe('generic install (mock runShell)', () => {
   function recorderDeps(failOn?: string): { deps: RegistryDeps; calls: string[] } {
@@ -346,7 +350,11 @@ describe('真实 loadRules 数据冒烟（verify 字段仅存档不执行）', (
     })
     const [t] = buildRegistry(
       makeMerged([
-        entryWith({ default: 'install g-tool', verify: 'g-tool --version', config: { default: 'g setup' } }),
+        entryWith({
+          default: 'install g-tool',
+          verify: 'g-tool --version',
+          config: { default: 'g setup' },
+        }),
       ]),
       deps,
     )

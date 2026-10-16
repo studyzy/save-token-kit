@@ -65,6 +65,8 @@ export async function runInstall(toolkitName: string, options: InstallOptions): 
   }
   console.log(green(`\n${toolkit.name} 安装完成。`))
   if (adapter.supported && (agentName === 'codebuddy' || agentName === 'workbuddy')) {
-    console.log(yellow(`提示: 重新运行 'stk diagnose --agent ${agentName}' 以采集启用后的诊断报告。`))
+    console.log(
+      yellow(`提示: 重新运行 'stk diagnose --agent ${agentName}' 以采集启用后的诊断报告。`),
+    )
   }
 }

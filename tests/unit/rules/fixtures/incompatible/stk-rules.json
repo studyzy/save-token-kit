@@ -1,1 +1,8 @@
-{"schemaVersion":1,"packVersion":"1.5.0","releasedAt":"","engines":{"stk":">=99.0"},"data":{},"prompts":{}}
+{
+  "schemaVersion": 1,
+  "packVersion": "1.5.0",
+  "releasedAt": "",
+  "engines": { "stk": ">=99.0" },
+  "data": {},
+  "prompts": {}
+}

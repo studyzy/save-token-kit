@@ -7,6 +7,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: `"tool-opt"`
 - `target`: `cblite`（CodeBuddy / WorkBuddy）| `claude-permissions-deny`（Claude）
 - `title`: 任务标题

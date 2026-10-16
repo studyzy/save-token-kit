@@ -21,49 +21,49 @@
 
 ### 当前写死位置（重构目标清单）
 
-| 位置 | 写死内容 | 去向 |
-| ---- | ---- | ---- |
-| `src/types/index.ts:75-88` | `ToolkitId` 联合类型（13 id） | 改 `string` |
-| `src/toolkits/impl/*.ts`（13 文件） | detect/isEnabled/installCommand/verifyCommand/description/savingEstimate | 删除，数据化；rtk 移植为 handler |
-| `src/commands/diagnose.ts:374-451` | 7 处 enabled 探测特例（rtk hook / headroom 进程+MCP / ponytail & i-have-adhd proxy 标记 / gitnexus、codebase-memory、context-mode MCP） | 规格评估器统一处理 |
-| 模板 toolkit-enable.md | level 判定表、estTokens 估算清单、知识库名单（prose 多处）、工具名清单 | 占位对渲染 + category 过滤 |
-| 模板 knowledge-base.md | 4 工具名单、展示名映射 | 占位对渲染 |
+| 位置                                | 写死内容                                                                                                                                | 去向                             |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `src/types/index.ts:75-88`          | `ToolkitId` 联合类型（13 id）                                                                                                           | 改 `string`                      |
+| `src/toolkits/impl/*.ts`（13 文件） | detect/isEnabled/installCommand/verifyCommand/description/savingEstimate                                                                | 删除，数据化；rtk 移植为 handler |
+| `src/commands/diagnose.ts:374-451`  | 7 处 enabled 探测特例（rtk hook / headroom 进程+MCP / ponytail & i-have-adhd proxy 标记 / gitnexus、codebase-memory、context-mode MCP） | 规格评估器统一处理               |
+| 模板 toolkit-enable.md              | level 判定表、estTokens 估算清单、知识库名单（prose 多处）、工具名清单                                                                  | 占位对渲染 + category 过滤       |
+| 模板 knowledge-base.md              | 4 工具名单、展示名映射                                                                                                                  | 占位对渲染                       |
 
 ### 检测原语清单（覆盖现有 13 工具的全部探测形态）
 
 评估器签名：`evaluateSpec(spec: ToolkitSpec, ctx: SpecContext): Promise<boolean>`。
 `SpecContext = { home: string; mcpList: McpEntry[]; hookList: HookEntry[]; proxyParsed: ProxyDiagnosisData | null; adapter: getAdapter 结果 }`（由 diagnose 注入；独立调用时可传最小上下文）。
 
-| kind | 参数 | 语义 | 现有出处 |
-| ---- | ---- | ---- | ---- |
-| `command` | `name: string` | `commandExists(name)` | rtk / lean-ctx / headroom 等 cli 类 detect |
-| `path` | `path: string` | `exists(expandHome(path))`，`~` 展开 | caveman marketplace 目录、codebase-memory 安装目录 |
-| `mcp` | `names: string[]`；`source?: 'fs' \| 'proxy' \| 'any'`（默认 `'any'`） | fs 源：`mcpList` 中 name ∈ names 且 status==='enabled'；proxy 源：`proxyParsed.mcpServers` name ∈ names | codebase-memory / codegraph / gitnexus / context-mode（含 `plugin_context-mode_context-mode` 命名空间形态） |
-| `plugin-enabled` | `key: string` | `~/.codebuddy/settings.json` 的 `enabledPlugins[key] === true` | caveman |
-| `proxy-plugin` | `name: string` | `proxyParsed.detectedPlugins?.includes(name)` | ponytail / i-have-adhd |
-| `hook` | `event: string`；`match: string` | `hookList` 中 event 匹配且 command 含 match | rtk enabled |
-| `process` | `pattern: string` | `pgrep -af` 输出正则匹配（沿用 diagnose.ts 的 `isHeadroomProxyRunning` 实现，泛化参数） | headroom enabled |
-| 组合器 | `{ all: Spec[] }` / `{ any: Spec[] }` | 嵌套不超过 3 层 | headroom 复合条件 |
+| kind             | 参数                                                                   | 语义                                                                                                    | 现有出处                                                                                                    |
+| ---------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `command`        | `name: string`                                                         | `commandExists(name)`                                                                                   | rtk / lean-ctx / headroom 等 cli 类 detect                                                                  |
+| `path`           | `path: string`                                                         | `exists(expandHome(path))`，`~` 展开                                                                    | caveman marketplace 目录、codebase-memory 安装目录                                                          |
+| `mcp`            | `names: string[]`；`source?: 'fs' \| 'proxy' \| 'any'`（默认 `'any'`） | fs 源：`mcpList` 中 name ∈ names 且 status==='enabled'；proxy 源：`proxyParsed.mcpServers` name ∈ names | codebase-memory / codegraph / gitnexus / context-mode（含 `plugin_context-mode_context-mode` 命名空间形态） |
+| `plugin-enabled` | `key: string`                                                          | `~/.codebuddy/settings.json` 的 `enabledPlugins[key] === true`                                          | caveman                                                                                                     |
+| `proxy-plugin`   | `name: string`                                                         | `proxyParsed.detectedPlugins?.includes(name)`                                                           | ponytail / i-have-adhd                                                                                      |
+| `hook`           | `event: string`；`match: string`                                       | `hookList` 中 event 匹配且 command 含 match                                                             | rtk enabled                                                                                                 |
+| `process`        | `pattern: string`                                                      | `pgrep -af` 输出正则匹配（沿用 diagnose.ts 的 `isHeadroomProxyRunning` 实现，泛化参数）                 | headroom enabled                                                                                            |
+| 组合器           | `{ all: Spec[] }` / `{ any: Spec[] }`                                  | 嵌套不超过 3 层                                                                                         | headroom 复合条件                                                                                           |
 
 ### 13 工具规格映射表（Task 3 数据落地必须逐项核对 impl 原文件）
 
 > 执行时**逐个读 `git show <base>:src/toolkits/impl/<id>.ts`** 核对，不得凭本表臆断。base = 迁移前基线 `0ded8eb`。
 
-| id | detect | enabled | 备注 |
-| ---- | ---- | ---- | ---- |
-| rtk | `command:rtk` | `hook PreToolUse match rtk` | handler rtk-native；detectToolkitsViaRegistry 的 hook 特例同时存在（评估器统一后二选一，以 spec 为准） |
-| caveman | `path ~/.codebuddy/plugins/marketplaces/caveman/` | `plugin-enabled caveman@caveman` | |
-| headroom | `command:headroom` | `all[process pattern headroom…proxy, mcp names[headroom]]` | 原 enabled = 进程 AND MCP |
-| lean-ctx | `command:lean-ctx` | 缺省（cli 类默认 false） | |
-| graphify | 按 impl 原文件（推测 command:graphify） | 缺省 | 核对后定 |
-| ponytail | 按 impl 原文件 | `any[原 isEnabled, proxy-plugin ponytail]` | 原 diagnose 用 proxy 标记覆盖 installed |
-| i-have-adhd | 按 impl 原文件 | `any[原 isEnabled, proxy-plugin i-have-adhd]` | 同上 |
-| karpathy-skills | 按 impl 原文件 | 缺省 | |
-| gitnexus | `mcp names[gitnexus] source fs`（推测） | `mcp names[gitnexus]` | 原 markInstalledFromMcp |
-| tokenjuice | 按 impl 原文件（推测 command） | 缺省 | |
-| codebase-memory | `mcp names[codebase-memory]`（`.mcp.json` 键存在） | `mcp names[codebase-memory]` | |
-| codegraph | 按 impl 原文件（推测 mcp） | `mcp names[codegraph]` | |
-| context-mode | 按 impl 原文件 | `mcp names[context-mode, plugin_context-mode_context-mode] source any` | 插件机制安装，可能不在磁盘 .mcp.json |
+| id              | detect                                             | enabled                                                                | 备注                                                                                                   |
+| --------------- | -------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| rtk             | `command:rtk`                                      | `hook PreToolUse match rtk`                                            | handler rtk-native；detectToolkitsViaRegistry 的 hook 特例同时存在（评估器统一后二选一，以 spec 为准） |
+| caveman         | `path ~/.codebuddy/plugins/marketplaces/caveman/`  | `plugin-enabled caveman@caveman`                                       |                                                                                                        |
+| headroom        | `command:headroom`                                 | `all[process pattern headroom…proxy, mcp names[headroom]]`             | 原 enabled = 进程 AND MCP                                                                              |
+| lean-ctx        | `command:lean-ctx`                                 | 缺省（cli 类默认 false）                                               |                                                                                                        |
+| graphify        | 按 impl 原文件（推测 command:graphify）            | 缺省                                                                   | 核对后定                                                                                               |
+| ponytail        | 按 impl 原文件                                     | `any[原 isEnabled, proxy-plugin ponytail]`                             | 原 diagnose 用 proxy 标记覆盖 installed                                                                |
+| i-have-adhd     | 按 impl 原文件                                     | `any[原 isEnabled, proxy-plugin i-have-adhd]`                          | 同上                                                                                                   |
+| karpathy-skills | 按 impl 原文件                                     | 缺省                                                                   |                                                                                                        |
+| gitnexus        | `mcp names[gitnexus] source fs`（推测）            | `mcp names[gitnexus]`                                                  | 原 markInstalledFromMcp                                                                                |
+| tokenjuice      | 按 impl 原文件（推测 command）                     | 缺省                                                                   |                                                                                                        |
+| codebase-memory | `mcp names[codebase-memory]`（`.mcp.json` 键存在） | `mcp names[codebase-memory]`                                           |                                                                                                        |
+| codegraph       | 按 impl 原文件（推测 mcp）                         | `mcp names[codegraph]`                                                 |                                                                                                        |
+| context-mode    | 按 impl 原文件                                     | `mcp names[context-mode, plugin_context-mode_context-mode] source any` | 插件机制安装，可能不在磁盘 .mcp.json                                                                   |
 
 ### 数据 schema 示例（data.toolkits 条目，全部可选新增）
 
@@ -110,6 +110,7 @@
 ### Task 1: 类型层 — ToolkitSpec 与建议事实字段
 
 **Files:**
+
 - Modify: `src/types/rules.ts`（`ToolkitCatalogEntry` 扩展）
 - Modify: `src/types/index.ts`（`ToolkitId` → `string`；新增 `ToolkitSpec`）
 
@@ -145,6 +146,7 @@ export interface ToolkitInstallSpec {
 **Step 2: index.ts** — `ToolkitId` 改为 `export type ToolkitId = string`（保留导出名避免大面积改 import），`ToolkitDetection.name: string`。此时编译会因 impl 文件类型冲突报错——**本任务允许编译暂时红**（Task 5 删除 impl），但 `pnpm build` 之外的 vitest 单文件可先跳过；或将 impl 文件的 `readonly name: ToolkitId = 'rtk'` 临时改为 `as ToolkitId` 断言。**推荐后者**（小 diff，Task 5 删文件时一并消失）。
 
 **Step 3: Commit**
+
 ```bash
 git commit -m "feat(types): ToolkitSpec 规格类型与建议事实字段，ToolkitId 放宽为 string"
 ```
@@ -154,10 +156,12 @@ git commit -m "feat(types): ToolkitSpec 规格类型与建议事实字段，Tool
 ### Task 2: loader — 规格宽松校验 validateToolkitSpec（TDD）
 
 **Files:**
+
 - Test: `tests/unit/rules/loader.test.ts`
 - Modify: `src/rules/loader.ts`（`validateToolkitMeta` 内追加或并列新函数）
 
 **Step 1: 先写失败测试**（追加用例，风格同既有 toolkit meta 校验用例）：
+
 1. 合法规格通过（每种 kind 各一 + all/any 嵌套）
 2. 未知 `kind` → 拒绝，信息含 `toolkits[id].detect`
 3. `command` 缺 `name` → 拒绝；`path` 缺 `path` → 拒绝；`mcp` 缺 `names` → 拒绝；`plugin-enabled` 缺 `key` → 拒绝；`proxy-plugin` 缺 `name` → 拒绝；`hook` 缺 `event`/`match` → 拒绝；`process` 缺 `pattern` → 拒绝
@@ -173,6 +177,7 @@ git commit -m "feat(types): ToolkitSpec 规格类型与建议事实字段，Tool
 **Step 4:** 见绿 + 全量 `pnpm test`。
 
 **Step 5: Commit**
+
 ```bash
 git commit -m "feat(rules): loader 新增 detect/enabled/install 规格宽松校验"
 ```
@@ -182,12 +187,14 @@ git commit -m "feat(rules): loader 新增 detect/enabled/install 规格宽松校
 ### Task 3: 数据落地 — 13 工具规格映射 + 建议事实 + packVersion 1.2.0
 
 **Files:**
+
 - Modify: `src/rules/fallback.json` + `rules/stk-rules.json`（cp 同步）
 - Test: `tests/unit/rules/data-parity.test.ts`
 
 **Step 1: 逐项核对 impl 原文件**（`git show 0ded8eb:src/toolkits/impl/<id>.ts` + `src/commands/diagnose.ts:374-451` 当前版），按上方「13 工具规格映射表」把 `detect`/`enabled`/`install.default`/`install.verify`/`install.config`/`description`/`saving`/`level`/`estTokens`/`category` 写入 13 个条目。
 
 事实来源对照：
+
 - `level`/`estTokens` 取自 toolkit-enable.md 现有「level 判定」与「estimatedSavingTokens 估算口径」两表（rtk=初级/50000、caveman=中级/30000、headroom=高级/60000、context-mode=中级/40000、karpathy-skills=中级/10000、i-have-adhd=中级/10000；ponytail/lean-ctx/graphify 等按表中实际值；知识库 4 工具 level 不在 toolkit-enable 表中 → 标 `category: 'knowledge-base'`，level 按 knowledge-base.md 实际语义或留空）
 - `category: 'knowledge-base'`：graphify / codebase-memory / codegraph / gitnexus
 - `saving` = 原 impl 的 `savingEstimate`；`description` = 原 impl 的 `description`
@@ -199,6 +206,7 @@ git commit -m "feat(rules): loader 新增 detect/enabled/install 规格宽松校
 **Step 4:** 全量测试 + lint（若 loader 校验拒绝某条目会在此暴露）。
 
 **Step 5: Commit**
+
 ```bash
 git commit -m "feat(rules): fallback.json 落地 13 工具检测/启用/安装规格与建议事实，packVersion 1.2.0"
 ```
@@ -208,6 +216,7 @@ git commit -m "feat(rules): fallback.json 落地 13 工具检测/启用/安装�
 ### Task 4: 引擎规格评估器 evaluateSpec（TDD）
 
 **Files:**
+
 - Create: `src/toolkits/spec.ts`
 - Test: `tests/unit/toolkits/spec.test.ts`（目录不存在则新建）
 
@@ -222,6 +231,7 @@ git commit -m "feat(rules): fallback.json 落地 13 工具检测/启用/安装�
 **Step 4:** 见绿 + 全量。
 
 **Step 5: Commit**
+
 ```bash
 git commit -m "feat(toolkits): 声明式检测规格评估器 evaluateSpec"
 ```
@@ -231,6 +241,7 @@ git commit -m "feat(toolkits): 声明式检测规格评估器 evaluateSpec"
 ### Task 5: data-registry + rtk handler + 删除 impl（核心任务）
 
 **Files:**
+
 - Create: `src/toolkits/data-registry.ts`
 - Create: `src/toolkits/handlers/rtk-native.ts`（从 `src/toolkits/impl/rtk.ts` 移植）
 - Modify: `src/toolkits/index.ts`、`src/toolkits/registry.ts`、`src/toolkits/types.ts`
@@ -239,6 +250,7 @@ git commit -m "feat(toolkits): 声明式检测规格评估器 evaluateSpec"
 - Test: `tests/unit/toolkits/data-registry.test.ts` + 受影响既有测试改写
 
 **Step 1: 先写失败测试**（data-registry.test.ts）：
+
 1. 从构造的 merged.toolkits 构建注册表：`getAllToolkits()` 返回 13 项、`getToolkit('rtk')` 存在、`getToolkit('nonexistent')` undefined
 2. `buildDetection()`：detect spec 命中/不命中 → installed true/false；enabled 缺省语义（cli 默认 false、plugin 默认 = installed）
 3. `recommendedSaving` 来自数据 `saving` 字段
@@ -249,6 +261,7 @@ git commit -m "feat(toolkits): 声明式检测规格评估器 evaluateSpec"
 **Step 2:** 见红。
 
 **Step 3: 实现**：
+
 - `data-registry.ts`：`buildRegistry(merged: MergedRules, deps: { commandExists, runProcess, runShell })` → `DataToolkit implements 最小接口 { name, description, type, detect(), isEnabled(), buildDetection(), install(global, agent) }`。generic install 读 `install.default`/`install.verify`/`install.config`；`handler` 命中 `HANDLERS['rtk-native']` 时整体委托（handler 从 data 读 installCommand，逻辑移植自 impl/rtk.ts，`RTK_DOC` 模板随迁）。
 - `registry.ts`：模块级缓存 `getRegistry()`（进程内构建一次，复用 loadRules 的 merged 快照——由调用方注入还是内部 loadRules？**内部 loadRules**，与 diagnose 现状一致）。
 - `index.ts`：导出 `getAllToolkits/getToolkit/getToolkitIds`（签名不变）+ `buildRegistry`/`evaluateSpec` 供 diagnose 注入上下文；删除全部 impl re-export。
@@ -259,6 +272,7 @@ git commit -m "feat(toolkits): 声明式检测规格评估器 evaluateSpec"
 **Step 5:** 全量测试（受影响测试改写到新接口；**不**放宽断言语义）+ lint + build。
 
 **Step 6: Commit**
+
 ```bash
 git commit -m "refactor(toolkits): 检测/安装全量数据驱动，删除 13 个 impl，rtk 收编为 named handler"
 ```
@@ -268,9 +282,11 @@ git commit -m "refactor(toolkits): 检测/安装全量数据驱动，删除 13 �
 ### Task 6: diagnose.ts 特例清除
 
 **Files:**
+
 - Modify: `src/commands/diagnose.ts:374-451`
 
 **Step 1: 先写失败测试**（`tests/unit/commands/diagnose.test.ts` 或就近位置追加）：
+
 1. 构造 fs/proxy 上下文：hook 含 rtk → rtk enabled=true
 2. proxy mcpServers 含 `plugin_context-mode_context-mode` → context-mode enabled
 3. mcpList gitnexus enabled → gitnexus enabled 且 installed 被覆盖
@@ -284,6 +300,7 @@ git commit -m "refactor(toolkits): 检测/安装全量数据驱动，删除 13 �
 **Step 4:** 见绿 + 全量（含 integration/diagnose）。
 
 **Step 5: Commit**
+
 ```bash
 git commit -m "refactor(diagnose): 工具检测特例清除，统一走声明式规格评估"
 ```
@@ -293,10 +310,12 @@ git commit -m "refactor(diagnose): 工具检测特例清除，统一走声明式
 ### Task 7: 渲染层 — toolkit-meta 新视图 levels/est/names（TDD）
 
 **Files:**
+
 - Test: `tests/unit/rules/render.test.ts`
 - Modify: `src/rules/render.ts`
 
 **Step 1: 先写失败测试**：
+
 1. `toolkit-meta/levels` → `| 工具 | level |` 表（level 字段在场条目）
 2. `toolkit-meta/est` → `| 工具 | 默认估算 (tokens) |` 表
 3. `toolkit-meta/names category=knowledge-base` → 逗号分隔名单（graphify, codebase-memory, codegraph, gitnexus，插入序）
@@ -310,6 +329,7 @@ git commit -m "refactor(diagnose): 工具检测特例清除，统一走声明式
 **Step 4:** 见绿 + 全量。
 
 **Step 5: Commit**
+
 ```bash
 git commit -m "feat(rules): toolkit-meta 新增 levels/est/names 视图与 category 过滤"
 ```
@@ -319,10 +339,12 @@ git commit -m "feat(rules): toolkit-meta 新增 levels/est/names 视图与 categ
 ### Task 8: 模板零写死改造
 
 **Files:**
+
 - Modify: `src/templates/skills/stk-analyze/agents/toolkit-enable.md`
 - Modify: `src/templates/skills/stk-analyze/agents/knowledge-base.md`
 
 **Step 1: toolkit-enable.md**
+
 1. 「level 判定」表 → `toolkit-meta/levels exclude-category=knowledge-base`（或 exclude=知识库 4 id）占位对渲染，表列头与判定逻辑说明保留
 2. 「estimatedSavingTokens 估算口径」逐工具默认值清单 → `toolkit-meta/est` 渲染 + 估算**公式**保留为 prose（公式是逻辑不是事实）
 3. 「角色与目标」「职责边界」中的工具名清单（rtk / caveman / …）→ `toolkit-meta/names` 渲染或删除枚举改为「规则库 data.toolkits 全量工具」表述
@@ -330,6 +352,7 @@ git commit -m "feat(rules): toolkit-meta 新增 levels/est/names 视图与 categ
 5. rtk 特例文案：保留（是部署侧约定 + agentNotes 已有注记），但「RTK」实体名不可移除——**特例规则本身允许保留**（它是判定逻辑的一部分，已获用户裁决）
 
 **Step 2: knowledge-base.md**
+
 1. 4 工具名单与展示名映射表 → `toolkit-meta/names category=knowledge-base` + 展示名若需保留则进数据（`displayName` 字段，Task 7 一并渲染）或简化用 id
 2. 规模阈值/判定规则（逻辑）保留 prose
 3. smoke 测试更新（render.test.ts 既有真实模板渲染用例）：断言无占位残留、无 `rtk|caveman|ponytail` 等硬编码 id 残留于**清单性**文案（特例与判定规则中允许出现的除外——断言范围以实际改写结果为准，宁窄勿误报）
@@ -337,6 +360,7 @@ git commit -m "feat(rules): toolkit-meta 新增 levels/est/names 视图与 categ
 **Step 3:** 全量测试 + lint。
 
 **Step 4: Commit**
+
 ```bash
 git commit -m "feat(templates): toolkit-enable/knowledge-base 工具清单/level/估算全面数据渲染，消除硬编码"
 ```
@@ -348,6 +372,7 @@ git commit -m "feat(templates): toolkit-enable/knowledge-base 工具清单/level
 **Step 1:** `make build && make cover && make lint` 全过。
 
 **Step 2:** 功能冒烟（真实环境）：
+
 ```bash
 node dist/cli.mjs diagnose --agent codebuddy   # 确认 toolkitDetection 正常产出 13 项
 node dist/cli.mjs install rtk -g --agent codebuddy --dry-run 2>/dev/null || echo "无 dry-run 则跳过实际安装"

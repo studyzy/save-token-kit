@@ -9,6 +9,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: `"disable-skill"` | `"migrate-skill"` | `"disable-model-invocation"` | `"skill-model-downgrade"`
 - `target`: Skill 名称
 - `title`: 任务标题
@@ -18,12 +19,12 @@
 
 ## 配置路径（按当前平台选择，勿写死）
 
-| 平台 | user 级 skills 目录 | 说明 |
-| --- | --- | --- |
-| CodeBuddy | `~/.codebuddy/skills/` | `<name>/SKILL.md` |
-| WorkBuddy | `~/.workbuddy/skills/` | `<name>/SKILL.md` |
-| Claude Code | `~/.claude/skills/` | `<name>/SKILL.md` |
-| CodeX | `~/.codex/skills/` | `<name>/SKILL.md` |
+| 平台        | user 级 skills 目录    | 说明              |
+| ----------- | ---------------------- | ----------------- |
+| CodeBuddy   | `~/.codebuddy/skills/` | `<name>/SKILL.md` |
+| WorkBuddy   | `~/.workbuddy/skills/` | `<name>/SKILL.md` |
+| Claude Code | `~/.claude/skills/`    | `<name>/SKILL.md` |
+| CodeX       | `~/.codex/skills/`     | `<name>/SKILL.md` |
 
 - project 级一律为项目根 `.<平台>/skills/`（如 `./.claude/skills/`）。
 - **执行前必须按诊断 `agentName` 替换为对应平台目录**，避免改到其他 Agent 的文件。

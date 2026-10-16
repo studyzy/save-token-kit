@@ -21,15 +21,15 @@
 
 ## 章程检查
 
-*门控: 必须在阶段 0 研究前通过. 阶段 1 设计后重新检查.*
+_门控: 必须在阶段 0 研究前通过. 阶段 1 设计后重新检查._
 
-| 原则 | 检查 | 结论 |
-| --- | --- | --- |
-| I. CLI 优先 | 新增 `stk rules update` / `stk rules status` 命令，支持 `--json`、`--help`，stdout/stderr 文本协议 | ✅ 通过 |
-| II. Token 效率 | 规则外置使模板去除写死经验，输出紧凑；规则包本身即 Token 优化经验的载体 | ✅ 通过 |
-| III. 测试驱动 | loader/semver/update/render 均有单元测试；三层叠加与 compat 降级有集成测试；既有测试零回归（SC-007） | ✅ 通过 |
-| IV. 简洁至上 | 不引入 YAML/semver 框架依赖；semver 手写仅覆盖 `>=` `<` `=`；无预留抽象（本期不做声明式 match/estimate 引擎） | ✅ 通过 |
-| V. 文档即产品 | 新命令中文 `--help`；本计划及 research/data-model 记录于 `.specify` 对应 specs 目录 | ✅ 通过 |
+| 原则           | 检查                                                                                                          | 结论    |
+| -------------- | ------------------------------------------------------------------------------------------------------------- | ------- |
+| I. CLI 优先    | 新增 `stk rules update` / `stk rules status` 命令，支持 `--json`、`--help`，stdout/stderr 文本协议            | ✅ 通过 |
+| II. Token 效率 | 规则外置使模板去除写死经验，输出紧凑；规则包本身即 Token 优化经验的载体                                       | ✅ 通过 |
+| III. 测试驱动  | loader/semver/update/render 均有单元测试；三层叠加与 compat 降级有集成测试；既有测试零回归（SC-007）          | ✅ 通过 |
+| IV. 简洁至上   | 不引入 YAML/semver 框架依赖；semver 手写仅覆盖 `>=` `<` `=`；无预留抽象（本期不做声明式 match/estimate 引擎） | ✅ 通过 |
+| V. 文档即产品  | 新命令中文 `--help`；本计划及 research/data-model 记录于 `.specify` 对应 specs 目录                           | ✅ 通过 |
 
 设计后复检（阶段 1 完成）：✅ 无违规。三层按条目覆盖合并是需求本身（spec FR-005），非额外抽象；复杂度跟踪表无需填写。
 

@@ -7,11 +7,13 @@
 **Decision**: 规则包为独立 npm 包 `@studyzy/stk-rules`（源码置于本仓库 `rules/` 目录）；主程序以 npm 依赖引用它作为内置兜底层（开发期 `file:./rules`，发布后 registry 版本）。`stk rules update` 通过 tinyexec 调用用户机器上的 npm，将最新规则包装到 `~/.stk/rules/`。
 
 **Rationale**:
+
 - stk 用户 100% 经由 npm/pnpm 安装主程序，npm 渠道零新增心智；
 - npm 自带版本化/原子安装/registry 可用性，免去手写"版本比较 + 下载 + 校验和 + 原子替换"一整套脆弱逻辑（章程 IV）；
 - 兜底与规则包同构（同一个包），天然满足 FR-001"无第二份事实来源"——兜底不是副本，就是规则包本身。
 
 **Alternatives considered**:
+
 - GitHub Release tarball + 手写下载器：需自研版本查询/原子写/校验，脆弱且依赖 gh 网络 API 形态；
 - git clone 更新：慢、Windows 路径问题多；
 - 纯 GitHub raw JSON：无版本清单语义，TTL 检查需额外 API 调用。

@@ -77,6 +77,7 @@
   - 百分比（如 "47-92%"）：取中位数 69.5% 乘以经验 session token 量（按 100000 估算），得 69500。简化：取中位数百分比，`detail` 中标注百分比
   - 绝对数字（如 "6200"）：直接使用
 - 无 `recommendedSaving` 时按下表默认估算（下表由规则库 `data.toolkits` 的 meta 字段在 `stk init` 渲染期生成，自定义规则库可覆盖）：
+
 <!-- stk:rules:toolkit-meta/est exclude-category=knowledge-base -->
 <!-- /stk:rules:toolkit-meta/est exclude-category=knowledge-base -->
 

@@ -59,7 +59,9 @@ describe('fallback parity with the distributable rules file', () => {
       ['graphify', 'codebase-memory', 'codegraph', 'gitnexus'].includes(t.id),
     )
     expect(
-      kits.every((t) => typeof t.repo === 'string' && typeof t.agents === 'object' && t.agents !== null),
+      kits.every(
+        (t) => typeof t.repo === 'string' && typeof t.agents === 'object' && t.agents !== null,
+      ),
     ).toBe(true)
   })
 
@@ -69,9 +71,9 @@ describe('fallback parity with the distributable rules file', () => {
 
     const byId = new Map(toolkits.map((t) => [t.id as string, t]))
     // 13 项均具备 description / saving / detect 建议事实与检测规格
-    expect(toolkits.every((t) => typeof t.description === 'string' && t.description.length > 0)).toBe(
-      true,
-    )
+    expect(
+      toolkits.every((t) => typeof t.description === 'string' && t.description.length > 0),
+    ).toBe(true)
     expect(toolkits.every((t) => typeof t.saving === 'string' && t.saving.length > 0)).toBe(true)
     expect(toolkits.every((t) => typeof t.detect === 'object' && t.detect !== null)).toBe(true)
 
@@ -90,7 +92,8 @@ describe('fallback parity with the distributable rules file', () => {
 
     // 知识库 4 项归类
     const kbIds = ['graphify', 'codebase-memory', 'codegraph', 'gitnexus']
-    for (const id of kbIds) expect((byId.get(id) as { category?: string }).category).toBe('knowledge-base')
+    for (const id of kbIds)
+      expect((byId.get(id) as { category?: string }).category).toBe('knowledge-base')
   })
 
   it('carries proxy-plugin markers and MCP prefixes as data (zero-hardcode follow-up)', () => {

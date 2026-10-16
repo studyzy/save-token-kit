@@ -143,19 +143,19 @@ ls CODEBUDDY.md CLAUDE.md AGENTS.md 2>/dev/null || true
 
 下表仅指向**本阶段（stk-analyze）**的 agents，一律使用相对于本 SKILL.md 的锚定路径 `../stk-analyze/agents/`；**禁止**引用 stk-optimize 下的同名 agent（两者语义相反：analyze 只产建议 JSON，optimize 直接改配置）。
 
-| #   | 子 Agent         | 关注对象             | 启动条件 | 详细规则                  |
-| --- | ---------------- | -------------------- | -------- | ------------------------- |
-| 1   | `toolkit-enable` | `toolkitDetection[]` | 数组非空 | ../stk-analyze/agents/toolkit-enable.md |
-| 2   | `mcp-opt`        | `mcpList[]`          | 数组非空 | ../stk-analyze/agents/mcp-opt.md        |
-| 3   | `plugin-opt`     | `pluginList[]`       | 数组非空 | ../stk-analyze/agents/plugin-opt.md     |
-| 4   | `agent-opt`      | `agentList[]`        | 数组非空 | ../stk-analyze/agents/agent-opt.md      |
-| 5   | `skill-opt`      | `skillList[]`        | 数组非空 | ../stk-analyze/agents/skill-opt.md      |
-| 6   | `knowledge-base` | `toolkitDetection[]` + `repo-scan.json` | 存在已装未启用的知识库 **或**（全部未装且 `codeFileCount ≥ 100`）；且无任何知识库 `enabled === true` | ../stk-analyze/agents/knowledge-base.md |
-| 7   | `command-opt`    | `commandList[]`（主 Agent 从诊断报告提取后传入） | `commandList[]` 非空 | ../stk-analyze/agents/command-opt.md |
-| 8   | `rules-opt`      | `ruleList[]`         | 数组非空 | ../stk-analyze/agents/rules-opt.md      |
-| 9   | `memory-md`      | 项目级指令主文件（`memoryMd`） | `hasMemoryMd === true` | ../stk-analyze/agents/memory-md.md |
-| 10  | `hook-audit`     | `hookList[]`         | 数组非空 | ../stk-analyze/agents/hook-audit.md     |
-| 11  | `tool-opt`       | `builtinTools[]`     | `agentName ∈ {codebuddy, workbuddy, claude}` **且** 数组非空 **且**（codebuddy/workbuddy：无 `cblite` alias；claude：无已 deny 候选） | ../stk-analyze/agents/tool-opt.md |
+| #   | 子 Agent         | 关注对象                                         | 启动条件                                                                                                                              | 详细规则                                |
+| --- | ---------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| 1   | `toolkit-enable` | `toolkitDetection[]`                             | 数组非空                                                                                                                              | ../stk-analyze/agents/toolkit-enable.md |
+| 2   | `mcp-opt`        | `mcpList[]`                                      | 数组非空                                                                                                                              | ../stk-analyze/agents/mcp-opt.md        |
+| 3   | `plugin-opt`     | `pluginList[]`                                   | 数组非空                                                                                                                              | ../stk-analyze/agents/plugin-opt.md     |
+| 4   | `agent-opt`      | `agentList[]`                                    | 数组非空                                                                                                                              | ../stk-analyze/agents/agent-opt.md      |
+| 5   | `skill-opt`      | `skillList[]`                                    | 数组非空                                                                                                                              | ../stk-analyze/agents/skill-opt.md      |
+| 6   | `knowledge-base` | `toolkitDetection[]` + `repo-scan.json`          | 存在已装未启用的知识库 **或**（全部未装且 `codeFileCount ≥ 100`）；且无任何知识库 `enabled === true`                                  | ../stk-analyze/agents/knowledge-base.md |
+| 7   | `command-opt`    | `commandList[]`（主 Agent 从诊断报告提取后传入） | `commandList[]` 非空                                                                                                                  | ../stk-analyze/agents/command-opt.md    |
+| 8   | `rules-opt`      | `ruleList[]`                                     | 数组非空                                                                                                                              | ../stk-analyze/agents/rules-opt.md      |
+| 9   | `memory-md`      | 项目级指令主文件（`memoryMd`）                   | `hasMemoryMd === true`                                                                                                                | ../stk-analyze/agents/memory-md.md      |
+| 10  | `hook-audit`     | `hookList[]`                                     | 数组非空                                                                                                                              | ../stk-analyze/agents/hook-audit.md     |
+| 11  | `tool-opt`       | `builtinTools[]`                                 | `agentName ∈ {codebuddy, workbuddy, claude}` **且** 数组非空 **且**（codebuddy/workbuddy：无 `cblite` alias；claude：无已 deny 候选） | ../stk-analyze/agents/tool-opt.md       |
 
 > **MCP 优化关键约束**：TAPD（`mcp-server-tapd`）、工蜂（`gongfeng-mcp`）、GitHub（`github-mcp`）等开发协作平台 MCP 是开发必备工具，**不得建议禁用**。应建议用对应 CLI（`tapd-cli` / `gongfeng` / `gh`）替代 MCP，保留功能同时移除工具定义的 Token 开销。调用频次判定（如 `mcpServerUsage` 零调用）不适用于此类开发协作平台——它们对所有开发场景均必要，零调用也仅走 CLI 替代。
 

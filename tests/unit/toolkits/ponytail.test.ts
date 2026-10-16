@@ -21,7 +21,13 @@ function makeCtx(proxyPlugins: string[] = []): SpecContext {
   } catch {
     // 无 settings.json
   }
-  return { home: HOME, mcpList: [], hookList: [], proxyParsed: proxyPlugins.length > 0 ? { detectedPlugins: proxyPlugins } : null, settingsJson }
+  return {
+    home: HOME,
+    mcpList: [],
+    hookList: [],
+    proxyParsed: proxyPlugins.length > 0 ? { detectedPlugins: proxyPlugins } : null,
+    settingsJson,
+  }
 }
 
 function getPonytail() {

@@ -20,7 +20,9 @@ describe('headroom（数据驱动）', () => {
   })
 
   it('detect reflects command availability', async () => {
-    const det = await getHeadroom({ commandExists: async (n) => n === 'headroom' }).buildDetection(baseCtx)
+    const det = await getHeadroom({ commandExists: async (n) => n === 'headroom' }).buildDetection(
+      baseCtx,
+    )
     expect(det.installed).toBe(true)
     const detOff = await getHeadroom({ commandExists: async () => false }).buildDetection(baseCtx)
     expect(detOff.installed).toBe(false)

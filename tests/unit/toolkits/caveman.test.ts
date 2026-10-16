@@ -23,7 +23,13 @@ function readSettingsJson(): SpecContext['settingsJson'] {
 }
 
 function makeCtx(): SpecContext {
-  return { home: HOME, mcpList: [], hookList: [], proxyParsed: null, settingsJson: readSettingsJson() }
+  return {
+    home: HOME,
+    mcpList: [],
+    hookList: [],
+    proxyParsed: null,
+    settingsJson: readSettingsJson(),
+  }
 }
 
 function getCaveman() {

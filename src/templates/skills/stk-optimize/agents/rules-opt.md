@@ -7,6 +7,7 @@
 ## 输入
 
 主 SKILL 将传入单条任务上下文：
+
 - `operationType`: `"rules-opt"`
 - `target`: Rule 名称或文件路径
 - `title`: 任务标题
@@ -15,12 +16,12 @@
 
 ## 配置路径（按当前平台选择，勿写死）
 
-| 平台 | user 级 rules 目录 | project 级 rules 目录 |
-| --- | --- | --- |
-| CodeBuddy | `~/.codebuddy/rules/` | `./.codebuddy/rules/` |
-| WorkBuddy | `~/.workbuddy/rules/` | `./.workbuddy/rules/` |
-| Claude Code | `~/.claude/rules/` | `./.claude/rules/` |
-| CodeX | 无独立 rules 目录（规则写在 `AGENTS.md`） | `./AGENTS.md` |
+| 平台        | user 级 rules 目录                        | project 级 rules 目录 |
+| ----------- | ----------------------------------------- | --------------------- |
+| CodeBuddy   | `~/.codebuddy/rules/`                     | `./.codebuddy/rules/` |
+| WorkBuddy   | `~/.workbuddy/rules/`                     | `./.workbuddy/rules/` |
+| Claude Code | `~/.claude/rules/`                        | `./.claude/rules/`    |
+| CodeX       | 无独立 rules 目录（规则写在 `AGENTS.md`） | `./AGENTS.md`         |
 
 - **执行前必须按诊断 `agentName` 替换为对应平台目录**，避免改到其他 Agent 的规则文件。
 
@@ -29,16 +30,19 @@
 按 `detail` 描述执行对应操作：
 
 ### 为 rule 添加 paths 作用域
+
 1. 读取目标 rule 文件（上表对应平台的 user 或 project 级目录）。
 2. 在 frontmatter 中添加 `paths:` 字段，限定加载范围。
 3. 写回文件。
 
 ### 拆分 rule
+
 1. 读取目标 rule 文件。
 2. 按 detail 描述将内容拆分为多个 rule 文件。
 3. 写回新文件，可选删除原文件。
 
 ### 调整 alwaysApply
+
 1. 读取目标 rule 文件。
 2. 修改 frontmatter 中 `alwaysApply` 为 `true` 或 `false`。
 3. 写回文件。

@@ -29,7 +29,13 @@
 **--json 结构**:
 
 ```json
-{ "action": "updated|up-to-date|checked", "from": "1.2.0", "to": "1.3.0", "latest": "1.3.0", "error": null }
+{
+  "action": "updated|up-to-date|checked",
+  "from": "1.2.0",
+  "to": "1.3.0",
+  "latest": "1.3.0",
+  "error": null
+}
 ```
 
 ## stk rules status

@@ -1,6 +1,7 @@
 ---
 alwaysApply: true
 ---
+
 # 语言规则
 
 ## 代码注释使用英文
@@ -9,7 +10,7 @@ alwaysApply: true
 
 ```ts
 // Calculate token estimate using length/4 heuristic
-const estimate = Math.ceil(content.length / 4);
+const estimate = Math.ceil(content.length / 4)
 ```
 
 ## 文档使用中文

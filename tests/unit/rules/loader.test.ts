@@ -6,8 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { loadRules } from '../../../src/rules/loader.js'
 import fallbackPack from '../../../src/rules/fallback.json'
 
-const FX = (name: string) =>
-  fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))
+const FX = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url))
 
 describe('loadRules builtin layer', () => {
   it('loads the bundled single file when no library is installed', () => {
@@ -38,23 +37,31 @@ describe('loadRules library layer (single file)', () => {
   it('rejects unknown schemaVersion', () => {
     const merged = loadRules({ rulesFile: FX('high-schema') + '/stk-rules.json' })
     expect(merged.rulesInfo.fallbackInUse).toBe(true)
-    expect(merged.rulesInfo.sources.find((s) => s.layer === 'library')?.result).toBe('rejected-incompatible')
+    expect(merged.rulesInfo.sources.find((s) => s.layer === 'library')?.result).toBe(
+      'rejected-incompatible',
+    )
   })
 
   it('rejects engines range excluding the engine version', () => {
     const merged = loadRules({ rulesFile: FX('incompatible') + '/stk-rules.json' })
     expect(merged.rulesInfo.fallbackInUse).toBe(true)
-    expect(merged.rulesInfo.sources.find((s) => s.layer === 'library')?.result).toBe('rejected-incompatible')
+    expect(merged.rulesInfo.sources.find((s) => s.layer === 'library')?.result).toBe(
+      'rejected-incompatible',
+    )
   })
 
   it('rejects corrupted JSON', () => {
     const merged = loadRules({ rulesFile: FX('corrupted-manifest') + '/stk-rules.json' })
-    expect(merged.rulesInfo.sources.find((s) => s.layer === 'library')?.result).toBe('rejected-corrupted')
+    expect(merged.rulesInfo.sources.find((s) => s.layer === 'library')?.result).toBe(
+      'rejected-corrupted',
+    )
   })
 
   it('rejects invalid data shapes entirely (no partial load)', () => {
     const merged = loadRules({ rulesFile: FX('corrupted-data') + '/stk-rules.json' })
-    expect(merged.rulesInfo.sources.find((s) => s.layer === 'library')?.result).toBe('rejected-corrupted')
+    expect(merged.rulesInfo.sources.find((s) => s.layer === 'library')?.result).toBe(
+      'rejected-corrupted',
+    )
     expect(merged.rulesInfo.fallbackInUse).toBe(true)
   })
 })

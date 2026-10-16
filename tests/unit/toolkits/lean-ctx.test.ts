@@ -19,7 +19,9 @@ describe('lean-ctx（数据驱动）', () => {
   })
 
   it('detect reflects command availability', async () => {
-    expect((await getTool(async (n) => n === 'lean-ctx').buildDetection(baseCtx)).installed).toBe(true)
+    expect((await getTool(async (n) => n === 'lean-ctx').buildDetection(baseCtx)).installed).toBe(
+      true,
+    )
     expect((await getTool(async () => false).buildDetection(baseCtx)).installed).toBe(false)
   })
 

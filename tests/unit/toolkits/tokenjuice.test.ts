@@ -22,7 +22,9 @@ describe('tokenjuice（数据驱动）', () => {
   })
 
   it('detects installed when tokenjuice is on PATH', async () => {
-    expect((await getTool(async (n) => n === 'tokenjuice').buildDetection(baseCtx)).installed).toBe(true)
+    expect((await getTool(async (n) => n === 'tokenjuice').buildDetection(baseCtx)).installed).toBe(
+      true,
+    )
   })
 
   it('detects not installed when command not found', async () => {
@@ -31,8 +33,11 @@ describe('tokenjuice（数据驱动）', () => {
 
   it('detects not installed when lookup throws', async () => {
     expect(
-      (await getTool(async () => { throw new Error('command not found') }).buildDetection(baseCtx))
-        .installed,
+      (
+        await getTool(async () => {
+          throw new Error('command not found')
+        }).buildDetection(baseCtx)
+      ).installed,
     ).toBe(false)
   })
 

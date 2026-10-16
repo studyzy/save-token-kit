@@ -103,8 +103,8 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
         // are skipped rather than parsed into garbage.
         //
         // Size guard on the raw (compressed) bytes cheaply rejects an oversized
-// upload before decompression; `decodeBody` additionally bounds the decoded
-// output, so a small gzip bomb cannot inflate past the limit to JSON.parse.
+        // upload before decompression; `decodeBody` additionally bounds the decoded
+        // output, so a small gzip bomb cannot inflate past the limit to JSON.parse.
         const bodyTooLarge = rawBody.length > MAX_PROXY_BODY_BYTES
         const decoded = bodyTooLarge
           ? null

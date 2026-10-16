@@ -8,6 +8,7 @@
 重构 `src/templates/skills/stk-report/SKILL.md`，把报告生成逻辑从「读取两个 markdown（`diagnosis-report.md`/`diagnosis-report2.md`）文本做总 Token 相减」升级为「基于 proxy 透明代理采集的结构化 `DiagnosisReport` JSON（`diagnosis-report.json` / `diagnosis-report2.json`）做分类对比」，并结合 `/stk-optimize` 落盘的 `tasks.json` 将 Token 变化归因到每项任务、标注预估 vs 实际偏差。产出 `save-token-report.json`（`SaveTokenReport` 契约）及中文摘要。纯文档重构，无代码改动。
 
 主要需求（映射 spec）：
+
 - R1-R3: 数据源升级为 proxy JSON 对比，缺优化后报告时引导跑 `stk diagnose`。
 - R4-R6: 基于 `tasks.json` 的任务效果归因（`TaskResult[]`、`deviation`）。
 - R7-R9: 结构化产出 `save-token-report.json` + 中文摘要，只读闭环。
@@ -27,15 +28,15 @@
 
 ## 章程检查
 
-*门控: 阶段 0 研究前通过。阶段 1 设计后重新检查。*
+_门控: 阶段 0 研究前通过。阶段 1 设计后重新检查。_
 
-| 原则 | 检查项 | 结果 |
-| --- | --- | --- |
-| I. CLI 优先 | 本功能不新增 CLI，仅改 SKILL 文档；引用既有 `stk diagnose`/`stk report` 命令 | ✅ 通过 |
-| II. Token 效率优先 | SKILL 文档须精简、去冗余描述；摘要默认紧凑 | ✅ 通过（重写时遵循） |
-| III. 测试驱动质量 | 纯文档重构，无新增代码单元；但 `report.md` 命令一致性需在 PR 审核中确认 | ✅ 通过（无测试新增义务） |
-| IV. 简洁至上 | 不引入超出需求的抽象；仅改目标文件及必要的命令一致性 | ✅ 通过 |
-| V. 文档即产品 | 用户可见文案中文、术语保留英文；SKILL 作为产品最佳实践示范 | ✅ 通过 |
+| 原则               | 检查项                                                                       | 结果                      |
+| ------------------ | ---------------------------------------------------------------------------- | ------------------------- |
+| I. CLI 优先        | 本功能不新增 CLI，仅改 SKILL 文档；引用既有 `stk diagnose`/`stk report` 命令 | ✅ 通过                   |
+| II. Token 效率优先 | SKILL 文档须精简、去冗余描述；摘要默认紧凑                                   | ✅ 通过（重写时遵循）     |
+| III. 测试驱动质量  | 纯文档重构，无新增代码单元；但 `report.md` 命令一致性需在 PR 审核中确认      | ✅ 通过（无测试新增义务） |
+| IV. 简洁至上       | 不引入超出需求的抽象；仅改目标文件及必要的命令一致性                         | ✅ 通过                   |
+| V. 文档即产品      | 用户可见文案中文、术语保留英文；SKILL 作为产品最佳实践示范                   | ✅ 通过                   |
 
 无章程违规，无需复杂度跟踪表。
 

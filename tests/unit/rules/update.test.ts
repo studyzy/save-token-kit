@@ -71,8 +71,12 @@ describe('meta read/write + TTL gate', () => {
   it('shouldAutoCheck honors 24h TTL and kill switch', () => {
     const now = Date.now()
     expect(shouldAutoCheck({}, now)).toBe(true)
-    expect(shouldAutoCheck({ lastCheckAt: new Date(now - 3600_000).toISOString() }, now)).toBe(false)
-    expect(shouldAutoCheck({ lastCheckAt: new Date(now - 25 * 3600_000).toISOString() }, now)).toBe(true)
+    expect(shouldAutoCheck({ lastCheckAt: new Date(now - 3600_000).toISOString() }, now)).toBe(
+      false,
+    )
+    expect(shouldAutoCheck({ lastCheckAt: new Date(now - 25 * 3600_000).toISOString() }, now)).toBe(
+      true,
+    )
     expect(shouldAutoCheck({ autoCheckDisabled: true }, now)).toBe(false)
   })
 })
@@ -98,7 +102,9 @@ describe('autoCheckLibraryUpdate', () => {
   it('is silent on network failure', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'stk-auto3-'))
     const errWrite = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
-    await autoCheckLibraryUpdate(metaPath(dir), dir, () => Promise.resolve({ ok: false, status: 500, text: '' }))
+    await autoCheckLibraryUpdate(metaPath(dir), dir, () =>
+      Promise.resolve({ ok: false, status: 500, text: '' }),
+    )
     expect(errWrite).not.toHaveBeenCalled()
     errWrite.mockRestore()
   })
