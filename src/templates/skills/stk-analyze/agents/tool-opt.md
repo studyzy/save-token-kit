@@ -116,7 +116,7 @@ Claude Code 无 `Defer()` 等价语法，但用户级 `~/.claude/settings.json` 
 
 落盘后**必须**运行 `stk verify --file save-token/suggestions-tool-opt.json` 校验通过，不得仅凭主观判断"格式对了"。核心规则：
 
-- 顶层必填：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`；`agentName` 须与文件名 `suggestions-tool-opt.json` 匹配。
+- 顶层必填：`schemaVersion`(固定 1) / `agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`；`agentName` 须与文件名 `suggestions-tool-opt.json` 匹配。
 - 每条必填：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level`。
 - `operationType` ∈ `OperationType` 联合类型（此处填 `tool-opt`）；`risk` ∈ `low|medium|high`；`level` ∈ `初级|中级|高级`；`estimatedSavingTokens` ≥ 0；`target` 非空；`reversible` 布尔。
 - 校验失败 → 依据 `stk verify` 输出的错误行**覆盖重写**并再次校验，连续 3 次失败则放弃本维度。
@@ -151,6 +151,7 @@ Claude Code 无 `Defer()` 等价语法，但用户级 `~/.claude/settings.json` 
 
 ```json
 {
+  "schemaVersion": 1,
   "agentName": "tool-opt",
   "category": "会话级工具延迟加载",
   "generatedAt": "2026-08-19T10:00:00Z",
@@ -177,6 +178,7 @@ Claude Code 无 `Defer()` 等价语法，但用户级 `~/.claude/settings.json` 
 
 ```json
 {
+  "schemaVersion": 1,
   "agentName": "tool-opt",
   "category": "会话级工具延迟加载",
   "generatedAt": "2026-08-19T10:00:00Z",

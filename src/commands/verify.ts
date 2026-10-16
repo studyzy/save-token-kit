@@ -1,7 +1,12 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { bold, green, red, yellow } from 'ansis'
-import { SAVE_TOKEN_DIR, type OperationType, type RiskLevel } from '../types/index.js'
+import {
+  SAVE_TOKEN_DIR,
+  SUGGESTIONS_SCHEMA_VERSION,
+  type OperationType,
+  type RiskLevel,
+} from '../types/index.js'
 
 /**
  * `stk verify` — programmatic format validator for the sub-agent suggestion
@@ -26,7 +31,14 @@ const LEVELS = new Set(['初级', '中级', '高级'])
 const RISKS: RiskLevel[] = ['low', 'medium', 'high']
 
 /** Top-level fields required on every suggestion file. */
-const TOP_LEVEL_FIELDS = ['agentName', 'category', 'generatedAt', 'skipped', 'suggestions'] as const
+const TOP_LEVEL_FIELDS = [
+  'schemaVersion',
+  'agentName',
+  'category',
+  'generatedAt',
+  'skipped',
+  'suggestions',
+] as const
 
 /** Required fields on every suggestion entry. */
 const SUGGESTION_FIELDS = [
@@ -82,10 +94,25 @@ export function validateSuggestionObject(
     if (!(f in doc)) errors.push(`缺少顶层字段: ${f}`)
   }
 
+  // 1b. schemaVersion gate: reject missing/newer versions so a stale file fails
+  // loudly instead of being silently accepted against a changed contract.
+  const sv = doc.schemaVersion
+  if (sv !== undefined) {
+    if (typeof sv !== 'number' || !Number.isInteger(sv)) {
+      errors.push(`schemaVersion: 非法值 ${String(sv)}，应为整数`)
+    } else if (sv > SUGGESTIONS_SCHEMA_VERSION) {
+      errors.push(
+        `schemaVersion=${sv} 高于本工具支持的 ${SUGGESTIONS_SCHEMA_VERSION}，请升级 stk 或重跑 /stk analyze`,
+      )
+    }
+  }
+
   // 2. agentName cross-check against file name
   const expected = filename ? agentNameFromFilename(filename) : null
   if (expected && doc.agentName !== expected) {
-    errors.push(`agentName="${String(doc.agentName)}" 与文件名 ${filename} 不匹配，应为 "${expected}"`)
+    errors.push(
+      `agentName="${String(doc.agentName)}" 与文件名 ${filename} 不匹配，应为 "${expected}"`,
+    )
   }
 
   // 3. suggestions array + per-entry validation
@@ -171,7 +198,11 @@ export function validateSuggestionFile(filePath: string, filename: string): Vali
   try {
     parsed = JSON.parse(readFileSync(filePath, 'utf-8'))
   } catch (err) {
-    return { file: filePath, valid: false, errors: [{ file: filePath, line: `JSON 解析失败: ${(err as Error).message}` }] }
+    return {
+      file: filePath,
+      valid: false,
+      errors: [{ file: filePath, line: `JSON 解析失败: ${(err as Error).message}` }],
+    }
   }
   const { errors: msgErrors } = validateSuggestionObject(parsed, filename)
   for (const line of msgErrors) {
@@ -184,7 +215,9 @@ export function validateSuggestionFile(filePath: string, filename: string): Vali
 export function validateAllSaveToken(): ValidationResult[] {
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
   if (!existsSync(outDir)) {
-    return [{ file: outDir, valid: false, errors: [{ file: outDir, line: `目录不存在: ${outDir}` }] }]
+    return [
+      { file: outDir, valid: false, errors: [{ file: outDir, line: `目录不存在: ${outDir}` }] },
+    ]
   }
   const results: ValidationResult[] = []
   const names = readdirSync(outDir)

@@ -11,6 +11,7 @@ import { collectUsageStats } from '@/collectors/usage-collector.js'
 import { loadRules } from '@/rules/loader.js'
 import type { ToolkitDetection } from '@/types/index.js'
 import type { WorkBuddyAdapter } from '@/adapters/workbuddy-adapter.js'
+import { CodeBuddyAdapter } from '@/adapters/codebuddy-adapter.js'
 import { startProxy } from '@/proxy/server.js'
 
 vi.mock('@/collectors/usage-collector.js', async (importOriginal) => {
@@ -55,7 +56,7 @@ vi.mock('@/collectors/fs-collector.js', () => ({
 
 vi.mock('@/utils/platform.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/utils/platform.js')>()
-  return { ...actual, detectCodeBuddyVersion: vi.fn(async () => '1.0.0') }
+  return { ...actual, detectCliVersion: vi.fn(async () => '1.0.0') }
 })
 
 vi.mock('@/rules/loader.js', async (importOriginal) => {
@@ -126,10 +127,11 @@ const proxyParsed = {
 
 describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
   const dataSaving = (): string | undefined => loadRules().toolkits['context-mode']?.saving
+  const adapter = new CodeBuddyAdapter()
 
   it('detects context-mode as enabled when MCP entry status is "enabled"', async () => {
     const fs = mockFs([{ name: 'context-mode', status: 'enabled' }])
-    const detections = await detectToolkitsViaRegistry(fs, proxyParsed)
+    const detections = await detectToolkitsViaRegistry(fs, proxyParsed, adapter)
 
     const cm = detections.find((d: ToolkitDetection) => d.name === 'context-mode')
     expect(cm).toBeDefined()
@@ -138,7 +140,7 @@ describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
 
   it('detects context-mode as disabled when MCP entry status is "disabled"', async () => {
     const fs = mockFs([{ name: 'context-mode', status: 'disabled' }])
-    const detections = await detectToolkitsViaRegistry(fs, proxyParsed)
+    const detections = await detectToolkitsViaRegistry(fs, proxyParsed, adapter)
 
     const cm = detections.find((d: ToolkitDetection) => d.name === 'context-mode')
     expect(cm).toBeDefined()
@@ -147,7 +149,7 @@ describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
 
   it('leaves context-mode disabled when no MCP entry exists', async () => {
     const fs = mockFs([{ name: 'other-tool', status: 'enabled' }])
-    const detections = await detectToolkitsViaRegistry(fs, proxyParsed)
+    const detections = await detectToolkitsViaRegistry(fs, proxyParsed, adapter)
 
     const cm = detections.find((d: ToolkitDetection) => d.name === 'context-mode')
     expect(cm).toBeDefined()
@@ -156,7 +158,7 @@ describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
 
   it('does not crash when mcpList is empty', async () => {
     const fs = mockFs([])
-    const detections = await detectToolkitsViaRegistry(fs, proxyParsed)
+    const detections = await detectToolkitsViaRegistry(fs, proxyParsed, adapter)
 
     const cm = detections.find((d: ToolkitDetection) => d.name === 'context-mode')
     expect(cm).toBeDefined()
@@ -165,7 +167,7 @@ describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
 
   it('includes context-mode with correct metadata in detection list', async () => {
     const fs = mockFs([{ name: 'context-mode', status: 'enabled' }])
-    const detections = await detectToolkitsViaRegistry(fs, proxyParsed)
+    const detections = await detectToolkitsViaRegistry(fs, proxyParsed, adapter)
 
     const cm = detections.find((d: ToolkitDetection) => d.name === 'context-mode')
     expect(cm).toBeDefined()
@@ -184,7 +186,7 @@ describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
       ...proxyParsed,
       mcpServers: [{ name: 'context-mode' }],
     }
-    const detections = await detectToolkitsViaRegistry(fs, pp)
+    const detections = await detectToolkitsViaRegistry(fs, pp, adapter)
 
     const cm = detections.find((d: ToolkitDetection) => d.name === 'context-mode')
     expect(cm).toBeDefined()
@@ -197,7 +199,7 @@ describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
       ...proxyParsed,
       mcpServers: [{ name: 'plugin_context-mode_context-mode' }],
     }
-    const detections = await detectToolkitsViaRegistry(fs, pp)
+    const detections = await detectToolkitsViaRegistry(fs, pp, adapter)
 
     const cm = detections.find((d: ToolkitDetection) => d.name === 'context-mode')
     expect(cm).toBeDefined()
@@ -210,7 +212,7 @@ describe('detectToolkitsViaRegistry - context-mode MCP detection', () => {
       ...proxyParsed,
       mcpServers: [{ name: 'some-other-mcp' }],
     }
-    const detections = await detectToolkitsViaRegistry(fs, pp)
+    const detections = await detectToolkitsViaRegistry(fs, pp, adapter)
 
     const cm = detections.find((d: ToolkitDetection) => d.name === 'context-mode')
     expect(cm).toBeDefined()
@@ -411,6 +413,18 @@ describe('runDiagnose live mode', () => {
 
     expect(existsSync(join(cwd, 'save-token', 'diagnosis-report.md'))).toBe(true)
     expect(existsSync(join(cwd, 'save-token', 'diagnosis-report.json'))).toBe(true)
+  })
+
+  it('does NOT write proxy-raw-body.json by default (sensitive content)', async () => {
+    await runDiagnose({ live: true, duration: '0.01' })
+
+    expect(existsSync(join(cwd, 'save-token', 'proxy-raw-body.json'))).toBe(false)
+  })
+
+  it('writes proxy-raw-body.json only when --debug is set', async () => {
+    await runDiagnose({ live: true, duration: '0.01', debug: true })
+
+    expect(existsSync(join(cwd, 'save-token', 'proxy-raw-body.json'))).toBe(true)
   })
 })
 

@@ -36,6 +36,10 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
       'Capture window in minutes (default 10 in live mode, 5 for manual-trigger agents)',
     )
     .option('--detail', 'Write the full-detail report instead of the slim summary')
+    .option(
+      '--debug',
+      'Also write the raw request body (proxy-raw-body.json) — contains full conversation content, off by default',
+    )
     .action(
       async (options: {
         agent: string
@@ -44,6 +48,7 @@ export async function main(argv: string[] = process.argv.slice(2)): Promise<void
         live?: boolean
         duration?: string
         detail?: boolean
+        debug?: boolean
       }) => {
         await runDiagnose(options)
       },
@@ -157,5 +162,8 @@ if (
   process.argv[1] &&
   realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
 ) {
-  main().catch(() => process.exit(1))
+  main().catch((err: unknown) => {
+    console.error(bold(red(`意外错误: ${(err as Error).message}`)))
+    process.exit(1)
+  })
 }

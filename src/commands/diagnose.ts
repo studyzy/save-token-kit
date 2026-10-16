@@ -1,12 +1,15 @@
-import { writeFileSync, mkdtempSync, rmSync, readFileSync } from 'node:fs'
+import { writeFileSync, mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawn, type SpawnOptions } from 'node:child_process'
 import { bold, cyan, green, red, yellow } from 'ansis'
 import { getAdapter } from '../adapters/codebuddy-adapter.js'
 import type { PlatformAdapter } from '../adapters/platform-adapter.js'
-import { WorkBuddyAdapter } from '../adapters/workbuddy-adapter.js'
-import { detectCodeBuddyVersion, getHomeDir } from '../utils/platform.js'
+import {
+  supportsModelInjection,
+  type ModelInjectionCapability,
+} from '../adapters/platform-adapter.js'
+import { detectCliVersion, getHomeDir } from '../utils/platform.js'
 import { ensureIgnoredDir } from '../utils/fs-operations.js'
 import { startProxy, stopProxy, findMainChatBody } from '../proxy/server.js'
 import { buildDiagnosisReport, renderMarkdown } from '../proxy/report.js'
@@ -43,6 +46,12 @@ export interface DiagnoseOptions {
   duration?: string
   /** Render the full-detail report instead of the slim summary. */
   detail?: boolean
+  /**
+   * Debug mode: also write `proxy-raw-body.json` (the raw intercepted request
+   * body). Off by default — that file contains full conversation content (code,
+   * memory files) and is only needed for troubleshooting.
+   */
+  debug?: boolean
 }
 
 const CAPTURE_TIMEOUT_MS = 60_000
@@ -108,9 +117,9 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     // terminal) nor auto-triggers a probe (the value is real accumulated
     // sessions). WorkBuddy still uses the models.json injection, which works
     // across processes.
-    if (adapter instanceof WorkBuddyAdapter) {
+    if (supportsModelInjection(adapter)) {
       prevModels = adapter.injectDiagnoseModel(proxyBaseUrl)
-      console.error(green(`  代理已就绪 (端口 ${proxy.port})，等待 WorkBuddy 桌面发起真实会话...`))
+      console.error(green(`  代理已就绪 (端口 ${proxy.port})，等待 ${agentName} 发起真实会话...`))
       console.error(cyan(`  已注入自定义模型 "stk-diagnose" → ${proxyBaseUrl}/chat/completions`))
       console.error(
         yellow(
@@ -132,7 +141,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     try {
       await waitLiveCapture(durationMin * 60_000)
     } finally {
-      if (adapter instanceof WorkBuddyAdapter && prevModels !== null) {
+      if (supportsModelInjection(adapter) && prevModels !== null) {
         adapter.removeDiagnoseModel(prevModels)
         console.error(green(`  已移除诊断用自定义模型 "stk-diagnose"`))
       }
@@ -153,16 +162,19 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     // is skipped when the agent reports it is unnecessary (`shouldIsolateConfigDir`),
     // since it hides the user's skills/rules/memory from the probe and would make
     // the report show only built-in assets.
-    const configDirVar = 'CLAUDE_CONFIG_DIR'
-    const originalConfigDir = process.env[configDirVar]
+    // The env var name comes from the adapter (Claude Code → CLAUDE_CONFIG_DIR)
+    // so this generic flow never hard-codes a platform's variable.
+    const configDirVar = adapter.configDirEnvVar
+    const originalConfigDir = configDirVar ? process.env[configDirVar] : undefined
     let isolatedConfigDir: string | undefined
     // Track env vars we injected during isolation so we can delete them in finally.
     const injectedEnvKeys = new Set<string>()
     const isolate =
       usesEnvRedirect &&
+      configDirVar !== undefined &&
       adapter.needsIsolatedConfigDir === true &&
       (adapter.shouldIsolateConfigDir?.() ?? true)
-    if (isolate) {
+    if (isolate && configDirVar) {
       isolatedConfigDir = mkdtempSync(join(tmpdir(), 'stk-config-'))
       process.env[configDirVar] = isolatedConfigDir
       // Isolation hides settings.json env (credentials, model mappings). Preserve
@@ -195,7 +207,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
         // to capture its real requests is to inject a custom model whose url
         // points at the proxy (WorkBuddy watches ~/.workbuddy/models.json), then
         // have the user select it and send a message.
-        if (adapter instanceof WorkBuddyAdapter) {
+        if (supportsModelInjection(adapter)) {
           // Custom-model url targets the proxy's /chat/completions path directly.
           const customModelUrl = proxyBaseUrl
           prevModels = adapter.injectDiagnoseModel(customModelUrl)
@@ -244,7 +256,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
       console.error(yellow(`触发命令异常，仍会分析已捕获的数据: ${(err as Error).message}`))
     } finally {
       // Remove the injected stk-diagnose model (if any) so WorkBuddy config is restored.
-      if (adapter instanceof WorkBuddyAdapter && prevModels !== null) {
+      if (supportsModelInjection(adapter) && prevModels !== null) {
         adapter.removeDiagnoseModel(prevModels)
         console.error(green(`  已移除诊断用自定义模型 "stk-diagnose"`))
       }
@@ -256,7 +268,7 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
           delete process.env[adapter.proxyEnvVar]
         }
         // Restore the original config dir and clean up the temp isolation dir.
-        if (isolatedConfigDir) {
+        if (isolatedConfigDir && configDirVar) {
           if (originalConfigDir !== undefined) {
             process.env[configDirVar] = originalConfigDir
           } else {
@@ -303,7 +315,25 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
     return
   }
 
-  // 5. Find the main chat request among captures. Live sessions accumulate:
+  // 5–6. Build the report from the captured body and write all artifacts.
+  await buildAndWriteReport(capturedBodies, adapter, agentName, live, options)
+}
+
+/**
+ * Steps 5–6 of the diagnose flow: pick the main chat body, assemble the report
+ * (proxy body + filesystem scan + third-party toolkit detection + usage), and
+ * write the JSON/Markdown artifacts. Extracted from `runDiagnose` so the
+ * top-level function reads as pure orchestration. Sets `process.exitCode` and
+ * returns early when no main chat request was captured.
+ */
+async function buildAndWriteReport(
+  capturedBodies: unknown[],
+  adapter: PlatformAdapter,
+  agentName: string,
+  live: boolean,
+  options: DiagnoseOptions,
+): Promise<void> {
+  // Find the main chat request among captures. Live sessions accumulate:
   // the largest matching body best represents the real context cost.
   const mainBody = findMainChatBody(capturedBodies, live ? 'largest' : 'first')
   if (!mainBody) {
@@ -313,11 +343,11 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   }
   console.error(green(`  ✓ 已捕获 ${capturedBodies.length} 个请求，识别出主对话请求`))
 
-  // 6. Build report: proxy body + filesystem scan + third-party toolkit detection
+  // Build report: proxy body + filesystem scan + third-party toolkit detection
   const fs = scanFilesystem(adapter)
   const proxyParsed: ProxyDiagnosisData | null = parseRequestBody(mainBody, agentName)
-  const toolkitDetection = await detectToolkitsViaRegistry(fs, proxyParsed)
-  const agentVersion = await detectCodeBuddyVersion(adapter.getConfigPaths().cliBinary)
+  const toolkitDetection = await detectToolkitsViaRegistry(fs, proxyParsed, adapter)
+  const agentVersion = await detectCliVersion(adapter.getConfigPaths().cliBinary)
   const report = buildDiagnosisReport(
     [mainBody],
     fs,
@@ -329,12 +359,38 @@ export async function runDiagnose(options: DiagnoseOptions): Promise<void> {
   await attachUsageStats(report, adapter.getConfigPaths().sessionsDir)
 
   const outDir = join(process.cwd(), SAVE_TOKEN_DIR)
-  // Artifacts here include the full request-body snapshot (proxy-raw-body.json),
-  // which embeds code and memory-file content — keep them out of version control.
+  // Artifacts here may include the full request-body snapshot
+  // (proxy-raw-body.json, --debug only) — keep them out of version control.
   ensureIgnoredDir(outDir)
 
-  writeFileSync(join(outDir, 'proxy-raw-body.json'), JSON.stringify(mainBody, null, 2))
   writeFileSync(join(outDir, 'diagnosis-report.json'), JSON.stringify(report, null, 2))
+
+  // The raw-body snapshot embeds full conversation content (code, memory files),
+  // so it is written only under --debug. Default runs never land it on disk.
+  if (options.debug) {
+    writeFileSync(join(outDir, 'proxy-raw-body.json'), JSON.stringify(mainBody, null, 2))
+    console.error(yellow(`  ⚠️ --debug：已写入 proxy-raw-body.json（含完整对话正文，分享前请脱敏）`))
+  }
+
+  // A warning file alongside the artifacts so a shared ./save-token/ folder
+  // carries the sensitive-data notice with it. Only written when absent, so a
+  // user-edited notice (e.g. adding team redaction rules) is not overwritten.
+  const sensitivePath = join(outDir, 'SENSITIVE.md')
+  if (!existsSync(sensitivePath)) {
+    writeFileSync(
+      sensitivePath,
+      [
+        '# ⚠️ 本目录含敏感内容',
+        '',
+        '默认不写 `proxy-raw-body.json`（仅 `--debug` 时写入），但 `trace/` 下的文件',
+        '仍保存完整对话，且 `--debug` 产物含完整请求正文（提示词、代码、memory 文件）。',
+        '请求头凭据（authorization/api-key/cookie）已脱敏，但正文内容未脱敏。',
+        '',
+        '**分享、上传或提交本目录前，请先手动脱敏或删除。**',
+        '',
+      ].join('\n'),
+    )
+  }
 
   const markdown = renderMarkdown(report, { detail: options.detail === true })
 
@@ -410,8 +466,10 @@ export async function attachUsageStats(
   if (!sessionsDir) return
   try {
     report.usageStats = await collectUsageStats({ sessionsDir })
-  } catch {
-    // 采集失败降级：诊断主流程不受影响，报告不含 usageStats
+  } catch (err) {
+    // 采集失败降级：诊断主流程不受影响，报告不含 usageStats。但仍提示用户，
+    // 避免"无 usageStats"被误读为"没有调用历史"。
+    console.warn(yellow(`usage 采集失败，报告不含调用统计：${(err as Error).message}`))
   }
 }
 
@@ -425,24 +483,35 @@ export async function attachUsageStats(
 export async function detectToolkitsViaRegistry(
   fs: ReturnType<typeof scanFilesystem>,
   proxyParsed: ProxyDiagnosisData | null,
+  adapter: PlatformAdapter,
 ): Promise<ToolkitDetection[]> {
-  const ctx = buildSpecContext(fs, proxyParsed)
+  const ctx = buildSpecContext(fs, proxyParsed, adapter)
   return Promise.all(getAllToolkits().map((t) => t.buildDetection(ctx)))
 }
 
-/** Build the spec-evaluator context from the filesystem scan + intercepted request. */
+/**
+ * Build the spec-evaluator context from the filesystem scan + intercepted request.
+ * The settings.json read by the `plugin-enabled` primitive is the *diagnosed
+ * agent's* settings (via `adapter.getSettingsPath()`), not a hard-coded
+ * `~/.codebuddy/settings.json` — diagnosing claude/codex must not read CodeBuddy's
+ * plugin switches.
+ */
 function buildSpecContext(
   fs: ReturnType<typeof scanFilesystem>,
   proxyParsed: ProxyDiagnosisData | null,
+  adapter: PlatformAdapter,
 ): SpecContext {
   const home = getHomeDir()
   let settingsJson: { enabledPlugins?: Record<string, boolean> } | null = null
-  try {
-    settingsJson = JSON.parse(readFileSync(join(home, '.codebuddy', 'settings.json'), 'utf8')) as {
-      enabledPlugins?: Record<string, boolean>
+  const settingsPath = adapter.getSettingsPath()
+  if (settingsPath) {
+    try {
+      settingsJson = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+        enabledPlugins?: Record<string, boolean>
+      }
+    } catch {
+      // 无 settings.json → plugin-enabled 原语按 false 处理
     }
-  } catch {
-    // 无 settings.json → plugin-enabled 原语按 false 处理
   }
   return { home, mcpList: fs.mcpList, hookList: fs.hookList, proxyParsed, settingsJson }
 }
@@ -491,7 +560,7 @@ export async function waitForCapture(
  * removeDiagnoseModel in its finally block.
  */
 export function installModelCleanupOnSignal(
-  adapter: WorkBuddyAdapter,
+  adapter: PlatformAdapter & ModelInjectionCapability,
   getPrev: () => Array<Record<string, unknown>> | null,
 ): void {
   let cleaned = false

@@ -17,7 +17,7 @@
 
 > `user-invocable: false` 仅隐藏 Skill 但不减少 token（描述仍注入），区别于上述四种形式。
 
-**形式四职责边界**：Skill 模型降级（fork + lite）由本 agent 的形式四统一处理，按逻辑难度泛化判断。历史上 agent 3 曾用白名单制处理（如 `lint-check-fix` / `caveman-*`），现该职责已并入本 agent 形式四（白名单内 skill 仍按"逻辑简单"判定产出，不遗漏）。agent 3（plugin-opt）专注 Plugin 层优化，不处理 skill 模型降级。
+**形式四职责边界**：Skill 模型降级（fork + lite）由本 agent 的形式四统一处理，按逻辑难度做**语义判定**（见下方排除项）。早期曾用固定白名单（如 `lint-check-fix` / `caveman-*`），现已废止。agent 3（plugin-opt）专注 Plugin 层优化，不处理 skill 模型降级。
 
 ## 输入
 
@@ -75,11 +75,13 @@
 
 **排除项**（命中则不产出形式四）：
 
-- 名含 `analyze` / `optimize` / `architect` / `design` / `reason` / `plan` / `research` → 复杂推理，不降级
-- Skill 描述含"多步" / "综合判断" / "理解语义" / "推理" → 不降级
-- Skill 模型降级由本 agent 形式四统一处理（含历史白名单内 skill 如 `lint-check-fix` / `caveman-*` / `ut-writer`），不交其他 agent
+- **语义判定（不依赖中文关键词，中英文 skill 通用）**：该 skill 是否以「长链推理 / 多步综合判断 / 语义理解」为主要价值？是 → 复杂推理，不降级。判定时读 skill 描述与正文，而非匹配固定词。
+  - 判为正例（复杂，不降级）的典型：架构/方案设计、代码审查与重构决策、需求分析、调试定位、规划研究——中英文描述如 "analyze code quality" / "design the architecture" / "reason about" / "multi-step planning" 均属此类。
+  - 判为反例（简单，可降级）的典型：规则驱动的机械转换、模板填充、格式转换、压缩/提取、固定流程检查。
 - 已声明 `model: lite` 或 `context: fork` → 不重复产出
 - last30Days `count ≥ 30`（高频）且需复杂判断 → 不降级
+
+> **历史白名单已废止**：早期曾用固定白名单（如 `lint-check-fix` / `caveman-*` / `ut-writer`）判定，该名单无从验证来历且会漏判新 skill。现统一按上面的语义判定处理——名单中的 skill 同样按「是否逻辑简单」判定，不因其名被特殊对待。Skill 模型降级由本 agent 形式四统一处理，不交其他 agent。
 
 | 条件                                                   | 判定         | 输出                                                                                                                                                                                           |
 | ------------------------------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -118,14 +120,14 @@
 - 重复判定表中无对应条目 → 不产出"功能重复"建议
 - 形式二要求 `source` 可迁移（user/bundled），plugin-marketplace 不产出迁移
 - 形式三要求 skill 非高频且适合斜杠场景，高频核心 skill 不产出
-- 形式四要求 skill 逻辑简单（规则驱动/模板化）；复杂推理类、已声明 fork+lite 的 skill 不产出
+- 形式四要求 skill 逻辑简单（规则驱动/模板化，按语义判定）；复杂推理类、已声明 fork+lite 的 skill 不产出
 - `usageStats` 缺失 → 形式一不产出（见输入节回退规则）
 
 ## 验收条件（Acceptance，与 `stk verify` 校验规则一致）
 
 落盘后**必须**运行 `stk verify --file save-token/suggestions-<name>.json` 校验通过，不得仅凭主观判断"格式对了"。核心规则：
 
-- 顶层必填：`agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`；`agentName` 须与文件名 `suggestions-<name>.json` 匹配。
+- 顶层必填：`schemaVersion`(固定 1) / `agentName` / `category` / `generatedAt` / `skipped` / `suggestions[]`；`agentName` 须与文件名 `suggestions-<name>.json` 匹配。
 - 每条必填：`id` / `title` / `detail` / `operationType` / `target` / `estimatedSavingTokens` / `risk` / `reversible` / `scenario` / `level`。
 - `operationType` ∈ `OperationType` 联合类型；`risk` ∈ `low|medium|high`；`level` ∈ `初级|中级|高级`；`estimatedSavingTokens` ≥ 0；`target` 非空；`reversible` 布尔。
 - 校验失败 → 依据 `stk verify` 输出的错误行**覆盖重写**并再次校验，连续 3 次失败则放弃本维度。
@@ -158,6 +160,7 @@
 
 ```json
 {
+  "schemaVersion": 1,
   "agentName": "skill-opt",
   "category": "Skill 优化",
   "generatedAt": "2026-07-13T10:00:00Z",

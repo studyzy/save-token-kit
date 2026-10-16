@@ -29,20 +29,48 @@ export interface SingleRulesFile {
 /** Optimization level assigned per target in levels.json. */
 export type Level = '初级' | '中级' | '高级'
 
-/** 声明式检测/启用规格（检测原语 + all/any 组合子）。 */
-export interface ToolkitSpec {
-  kind?: 'command' | 'path' | 'mcp' | 'plugin-enabled' | 'proxy-plugin' | 'hook' | 'process'
-  name?: string
-  names?: string[]
-  path?: string
-  key?: string
-  event?: string
-  match?: string
-  pattern?: string
-  source?: 'fs' | 'proxy' | 'any'
+/**
+ * 声明式检测/启用规格（检测原语 + all/any 组合子）。
+ *
+ * Discriminated union: each primitive carries only the fields it uses, so an
+ * evaluator can switch on `kind` and read `spec.name` (etc.) without an
+ * `?? ''` fallback. `all`/`any` are the two combinator kinds that nest further
+ * specs. The union is intentionally still permissive at the leaf level because
+ * specs are loaded from JSON at runtime; `loader.ts` validates field presence
+ * and `spec.ts` throws on an unknown `kind`.
+ */
+export type ToolkitSpec = ToolkitPrimitive | ToolkitCombinator
+
+/** Combinators nest child specs (via all/any) and may also carry a stray kind. */
+export interface ToolkitCombinator {
+  kind?: ToolkitPrimitive['kind']
   all?: ToolkitSpec[]
   any?: ToolkitSpec[]
 }
+
+/**
+ * Type guard: a node nests child specs (is an all/any combinator).
+ *
+ * Judge by presence of `all`/`any`, NOT by `kind === undefined`, so this stays
+ * aligned with `loader.ts` (which recurses into any node carrying all/any) and
+ * with the pre-union evaluator (which checked `if (spec.all)` first). A node
+ * carrying both a `kind` and `all`/`any` therefore evaluates as a combinator,
+ * matching the loader rather than silently taking the primitive branch.
+ */
+export function isSpecCombinator(spec: ToolkitSpec): spec is ToolkitCombinator {
+  const s = spec as ToolkitCombinator
+  return s.all !== undefined || s.any !== undefined
+}
+
+/** A single detection primitive, discriminated by `kind`. */
+export type ToolkitPrimitive =
+  | { kind: 'command'; name: string }
+  | { kind: 'path'; path: string }
+  | { kind: 'mcp'; names: string[]; source?: 'fs' | 'proxy' | 'any' }
+  | { kind: 'plugin-enabled'; key: string }
+  | { kind: 'proxy-plugin'; name: string }
+  | { kind: 'hook'; event: string; match?: string }
+  | { kind: 'process'; pattern: string }
 
 /** 安装规格：默认/按 Agent 安装命令、验证与配置路径、自定义处理器。 */
 export interface ToolkitInstallSpec {

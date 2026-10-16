@@ -4,7 +4,7 @@ import {
   getHomeDir,
   commandExists,
   isProcessRunning,
-  detectCodeBuddyVersion,
+  detectCliVersion,
 } from '@/utils/platform.js'
 
 describe('platform utils', () => {
@@ -25,8 +25,8 @@ describe('platform utils', () => {
     expect(typeof (await isProcessRunning('node'))).toBe('boolean')
   })
 
-  it('detectCodeBuddyVersion returns string or null', async () => {
-    const v = await detectCodeBuddyVersion('definitely-not-a-real-binary-xyz')
+  it('detectCliVersion returns string or null', async () => {
+    const v = await detectCliVersion('definitely-not-a-real-binary-xyz')
     expect(v).toBeNull()
   })
 })

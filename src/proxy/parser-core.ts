@@ -1,4 +1,4 @@
-import { estimateTokensOf, truncateIfLarge } from '../collectors/token-estimator.js'
+import { estimateTokensOf, estimateTokens, truncateIfLarge } from '../collectors/token-estimator.js'
 import type {
   AgentEntry,
   McpEntry,
@@ -176,7 +176,7 @@ export function extractDeferredMcpTools(tools: any[]): {
         refs.push(trimmed)
         continue
       }
-      result.push({ name: trimmed.split(':')[0], estimatedTokens: Math.ceil(trimmed.length / 4) })
+      result.push({ name: trimmed.split(':')[0], estimatedTokens: estimateTokens(trimmed) })
       continue
     }
 
@@ -184,7 +184,7 @@ export function extractDeferredMcpTools(tools: any[]): {
     if (!nameMatch?.[1]) continue
     const name = nameMatch[1]
     if (!name.startsWith('mcp__')) continue
-    result.push({ name, estimatedTokens: Math.ceil(trimmed.length / 4) })
+    result.push({ name, estimatedTokens: estimateTokens(trimmed) })
   }
 
   return { tools: result, references: refs }

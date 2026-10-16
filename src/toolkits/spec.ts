@@ -1,8 +1,20 @@
 import { existsSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
 import { exec } from 'tinyexec'
-import type { ToolkitSpec } from '../types/rules.js'
+import type { ToolkitPrimitive, ToolkitSpec } from '../types/rules.js'
+import { isSpecCombinator } from '../types/rules.js'
 import { commandExists as defaultCommandExists, getPlatform } from '../utils/platform.js'
+
+/** All valid primitive `kind`s (guards against a typo'd kind slipping past the union). */
+const KNOWN_KINDS = new Set<ToolkitPrimitive['kind']>([
+  'command',
+  'path',
+  'mcp',
+  'plugin-enabled',
+  'proxy-plugin',
+  'hook',
+  'process',
+])
 
 /** Evaluation context injected by the caller (diagnose builds the full one; standalone calls may pass a minimal one). */
 export interface SpecContext {
@@ -43,17 +55,19 @@ async function defaultListProcesses(pattern: string): Promise<string[]> {
   }
 }
 
-async function evalPrimitive(spec: ToolkitSpec, ctx: SpecContext, deps: SpecDeps): Promise<boolean> {
+async function evalPrimitive(
+  spec: ToolkitPrimitive,
+  ctx: SpecContext,
+  deps: SpecDeps,
+): Promise<boolean> {
   switch (spec.kind) {
     case 'command':
-      return (deps.commandExists ?? defaultCommandExists)(spec.name ?? '')
+      return (deps.commandExists ?? defaultCommandExists)(spec.name)
 
     case 'path': {
       try {
-        const expanded = expandHome(spec.path ?? '', ctx.home)
-        const abs = isAbsolute(expanded)
-          ? expanded
-          : resolve(deps.cwd ?? process.cwd(), expanded)
+        const expanded = expandHome(spec.path, ctx.home)
+        const abs = isAbsolute(expanded) ? expanded : resolve(deps.cwd ?? process.cwd(), expanded)
         return existsSync(abs)
       } catch {
         return false
@@ -61,7 +75,7 @@ async function evalPrimitive(spec: ToolkitSpec, ctx: SpecContext, deps: SpecDeps
     }
 
     case 'mcp': {
-      const names = spec.names ?? []
+      const names = spec.names
       const source = spec.source ?? 'any'
       const inFs = ctx.mcpList.some((m) => names.includes(m.name) && m.status === 'enabled')
       const inProxy = ctx.proxyParsed?.mcpServers?.some((m) => names.includes(m.name)) ?? false
@@ -71,10 +85,10 @@ async function evalPrimitive(spec: ToolkitSpec, ctx: SpecContext, deps: SpecDeps
     }
 
     case 'plugin-enabled':
-      return ctx.settingsJson?.enabledPlugins?.[spec.key ?? ''] === true
+      return ctx.settingsJson?.enabledPlugins?.[spec.key] === true
 
     case 'proxy-plugin':
-      return ctx.proxyParsed?.detectedPlugins?.includes(spec.name ?? '') ?? false
+      return ctx.proxyParsed?.detectedPlugins?.includes(spec.name) ?? false
 
     case 'hook':
       return ctx.hookList.some(
@@ -83,8 +97,8 @@ async function evalPrimitive(spec: ToolkitSpec, ctx: SpecContext, deps: SpecDeps
 
     case 'process': {
       try {
-        const lines = await (deps.listProcesses ?? defaultListProcesses)(spec.pattern ?? '')
-        const re = new RegExp(spec.pattern ?? '')
+        const lines = await (deps.listProcesses ?? defaultListProcesses)(spec.pattern)
+        const re = new RegExp(spec.pattern)
         return lines.some((line) => re.test(line))
       } catch {
         return false
@@ -96,16 +110,6 @@ async function evalPrimitive(spec: ToolkitSpec, ctx: SpecContext, deps: SpecDeps
   }
 }
 
-const KNOWN_KINDS = new Set([
-  'command',
-  'path',
-  'mcp',
-  'plugin-enabled',
-  'proxy-plugin',
-  'hook',
-  'process',
-])
-
 /**
  * Evaluate a declarative detection/enabled spec against the given context.
  * All I/O failures resolve to false (prefer false negatives over false positives).
@@ -115,19 +119,22 @@ export async function evaluateSpec(
   ctx: SpecContext,
   deps: SpecDeps = {},
 ): Promise<boolean> {
-  if (spec.all) {
-    for (const child of spec.all) {
-      if (!(await evaluateSpec(child, ctx, deps))) return false
+  if (isSpecCombinator(spec)) {
+    if (spec.all) {
+      for (const child of spec.all) {
+        if (!(await evaluateSpec(child, ctx, deps))) return false
+      }
+      return true
     }
-    return true
-  }
-  if (spec.any) {
-    for (const child of spec.any) {
-      if (await evaluateSpec(child, ctx, deps)) return true
+    if (spec.any) {
+      for (const child of spec.any) {
+        if (await evaluateSpec(child, ctx, deps)) return true
+      }
+      return false
     }
-    return false
+    throw new Error(`spec 缺少 kind 且无 all/any 组合子: ${JSON.stringify(spec)}`)
   }
-  if (!spec.kind || !KNOWN_KINDS.has(spec.kind)) {
+  if (!KNOWN_KINDS.has(spec.kind)) {
     throw new Error(`unknown kind: ${(spec as { kind?: string }).kind ?? JSON.stringify(spec)}`)
   }
   return evalPrimitive(spec, ctx, deps).catch(() => false)

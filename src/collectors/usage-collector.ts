@@ -284,7 +284,14 @@ export async function collectUsageStats(options: CollectUsageOptions): Promise<U
   if (existsSync(options.sessionsDir)) {
     for (const file of listJsonlFiles(options.sessionsDir)) {
       state.filesScanned++
-      await scanFile(file, state, cutoffs)
+      try {
+        await scanFile(file, state, cutoffs)
+      } catch (err) {
+        // Fail-soft: one unreadable file must not abort the whole scan, but
+        // stay observable so a silent zero-result is distinguishable from a
+        // genuine "no history" case.
+        console.warn(`usage 采集跳过文件 ${file}：${(err as Error).message}`)
+      }
     }
   }
 

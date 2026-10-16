@@ -7,6 +7,7 @@ import {
   type SkillTokensMap,
 } from './parser-core.js'
 import type { AgentEntry, ProxyDiagnosisData } from '../types/index.js'
+import { estimateTokens } from '../collectors/token-estimator.js'
 
 /**
  * Read SKILL.md frontmatter `description` for a skill whose source path is known.
@@ -89,7 +90,7 @@ function extractSkillTokens(
       : undefined
     result[name] = {
       description: frontmatterDesc ?? trimmed,
-      estimatedTokens: Math.ceil((frontmatterDesc ?? trimmed).length / 4),
+      estimatedTokens: estimateTokens(frontmatterDesc ?? trimmed),
       location: resolvedLocation,
     }
   }

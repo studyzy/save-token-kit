@@ -1,6 +1,9 @@
 import * as http from 'node:http'
 import * as https from 'node:https'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync, existsSync } from 'node:fs'
+import { gunzipSync, inflateSync, brotliDecompressSync } from 'node:zlib'
+import { yellow } from 'ansis'
+import { MAX_PROXY_BODY_BYTES } from '../types/index.js'
 
 const DEFAULT_CODEBUDDY_API = 'https://tencent.sso.copilot.tencent.com'
 
@@ -70,6 +73,11 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
   const mock = options?.mock ?? false
   const target = mock ? undefined : new URL(apiBaseUrl)
 
+  // Trace files capture full request/response bodies (real conversation
+  // content, code, memory files). Drop a warning so a user who shares the
+  // directory knows to redact it first.
+  if (traceDir) writeTraceWarning(traceDir)
+
   const instance: ProxyInstance = {
     port: 0,
     server: null as unknown as http.Server,
@@ -88,10 +96,34 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
 
       req.on('end', () => {
         const rawBody = Buffer.concat(chunks)
-        const bodyStr = rawBody.toString('utf-8')
+
+        // Decode a *copy* of the body for parsing/capture/trace. The forward
+        // path always writes the original bytes, so compression is preserved
+        // upstream (dual-track). Unknown encodings (e.g. zstd) yield null and
+        // are skipped rather than parsed into garbage.
+        //
+        // Size guard on the raw (compressed) bytes cheaply rejects an oversized
+// upload before decompression; `decodeBody` additionally bounds the decoded
+// output, so a small gzip bomb cannot inflate past the limit to JSON.parse.
+        const bodyTooLarge = rawBody.length > MAX_PROXY_BODY_BYTES
+        const decoded = bodyTooLarge
+          ? null
+          : decodeBody(rawBody, req.headers['content-encoding'], MAX_PROXY_BODY_BYTES)
+        const bodyStr = decoded?.toString('utf-8') ?? ''
+        if (bodyTooLarge) {
+          console.error(
+            yellow(`  ⚠️ 请求体超过 ${MAX_PROXY_BODY_BYTES} 字节上限，已跳过解析（原样转发）`),
+          )
+        }
 
         // Capture all POST requests matching the capture path prefix
-        if (req.method === 'POST' && req.url?.startsWith(capturePrefix) && bodyStr) {
+        if (
+          req.method === 'POST' &&
+          req.url?.startsWith(capturePrefix) &&
+          rawBody.length > 0 &&
+          !bodyTooLarge &&
+          bodyStr
+        ) {
           try {
             const parsed: unknown = JSON.parse(bodyStr)
             instance.capturedBodies.push(parsed)
@@ -113,7 +145,7 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
         const purpose = req.headers['x-agent-purpose']
         const purposeStr = Array.isArray(purpose) ? (purpose[0] ?? '') : (purpose ?? '')
         const skipTrace = purposeStr !== '' && skipPurposes.has(purposeStr)
-        const traceContext = traceDir && !skipTrace ? prepareTrace(req, rawBody, traceDir) : null
+        const traceContext = traceDir && !skipTrace ? prepareTrace(req, bodyStr, traceDir) : null
 
         // Mock mode: answer with a protocol-appropriate response so the
         // agent's probe request completes without a real upstream. The protocol
@@ -147,7 +179,7 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
             port: target!.port || (isHttps ? 443 : 80),
             path: joinForwardPath(target!.pathname, req.url ?? '/'),
             method: req.method,
-            headers: { ...req.headers, host: target!.hostname },
+            headers: forwardHeaders(req.headers, target!.hostname),
           },
           (forwardRes) => {
             res.writeHead(forwardRes.statusCode ?? 200, forwardRes.headers)
@@ -155,8 +187,11 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
               const respChunks: Buffer[] = []
               forwardRes.on('data', (c: Buffer) => {
                 respChunks.push(c)
-                res.write(c)
+                // Respect backpressure: pause the upstream until the client
+                // drains, so a large response cannot balloon memory unboundedly.
+                if (!res.write(c)) forwardRes.pause()
               })
+              res.on('drain', () => forwardRes.resume())
               forwardRes.on('end', () => {
                 res.end()
                 finalizeTrace(traceContext, forwardRes, Buffer.concat(respChunks))
@@ -174,25 +209,40 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
           }
         })
 
-        if (bodyStr) {
+        // Forward the original bytes (never the decoded copy) so upstream
+        // compression/encoding is preserved. Guard on byte length, not the
+        // decoded string: an empty-decoded but non-empty body must still be
+        // forwarded (previously `if (bodyStr)` silently dropped it).
+        if (rawBody.length > 0) {
           forward.write(rawBody)
         }
         forward.end()
       })
     })
 
-    server.on('error', reject)
+    // Errors during the bind attempt are handled inside tryListen; a later
+    // runtime error (e.g. accept failure) must not surface as an unhandled
+    // 'error' event, so log it instead of rejecting an already-resolved promise.
+    // EADDRINUSE is the expected bind-retry signal and is handled there.
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') return
+      console.error(yellow(`代理运行时错误: ${err.message}`))
+    })
 
-    const tryListen = (p: number): void => {
-      server.once('error', (err: NodeJS.ErrnoException) => {
-        if (err.code === 'EADDRINUSE') {
-          server.listen(0, '127.0.0.1')
+    const tryListen = (p: number, isFallback = false): void => {
+      const onError = (err: NodeJS.ErrnoException): void => {
+        if (err.code === 'EADDRINUSE' && !isFallback) {
+          // Fall back to a random free port, but say so: callers depending on a
+          // fixed port would otherwise silently connect to the wrong service.
+          console.error(yellow(`  端口 ${p} 被占用，已改用随机端口`))
+          tryListen(0, true)
         } else {
           reject(err)
         }
-      })
+      }
+      server.once('error', onError)
       server.listen(p, '127.0.0.1', () => {
-        server.removeAllListeners('error')
+        server.removeListener('error', onError)
         const addr = server.address()
         if (!addr || typeof addr === 'string') {
           reject(new Error('Failed to get server address'))
@@ -209,18 +259,20 @@ export function startProxy(options?: ProxyOptions): Promise<ProxyInstance> {
 
 /**
  * Write the request side of a trace pair to `<traceDir>/<sessionId>/<timestamp>-request.json`.
+ * `bodyStr` is the already-decoded UTF-8 body (empty when the encoding was
+ * unknown/unparseable), so trace files never contain compressed garbage.
  * Returns the context needed to finalize the response side later.
  */
-function prepareTrace(req: http.IncomingMessage, rawBody: Buffer, traceDir: string): TraceContext {
+function prepareTrace(req: http.IncomingMessage, bodyStr: string, traceDir: string): TraceContext {
   const sessionId = extractSessionId(req.headers)
   const timestamp = formatTimestamp(new Date())
   const sessionDir = `${traceDir}/${sessionId}`
   mkdirSync(sessionDir, { recursive: true })
 
   const requestHeaders = simplifyHeaders(req.headers)
-  let parsedBody: unknown = rawBody.toString('utf-8')
+  let parsedBody: unknown = bodyStr
   try {
-    parsedBody = JSON.parse(parsedBody as string)
+    parsedBody = JSON.parse(bodyStr)
   } catch {
     // keep raw string
   }
@@ -239,6 +291,8 @@ function prepareTrace(req: http.IncomingMessage, rawBody: Buffer, traceDir: stri
 
 /**
  * Write the response side of a trace pair to `<traceDir>/<sessionId>/<timestamp>-response.json`.
+ * The response body is decoded using its `content-encoding` header first, so a
+ * compressed upstream response lands as parseable JSON instead of garbage.
  */
 function finalizeTrace(
   ctx: TraceContext,
@@ -246,7 +300,8 @@ function finalizeTrace(
   respBody: Buffer,
 ): void {
   const responseHeaders = simplifyHeaders(forwardRes.headers)
-  const bodyStr = respBody.toString('utf-8')
+  const decoded = decodeBody(respBody, forwardRes.headers['content-encoding'])
+  const bodyStr = decoded?.toString('utf-8') ?? ''
   let parsedBody: unknown = bodyStr
   try {
     parsedBody = JSON.parse(bodyStr)
@@ -262,6 +317,90 @@ function finalizeTrace(
     },
     body: parsedBody,
   })
+}
+
+/**
+ * Decode a request/response body according to its `content-encoding`.
+ * Returns the decoded bytes for gzip/deflate/br (Node built-in zlib), the
+ * original bytes when no encoding is declared, or null for an unsupported
+ * encoding (e.g. zstd) or a decode failure — callers then skip parsing rather
+ * than feeding compressed garbage into JSON.parse.
+ *
+ * Handles comma-joined encoding chains (`gzip, deflate`) by decoding in reverse
+ * declaration order, and bounds output via `maxOutputLength` so a small
+ * compressed payload (gzip bomb) cannot inflate past `maxBytes` — exceeding it
+ * throws and resolves to null (skip), never a partial/garbage body.
+ */
+function decodeBody(
+  raw: Buffer,
+  encoding: http.IncomingHttpHeaders[string],
+  maxBytes = MAX_PROXY_BODY_BYTES,
+): Buffer | null {
+  const encStr = (Array.isArray(encoding) ? (encoding[0] ?? '') : (encoding ?? ''))
+    .trim()
+    .toLowerCase()
+  if (encStr === '' || encStr === 'identity') return raw
+
+  const layers = encStr
+    .split(',')
+    .map((e) => e.trim())
+    .filter((e) => e !== '' && e !== 'identity')
+  if (layers.length === 0) return raw
+
+  // Content-Encoding lists layers in applied order (outermost first), so
+  // decoding walks the list front-to-back, undoing the last-applied layer first.
+  let buf = raw
+  try {
+    for (const enc of layers) {
+      if (enc === 'gzip' || enc === 'x-gzip') buf = gunzipSync(buf, { maxOutputLength: maxBytes })
+      else if (enc === 'deflate') buf = inflateSync(buf, { maxOutputLength: maxBytes })
+      else if (enc === 'br') buf = brotliDecompressSync(buf, { maxOutputLength: maxBytes })
+      else return null // unknown layer (zstd, …): skip rather than guess
+      if (buf.length > maxBytes) return null
+    }
+  } catch {
+    // Includes Z_BUF_ERROR from an over-limit expansion — treat as "too large
+    // to parse", not a decodable body.
+    return null
+  }
+  return buf
+}
+
+/**
+ * Headers that must not be forwarded verbatim: hop-by-hop headers apply only
+ * to a single transport hop and are re-derived by the next connection.
+ */
+const HOP_BY_HOP = new Set([
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+])
+
+/**
+ * Build the outbound headers for the upstream request: strip hop-by-hop headers
+ * (plus any header named in `connection`), and point `host` at the upstream.
+ */
+function forwardHeaders(headers: http.IncomingHttpHeaders, host: string): http.OutgoingHttpHeaders {
+  const drop = new Set(HOP_BY_HOP)
+  const conn = headers['connection']
+  const connStr = Array.isArray(conn) ? conn.join(',') : (conn ?? '')
+  for (const token of connStr.split(',')) {
+    const t = token.trim().toLowerCase()
+    if (t) drop.add(t)
+  }
+
+  const out: http.OutgoingHttpHeaders = {}
+  for (const [k, v] of Object.entries(headers)) {
+    if (v === undefined || drop.has(k.toLowerCase())) continue
+    out[k] = v
+  }
+  out['host'] = host
+  return out
 }
 
 function extractSessionId(headers: http.IncomingHttpHeaders): string {
@@ -306,6 +445,35 @@ function formatTimestamp(d: Date): string {
 
 function writeJsonFile(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data, null, 2))
+}
+
+/**
+ * Write a SENSITIVE warning file into the trace directory (once). Trace files
+ * contain full request/response bodies — real conversation content, source
+ * code and memory files — so anyone sharing the directory must redact it first.
+ * Only written when absent, so a user-edited file is never overwritten.
+ */
+function writeTraceWarning(traceDir: string): void {
+  const path = `${traceDir}/SENSITIVE.md`
+  try {
+    mkdirSync(traceDir, { recursive: true })
+    if (existsSync(path)) return
+    writeFileSync(
+      path,
+      [
+        '# ⚠️ 本目录含敏感内容',
+        '',
+        'trace/ 下的请求与响应文件保存了**完整的对话正文**（含你的提示词、代码、',
+        'memory 文件等）。请求头中的凭据（authorization/api-key/cookie）已脱敏，',
+        '但正文内容未做任何脱敏。',
+        '',
+        '**分享、上传或提交本目录前，请先手动脱敏或删除。**',
+        '',
+      ].join('\n'),
+    )
+  } catch {
+    // best-effort: a missing warning file must never break tracing
+  }
 }
 
 /**
@@ -455,7 +623,13 @@ function writeOpenaiResponsesStream(res: http.ServerResponse): void {
   emit('response.output_item.added', {
     type: 'response.output_item.added',
     output_index: 0,
-    item: { id: 'msg_stk_mock', type: 'message', role: 'assistant', status: 'in_progress', content: [] },
+    item: {
+      id: 'msg_stk_mock',
+      type: 'message',
+      role: 'assistant',
+      status: 'in_progress',
+      content: [],
+    },
   })
   emit('response.content_part.added', {
     type: 'response.content_part.added',

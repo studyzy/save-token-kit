@@ -54,28 +54,28 @@ disable-model-invocation: true
 
 严格遵循 `tasks.md` 中的出现顺序，逐条派发到对应子 Agent。每条任务完成后，主 SKILL 等待子 Agent 回报结果，立即回写 `tasks.md` 状态，再处理下一条。
 
-**路由规则**：按 `operationType` + `target` 匹配：
+**路由规则**：按 `operationType` + `target` 匹配。本表仅指向**本阶段（stk-optimize）**的 agents，一律使用相对于本 SKILL.md 的锚定路径 `../stk-optimize/agents/`；**禁止**引用 stk-analyze 下的同名 agent（两者语义相反：analyze 只产建议 JSON，optimize 直接改配置）。
 
-| operationType          | target 匹配                              | 子 Agent                          | 说明                                                                                                                        |
-| ---------------------- | ---------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `install-toolkit`      | —                                        | `@agents/install-toolkit.md`      | 执行 `stk install` 安装工具                                                                                                 |
-| `disable-skill`        | —                                        | `@agents/skill-opt.md`            | 改 Skill 自身 frontmatter/移除文件（**非** settings.json，Skill 不受 `enabledPlugins` 控制）                                 |
-| `migrate-skill`        | —                                        | `@agents/skill-opt.md`            | 移动 Skill 目录（user↔project 作用域迁移）                                                                                  |
-| `disable-model-invocation` | —                                    | `@agents/skill-opt.md`            | 加 `disable-model-invocation: true`，改为仅斜杠调用                                                                          |
-| `skill-model-downgrade` | —                                       | `@agents/skill-opt.md`            | 加 `context: fork` + `model: lite`，便宜模型执行                                                                             |
-| `disable-mcp`          | —                                        | `@agents/mcp-opt.md`              | 修改 .mcp.json 禁用 MCP                                                                                                     |
-| `defer-mcp`            | —                                        | `@agents/mcp-opt.md`              | 修改 .mcp.json 设置 defer_loading                                                                                           |
-| `replace-mcp-with-cli` | `tapd` / `mcp-server-tapd`               | `@agents/cli-replace-tapd.md`     | 安装 tapd-ai-cli + 禁用 TAPD MCP                                                                                            |
-| `replace-mcp-with-cli` | `gongfeng` / `gongfeng-mcp`              | `@agents/cli-replace-gongfeng.md` | 安装 gongfeng-cli + 禁用工蜂 MCP                                                                                            |
-| `replace-mcp-with-cli` | `github` / `github-mcp`                  | `@agents/cli-replace-gh.md`       | 安装 gh CLI + 禁用 GitHub MCP                                                                                               |
-| `disable-plugin`       | —                                        | `@agents/plugin-opt.md`           | 修改 settings.json 禁用 Plugin                                                                                              |
-| `migrate-plugin`       | —                                        | `@agents/plugin-opt.md`           | 修改 settings.json 迁移 Plugin 作用域                                                                                       |
-| `memory-md-review`     | —                                        | `@agents/memory-md.md`            | 精简/优化指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md）                                                                 |
-| `rules-opt`            | —                                        | `@agents/rules-opt.md`            | 修改 rules 配置                                                                                                             |
-| `tool-opt`             | `codebuddy` / `claude`（诊断 agentName） | `@agents/tool-opt.md`             | 收窄低频内置工具：CodeBuddy 建 cblite alias（Top 20 常驻、其余 Defer 延迟），Claude 写 permissions.deny（禁用，需用户确认） |
+| operationType          | target 匹配                              | 子 Agent                                        | 说明                                                                                                                        |
+| ---------------------- | ---------------------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `install-toolkit`      | —                                        | `../stk-optimize/agents/install-toolkit.md`     | 执行 `stk install` 安装工具                                                                                                 |
+| `disable-skill`        | —                                        | `../stk-optimize/agents/skill-opt.md`           | 改 Skill 自身 frontmatter/移除文件（**非** settings.json，Skill 不受 `enabledPlugins` 控制）                                 |
+| `migrate-skill`        | —                                        | `../stk-optimize/agents/skill-opt.md`           | 移动 Skill 目录（user↔project 作用域迁移）                                                                                  |
+| `disable-model-invocation` | —                                    | `../stk-optimize/agents/skill-opt.md`           | 加 `disable-model-invocation: true`，改为仅斜杠调用                                                                          |
+| `skill-model-downgrade` | —                                       | `../stk-optimize/agents/skill-opt.md`           | 加 `context: fork` + `model: lite`，便宜模型执行                                                                             |
+| `disable-mcp`          | —                                        | `../stk-optimize/agents/mcp-opt.md`             | 修改 .mcp.json 禁用 MCP                                                                                                     |
+| `defer-mcp`            | —                                        | `../stk-optimize/agents/mcp-opt.md`             | 修改 .mcp.json 设置 defer_loading                                                                                           |
+| `replace-mcp-with-cli` | `tapd` / `mcp-server-tapd`               | `../stk-optimize/agents/cli-replace-tapd.md`    | 安装 tapd-ai-cli + 禁用 TAPD MCP                                                                                            |
+| `replace-mcp-with-cli` | `gongfeng` / `gongfeng-mcp`              | `../stk-optimize/agents/cli-replace-gongfeng.md` | 安装 gongfeng-cli + 禁用工蜂 MCP                                                                                           |
+| `replace-mcp-with-cli` | `github` / `github-mcp`                  | `../stk-optimize/agents/cli-replace-gh.md`      | 安装 gh CLI + 禁用 GitHub MCP                                                                                               |
+| `disable-plugin`       | —                                        | `../stk-optimize/agents/plugin-opt.md`          | 修改 settings.json 禁用 Plugin                                                                                              |
+| `migrate-plugin`       | —                                        | `../stk-optimize/agents/plugin-opt.md`          | 修改 settings.json 迁移 Plugin 作用域                                                                                       |
+| `memory-md-review`     | —                                        | `../stk-optimize/agents/memory-md.md`           | 精简/优化指令主文件（CODEBUDDY.md / CLAUDE.md / AGENTS.md）                                                                 |
+| `rules-opt`            | —                                        | `../stk-optimize/agents/rules-opt.md`           | 修改 rules 配置                                                                                                             |
+| `tool-opt`             | `codebuddy` / `claude`（诊断 agentName） | `../stk-optimize/agents/tool-opt.md`            | 收窄低频内置工具：CodeBuddy 建 cblite alias（Top 20 常驻、其余 Defer 延迟），Claude 写 permissions.deny（禁用，需用户确认） |
+| 其他                   | —                                        | `../stk-optimize/agents/generic.md`             | 兜底，按 detail 描述执行                                                                                                    |
 
 > **`tool-opt` 平台限制**：按诊断 `agentName` 分支——**CodeBuddy** 走 `cblite` alias（`--tools "Defer(...)"` 延迟加载），**Claude Code** 走 `~/.claude/settings.json` 的 `permissions.deny`（禁用语义，仅落地用户明确确认不使用的工具）；**CodeX 无此等价机制**，遇到 `tool-opt` 任务时回报跳过并标注原因。
-> | 其他 | — | `@agents/generic.md` | 兜底，按 detail 描述执行 |
 
 > **CLI 替代 Agent 说明**：`replace-mcp-with-cli` 按 `target` 名匹配到对应 CLI 安装 Agent。这些 Agent 会先安装 CLI 工具、引导用户认证、再禁用对应 MCP。安装与禁用解耦：安装失败不影响禁用操作。
 
@@ -84,8 +84,8 @@ disable-model-invocation: true
 每条任务完成后**立即**回写 `tasks.md`，将该任务对应行的复选框置为已完成：
 
 - 成功 / 已落地修改 → `- [x]`（保留原有等级标签与描述）。
-- 失败 → `- [x]` 外加注（如原因），或在原因行追加 `状态: 失败`。
-- no-op / 跳过 → 保持 `- [ ]` 不变，或改为 `- [x]` 并在原因行标注 `skipped`。
+- **失败 → 保持 `- [ ]` 不变**，并在该行后追加一行 `⚠️ 失败：<原因>`。**禁止**把失败任务勾为 `- [x]`——`/stk` 依据勾选状态推导流水线阶段，失败任务被勾选会让 tasks.md 看起来"全部完成"，从而误判进入报告阶段，产出"节省为 0"的误导性报告。
+- no-op / 跳过 → 保持 `- [ ]` 不变，并在原因行标注 `skipped`。
 
 **每完成一条就改一条，不要等全部结束再批量更新。**
 

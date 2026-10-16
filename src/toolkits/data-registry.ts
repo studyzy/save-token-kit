@@ -1,4 +1,5 @@
 import type { ToolkitCatalogEntry } from '../types/rules.js'
+import { isSpecCombinator } from '../types/rules.js'
 import { homedir } from 'node:os'
 import type { ToolkitDetection } from '../../types/index.js'
 import { evaluateSpec, type SpecContext, type SpecDeps } from './spec.js'
@@ -42,9 +43,12 @@ function defaultCtx(): SpecContext {
 /** Walk an enabled spec and return all proxy-plugin names declared inside (any depth). */
 function collectProxyPluginNames(spec: NonNullable<ToolkitCatalogEntry['enabled']>): string[] {
   const names: string[] = []
-  const walk = (s: typeof spec): void => {
-    if (s.kind === 'proxy-plugin' && s.name) names.push(s.name)
-    for (const child of [...(s.all ?? []), ...(s.any ?? [])]) walk(child)
+  const walk = (s: NonNullable<ToolkitCatalogEntry['enabled']>): void => {
+    if (s.kind === 'proxy-plugin' && 'name' in s) names.push(s.name)
+    // Nested specs live on all/any combinators (a primitive has neither).
+    if (isSpecCombinator(s)) {
+      for (const child of (s.all ?? []).concat(s.any ?? [])) walk(child)
+    }
   }
   walk(spec)
   return names
@@ -54,12 +58,19 @@ function collectProxyPluginNames(spec: NonNullable<ToolkitCatalogEntry['enabled'
  * Build the runtime toolkit registry from merged rules data.
  * Entries without a `detect` spec are skipped (they render in suggestions only, never detected).
  */
-export function buildRegistry(merged: {
-  toolkits: Record<string, ToolkitCatalogEntry>
-}, deps: RegistryDeps = {}): DataToolkit[] {
+export function buildRegistry(
+  merged: {
+    toolkits: Record<string, ToolkitCatalogEntry>
+  },
+  deps: RegistryDeps = {},
+): DataToolkit[] {
   const runShell = deps.runShell ?? defaultRunShell
 
-  const resolveConfigCmd = (install: ToolkitCatalogEntry['install'], agent: string, global: boolean): string => {
+  const resolveConfigCmd = (
+    install: ToolkitCatalogEntry['install'],
+    agent: string,
+    global: boolean,
+  ): string => {
     const template = install?.config?.byAgent?.[agent] ?? install?.config?.default
     if (!template) return ''
     let cmd = template.replaceAll('{agent}', agent)
@@ -67,14 +78,19 @@ export function buildRegistry(merged: {
     return cmd
   }
 
-  const makeGenericInstall = (name: string, install: ToolkitCatalogEntry['install']) =>
+  const makeGenericInstall =
+    (name: string, install: ToolkitCatalogEntry['install']) =>
     async (global: boolean, agent: string): Promise<InstallResult> => {
       const steps: InstallResult['steps'] = []
       const run = async (cmd: string): Promise<boolean> => {
         try {
           const res = await runShell(cmd)
           if (res.exitCode !== 0) {
-            steps.push({ cmd, ok: false, error: `exitCode=${res.exitCode} ${res.stderr.trim()}`.trim() })
+            steps.push({
+              cmd,
+              ok: false,
+              error: `exitCode=${res.exitCode} ${res.stderr.trim()}`.trim(),
+            })
             return false
           }
           steps.push({ cmd, ok: true })
@@ -92,7 +108,13 @@ export function buildRegistry(merged: {
           return {
             toolkit: name,
             ok: false,
-            steps: [{ cmd: `handler ${handlerName}`, ok: false, error: `未知 install.handler: ${handlerName}` }],
+            steps: [
+              {
+                cmd: `handler ${handlerName}`,
+                ok: false,
+                error: `未知 install.handler: ${handlerName}`,
+              },
+            ],
           }
         }
         return handler(entryOf(name)!, { global, agent, deps })

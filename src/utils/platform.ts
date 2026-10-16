@@ -35,8 +35,12 @@ export async function isProcessRunning(name: string): Promise<boolean> {
   }
 }
 
-/** Detect the installed CodeBuddy CLI version (e.g. "2.119.3"), or null if unavailable. */
-export async function detectCodeBuddyVersion(binary = 'codebuddy'): Promise<string | null> {
+/**
+ * Detect an agent CLI's installed version (e.g. "2.119.3"), or null if
+ * unavailable. Generic across agents: the caller passes the binary name
+ * (adapters use their own `getConfigPaths().cliBinary`).
+ */
+export async function detectCliVersion(binary: string): Promise<string | null> {
   try {
     const res = await exec(binary, ['--version'])
     if (res.exitCode !== 0) return null

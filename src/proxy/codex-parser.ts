@@ -1,5 +1,10 @@
-import { estimateTokensOf, truncateIfLarge } from '../collectors/token-estimator.js'
-import type { AgentEntry, ProxyDiagnosisData, MessageBreakdown, SkillEntry } from '../types/index.js'
+import { estimateTokensOf, estimateTokens, truncateIfLarge } from '../collectors/token-estimator.js'
+import type {
+  AgentEntry,
+  ProxyDiagnosisData,
+  MessageBreakdown,
+  SkillEntry,
+} from '../types/index.js'
 import {
   detectPluginsFromMessages,
   extractMcpFromText,
@@ -28,10 +33,12 @@ function messageText(msg: any): string {
   const content = msg?.content
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
-    return content
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((b: any) => (typeof b?.text === 'string' ? b.text : ''))
-      .join('\n')
+    return (
+      content
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((b: any) => (typeof b?.text === 'string' ? b.text : ''))
+        .join('\n')
+    )
   }
   return ''
 }
@@ -62,9 +69,10 @@ function parseCoreResponses(body: unknown): ResponsesCore {
   const tools = Array.isArray(req.tools) ? req.tools : []
 
   // Normalize top-level `instructions` into a virtual system message.
-  const messages = typeof req.instructions === 'string' && req.instructions
-    ? [{ role: 'system', content: req.instructions }, ...input]
-    : [...input]
+  const messages =
+    typeof req.instructions === 'string' && req.instructions
+      ? [{ role: 'system', content: req.instructions }, ...input]
+      : [...input]
 
   const roleCounts: Record<string, number> = {}
   const roleTokens: Record<string, number> = {}
@@ -136,7 +144,18 @@ function parseCoreResponses(body: unknown): ResponsesCore {
     }
   }
 
-  return { roleCounts, roleTokens, breakdown, memoryTokens, rulesTokens, mcpServers, builtin, mcp, messages, tools }
+  return {
+    roleCounts,
+    roleTokens,
+    breakdown,
+    memoryTokens,
+    rulesTokens,
+    mcpServers,
+    builtin,
+    mcp,
+    messages,
+    tools,
+  }
 }
 
 /** Skill token map keyed by skill name. */
@@ -180,7 +199,7 @@ function extractSkillTokens(
       const location = locMatch?.[1]?.trim()
       result[name] = {
         description: trimmed,
-        estimatedTokens: Math.ceil(trimmed.length / 4),
+        estimatedTokens: estimateTokens(trimmed),
         location,
       }
     }
@@ -205,7 +224,7 @@ function extractSkillTokens(
         if (!location) continue
         result[name] = {
           description: trimmed,
-          estimatedTokens: Math.ceil(trimmed.length / 4),
+          estimatedTokens: estimateTokens(trimmed),
           location: location !== 'bundled' ? location : undefined,
         }
       }

@@ -11,6 +11,7 @@ import {
 /** A minimal valid suggestion file object. */
 function validDoc(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
+    schemaVersion: 1,
     agentName: 'toolkit-enable',
     category: '第三方工具启用',
     generatedAt: '2026-08-14T00:00:00Z',
@@ -51,6 +52,12 @@ describe('stk verify: validateSuggestionObject (pure)', () => {
     expect(errors).toContain('缺少顶层字段: category')
     expect(errors).toContain('缺少顶层字段: generatedAt')
     expect(errors).toContain('缺少顶层字段: skipped')
+    expect(errors).toContain('缺少顶层字段: schemaVersion')
+  })
+
+  it('rejects an unsupported (newer) schemaVersion', () => {
+    const { errors } = validateSuggestionObject(validDoc({ schemaVersion: 999 }), null)
+    expect(errors.some((e) => e.includes('高于本工具支持的'))).toBe(true)
   })
 
   it('rejects when suggestions is not an array', () => {
@@ -61,7 +68,10 @@ describe('stk verify: validateSuggestionObject (pure)', () => {
   it('flags mismatched agentName vs filename', () => {
     const { errors } = validateSuggestionObject(validDoc(), 'suggestions-toolkit-enable.json')
     expect(errors).toHaveLength(0)
-    const bad = validateSuggestionObject(validDoc({ agentName: 'mcp-opt' }), 'suggestions-toolkit-enable.json')
+    const bad = validateSuggestionObject(
+      validDoc({ agentName: 'mcp-opt' }),
+      'suggestions-toolkit-enable.json',
+    )
     expect(bad.errors.some((e) => e.includes('不匹配'))).toBe(true)
   })
 

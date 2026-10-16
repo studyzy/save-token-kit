@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { startProxy, stopProxy } from '@/proxy/server.js'
@@ -312,6 +312,220 @@ describe('proxy server', () => {
   }, 15000)
 })
 
+describe('proxy server error branches', () => {
+  it('falls back to a random port when the preferred port is in use', async () => {
+    const http = await import('node:http')
+    // Occupy a port first.
+    const blocker = http.createServer((_req, res) => res.end())
+    await new Promise<void>((resolve) => blocker.listen(0, '127.0.0.1', resolve))
+    const busyPort = (blocker.address() as { port: number }).port
+
+    const proxy = await startProxy({ port: busyPort })
+    // Bound successfully on a *different* port than the occupied one.
+    expect(proxy.port).toBeGreaterThan(0)
+    expect(proxy.port).not.toBe(busyPort)
+
+    await stopProxy(proxy)
+    await new Promise<void>((resolve) => blocker.close(() => resolve()))
+  }, 15000)
+
+  it('returns 502 when the upstream connection fails', async () => {
+    const http = await import('node:http')
+    // Bind then close to get a definitely-unused port.
+    const probe = http.createServer()
+    await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
+    const deadPort = (probe.address() as { port: number }).port
+    await new Promise<void>((resolve) => probe.close(() => resolve()))
+
+    const proxy = await startProxy({
+      port: 0,
+      capturePathPrefix: '/v1/',
+      apiBaseUrl: `http://127.0.0.1:${deadPort}`,
+    })
+    const body = JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] })
+    const status = await new Promise<number>((resolve, reject) => {
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port: proxy.port,
+          path: '/v1/messages',
+          method: 'POST',
+          headers: { 'content-length': Buffer.byteLength(body) },
+        },
+        (res) => {
+          res.on('data', () => {})
+          res.on('end', () => resolve(res.statusCode ?? 0))
+        },
+      )
+      req.on('error', reject)
+      req.end(body)
+    })
+    expect(status).toBe(502)
+    await stopProxy(proxy)
+  }, 15000)
+
+  it('forwards an empty body without dropping the request', async () => {
+    const http = await import('node:http')
+    let received = ''
+    let hit = false
+    const upstream = http.createServer((req, res) => {
+      hit = true
+      req.on('data', (c: Buffer) => (received += c.toString()))
+      req.on('end', () => {
+        res.writeHead(200)
+        res.end('{}')
+      })
+    })
+    await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', resolve))
+    const upstreamPort = (upstream.address() as { port: number }).port
+
+    const proxy = await startProxy({
+      port: 0,
+      capturePathPrefix: '/v1/',
+      apiBaseUrl: `http://127.0.0.1:${upstreamPort}`,
+    })
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request(
+        { host: '127.0.0.1', port: proxy.port, path: '/v1/messages', method: 'POST' },
+        (res) => {
+          res.on('data', () => {})
+          res.on('end', () => resolve())
+        },
+      )
+      req.on('error', reject)
+      req.end()
+    })
+    expect(hit).toBe(true)
+    expect(received).toBe('')
+    await stopProxy(proxy)
+    await new Promise<void>((resolve) => upstream.close(() => resolve()))
+  }, 15000)
+})
+
+describe('proxy server content-encoding handling', () => {
+  it('decodes a gzip-encoded request body for capture', async () => {
+    const http = await import('node:http')
+    const zlib = await import('node:zlib')
+    const proxy = await startProxy({ port: 0, capturePathPrefix: '/v1/', mock: true })
+
+    const body = JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] })
+    const gz = zlib.gzipSync(Buffer.from(body))
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port: proxy.port,
+          path: '/v1/messages',
+          method: 'POST',
+          headers: { 'content-length': gz.length, 'content-encoding': 'gzip' },
+        },
+        (res) => {
+          res.on('data', () => {})
+          res.on('end', () => resolve())
+        },
+      )
+      req.on('error', reject)
+      req.end(gz)
+    })
+
+    // Decoded JSON is captured (not a binary string).
+    expect(proxy.capturedBodies.length).toBe(1)
+    expect(proxy.capturedBodies[0]).toEqual({ messages: [{ role: 'user', content: 'hi' }] })
+    await stopProxy(proxy)
+  }, 15000)
+
+  it('skips capture for an unknown content-encoding (zstd) instead of storing garbage', async () => {
+    const http = await import('node:http')
+    const proxy = await startProxy({ port: 0, capturePathPrefix: '/v1/', mock: true })
+
+    // Arbitrary non-JSON bytes under an encoding we cannot decode.
+    const raw = Buffer.from([0x28, 0xb5, 0x2f, 0xfd, 0x00, 0x01, 0x02, 0x03])
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port: proxy.port,
+          path: '/v1/messages',
+          method: 'POST',
+          headers: { 'content-length': raw.length, 'content-encoding': 'zstd' },
+        },
+        (res) => {
+          res.on('data', () => {})
+          res.on('end', () => resolve())
+        },
+      )
+      req.on('error', reject)
+      req.end(raw)
+    })
+
+    expect(proxy.capturedBodies.length).toBe(0)
+    await stopProxy(proxy)
+  }, 15000)
+
+  it('handles a comma-joined encoding chain (gzip, deflate)', async () => {
+    const http = await import('node:http')
+    const zlib = await import('node:zlib')
+    const proxy = await startProxy({ port: 0, capturePathPrefix: '/v1/', mock: true })
+
+    const body = JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] })
+    // Applied outermost-first: gzip(deflate(body)); decode reverses both.
+    const encoded = zlib.gzipSync(zlib.deflateSync(Buffer.from(body)))
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port: proxy.port,
+          path: '/v1/messages',
+          method: 'POST',
+          headers: { 'content-length': encoded.length, 'content-encoding': 'gzip, deflate' },
+        },
+        (res) => {
+          res.on('data', () => {})
+          res.on('end', () => resolve())
+        },
+      )
+      req.on('error', reject)
+      req.end(encoded)
+    })
+
+    expect(proxy.capturedBodies.length).toBe(1)
+    expect(proxy.capturedBodies[0]).toEqual({ messages: [{ role: 'user', content: 'hi' }] })
+    await stopProxy(proxy)
+  }, 15000)
+
+  it('does not inflate a gzip bomb past the size limit', async () => {
+    const http = await import('node:http')
+    const zlib = await import('node:zlib')
+    const proxy = await startProxy({ port: 0, capturePathPrefix: '/v1/', mock: true })
+
+    // 60MB of zeros compresses to ~60KB — well under the raw-byte limit, so
+    // only the decode-time maxOutputLength guard can stop it.
+    const bomb = zlib.gzipSync(Buffer.alloc(60 * 1024 * 1024))
+    expect(bomb.length).toBeLessThan(1024 * 1024)
+    await new Promise<void>((resolve, reject) => {
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port: proxy.port,
+          path: '/v1/messages',
+          method: 'POST',
+          headers: { 'content-length': bomb.length, 'content-encoding': 'gzip' },
+        },
+        (res) => {
+          res.on('data', () => {})
+          res.on('end', () => resolve())
+        },
+      )
+      req.on('error', reject)
+      req.end(bomb)
+    })
+
+    // Over-limit expansion → skipped, nothing captured, no crash.
+    expect(proxy.capturedBodies.length).toBe(0)
+    await stopProxy(proxy)
+  }, 20000)
+})
+
 describe('proxy server trace redaction', () => {
   let traceDir: string
 
@@ -352,7 +566,8 @@ describe('proxy server trace redaction', () => {
     await stopProxy(proxy)
 
     // Find the written request.json under traceDir/<sessionId>/<timestamp>-request.json
-    const sessionDirs = readdirSync(traceDir)
+    // (traceDir root also holds a SENSITIVE.md warning file — skip it).
+    const sessionDirs = readdirSync(traceDir).filter((n) => !n.endsWith('.md'))
     expect(sessionDirs.length).toBeGreaterThan(0)
     const sessionDir = join(traceDir, sessionDirs[0])
     const files = readdirSync(sessionDir).filter((f) => f.endsWith('-request.json'))
@@ -365,5 +580,15 @@ describe('proxy server trace redaction', () => {
     expect(headers['cookie']).toBe('[REDACTED]')
     // Non-sensitive headers are preserved.
     expect(headers['x-conversation-id']).toBe('conv-42')
+  }, 15000)
+
+  it('writes a SENSITIVE.md warning into the trace dir', async () => {
+    traceDir = mkdtempSync(join(tmpdir(), 'stk-trace-'))
+    const proxy = await startProxy({ port: 0, capturePathPrefix: '/v1/', mock: true, traceDir })
+    await stopProxy(proxy)
+
+    const warnPath = join(traceDir, 'SENSITIVE.md')
+    expect(existsSync(warnPath)).toBe(true)
+    expect(readFileSync(warnPath, 'utf8')).toContain('敏感')
   }, 15000)
 })

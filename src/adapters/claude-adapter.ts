@@ -57,6 +57,8 @@ export class ClaudeAdapter implements PlatformAdapter {
   // Claude Code's `~/.claude/settings.json` env overrides the inherited
   // `ANTHROPIC_BASE_URL`, so diagnose must isolate the config dir to redirect.
   readonly needsIsolatedConfigDir = true
+  /** Env var pointing Claude Code at its config dir (read when isolating). */
+  readonly configDirEnvVar = 'CLAUDE_CONFIG_DIR'
 
   /**
    * Isolation is only required when `settings.json` actually pins
@@ -142,6 +144,10 @@ export class ClaudeAdapter implements PlatformAdapter {
       projectCommandsDir: `${process.cwd()}/.claude/commands`,
       projectRulesDir: `${process.cwd()}/.claude/rules`,
     }
+  }
+
+  getSettingsPath(): string {
+    return this.getConfigPaths().settings
   }
 
   getHeadlessCommand(prompt: string): string[] {

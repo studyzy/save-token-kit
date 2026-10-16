@@ -1,7 +1,28 @@
 /**
  * Abstract adapter interface for supporting multiple AI agents.
- * Only the CodeBuddy implementation exists in this version; others are reserved.
+ * Capability sub-interfaces below let `diagnose` dispatch on *what an adapter
+ * can do* (type-guarded) instead of branching on concrete classes, so adding a
+ * platform never requires opening holes in the generic flow.
  */
+
+/** Adapters that must inject/remove a custom model to capture real traffic. */
+export interface ModelInjectionCapability {
+  /**
+   * Inject a `stk-diagnose` custom model pointing at the proxy; return prior
+   * state to restore later, or null when no change was needed (already injected).
+   */
+  injectDiagnoseModel(proxyBaseUrl: string): Array<Record<string, unknown>> | null
+  /** Restore the models config to the state returned by `injectDiagnoseModel`. */
+  removeDiagnoseModel(prevModels: Array<Record<string, unknown>>): void
+}
+
+/** Type guard: does this adapter support custom-model injection? */
+export function supportsModelInjection(
+  adapter: PlatformAdapter,
+): adapter is PlatformAdapter & ModelInjectionCapability {
+  const a = adapter as Partial<ModelInjectionCapability>
+  return typeof a.injectDiagnoseModel === 'function' && typeof a.removeDiagnoseModel === 'function'
+}
 
 export interface InstallPaths {
   /** Directory where Command markdown files are written */
@@ -62,6 +83,12 @@ export interface PlatformAdapter {
   detectInstall(): Promise<boolean>
   /** Resolve platform-specific file paths */
   getConfigPaths(): PlatformConfigPaths
+  /**
+   * Absolute path to this agent's settings.json (the file the `plugin-enabled`
+   * toolkit primitive reads). Exposed as a method so `diagnose` reads the
+   * settings of the *agent being diagnosed* rather than a hard-coded default.
+   */
+  getSettingsPath(): string
   /** Build headless probe command args for a given prompt + optional JSON schema */
   getHeadlessCommand(prompt: string, schema?: object): string[]
   /** Parse raw headless probe stdout into structured data (null on failure) */
@@ -107,10 +134,17 @@ export interface PlatformAdapter {
   /**
    * Whether the agent's own config (e.g. `~/.claude/settings.json` env) can
    * override the proxy env var set by `diagnose`. When true, `diagnose` must
-   * isolate the agent's config dir (Claude Code reads `CLAUDE_CONFIG_DIR`) so
-   * the process-env `ANTHROPIC_BASE_URL` redirection actually takes effect.
+   * isolate the agent's config dir so the process-env redirection actually
+   * takes effect.
    */
   readonly needsIsolatedConfigDir?: boolean
+  /**
+   * Environment variable that points the agent at its config directory (e.g.
+   * `CLAUDE_CONFIG_DIR` for Claude Code). Required when
+   * `needsIsolatedConfigDir` is true, so `diagnose` can redirect the probe to a
+   * temp dir without hard-coding any platform's variable name.
+   */
+  readonly configDirEnvVar?: string
   /**
    * Whether config-dir isolation is actually required right now. Isolation
    * hides everything the config dir provides (user skills, rules, CLAUDE.md,

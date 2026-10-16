@@ -14,12 +14,19 @@ disable-model-invocation: true
 
 ## 执行流程
 
-1. 检查 `stk` 命令是否已安装（如 `which stk` 或 `stk --version`）。如未安装，先执行安装：
-   ```bash
-   npm install -g @studyzy/save-token-kit
-   # 或
-   pnpm add -g @studyzy/save-token-kit
-   ```
+1. 检查 `stk` 命令是否已安装（如 `which stk` 或 `stk --version`）。**如未安装，先停点询问用户**，不得擅自执行全局安装——全局 npm 安装是最重的系统级修改，必须由用户显式确认：
+
+   用 `AskUserQuestion` 询问「stk 未安装，是否现在安装？」：
+
+   - 选「现在安装」→ 执行：
+     ```bash
+     npm install -g @studyzy/save-token-kit
+     # 或
+     pnpm add -g @studyzy/save-token-kit
+     ```
+   - 选「暂不安装」/ Other → 给出手动安装指引（上述命令），**终止本次流程**，不继续后续步骤。
+
+   安装失败（如无权限）时不要反复重试，如实报告错误并附上手动安装指引。
 2. 检测当前 AI Agent 运行环境，选择对应的 `--agent` 参数。一台机器可能同时安装多个 Agent，且 `CODEBUDDY_BASE_URL` 这类**配置类**环境变量可能被用户全局设置（如指向自定义 API 或本工具代理），在任意 Agent 会话里都存在——因此只能以**当前会话注入的会话级环境变量**判定，不能用"是否安装了某个 Agent"或配置类变量判断：
    ```bash
    # WorkBuddy 桌面会话注入 WORKBUDDY_* 变量（须在 CodeBuddy 判定之前，因两者同内核可能同时设置 CODEBUDDY_SESSION_ID）

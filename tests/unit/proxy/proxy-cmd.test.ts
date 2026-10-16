@@ -113,8 +113,8 @@ describe('proxy trace', () => {
     await new Promise((r) => setTimeout(r, 50))
     await stopProxy(proxy)
 
-    // traceDir 下不应有任何 session 目录被创建
-    const entries = readdirSync(traceDir)
+    // traceDir 下不应有任何 session 目录被创建（忽略 SENSITIVE.md 警告文件）
+    const entries = readdirSync(traceDir).filter((n) => !n.endsWith('.md'))
     expect(entries.length).toBe(0)
   }, 15000)
 
@@ -136,6 +136,6 @@ describe('proxy trace', () => {
     await stopProxy(proxy)
 
     expect(proxy.capturedBodies.length).toBe(1)
-    expect(readdirSync(traceDir).length).toBe(0)
+    expect(readdirSync(traceDir).filter((n) => !n.endsWith('.md')).length).toBe(0)
   }, 15000)
 })

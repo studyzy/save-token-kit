@@ -1,5 +1,6 @@
 import { assembleProxyDiagnosisData, parseCore, type SkillTokensMap } from './parser-core.js'
 import { extractAgentsFromText } from './codebuddy-parser.js'
+import { estimateTokens } from '../collectors/token-estimator.js'
 import type { AgentEntry, ProxyDiagnosisData } from '../types/index.js'
 
 const CLAUDE_SKILLS_HEADER = 'The following skills are available for use with the Skill tool:'
@@ -84,7 +85,7 @@ function saveSkill(result: SkillTokensMap, entry: { name: string; description: s
   if (!entry.name || result[entry.name]) return
   result[entry.name] = {
     description: entry.description,
-    estimatedTokens: Math.ceil((entry.description || entry.name).length / 4),
+    estimatedTokens: estimateTokens(entry.description || entry.name),
   }
 }
 

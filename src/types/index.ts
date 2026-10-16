@@ -262,6 +262,13 @@ export type OperationType =
   | 'skill-model-downgrade' // Add `context: fork` + `model: lite` to a skill for cheaper execution
   | 'tool-opt' // Session-level --tools Defer()/NoDefer() via a cblite alias (e.g. Defer(Task*)/Defer(Agent)/Defer(*PlanMode))
 
+/**
+ * Schema version stamped onto `suggestions-*.json` files by /stk-analyze.
+ * `stk verify` rejects files whose version is missing or newer than this, so a
+ * stale hand-written file fails loudly instead of being silently accepted.
+ */
+export const SUGGESTIONS_SCHEMA_VERSION = 1
+
 export type RiskLevel = 'low' | 'medium' | 'high'
 
 export interface AnalysisSuggestion {
@@ -352,8 +359,8 @@ export interface TaskResult {
   suggestionId: string
   /** Task description */
   description: string
-  /** Operation type */
-  operationType: string
+  /** Operation type (same union as AnalysisSuggestion to avoid a second口径) */
+  operationType: OperationType
   /** Execution status */
   status: TaskStatus
   /** Estimated saving */
@@ -522,6 +529,13 @@ export interface UsageStats {
 
 /** Maximum raw message size (bytes) before truncation. */
 export const MAX_MESSAGE_BYTES = 10 * 1024 * 1024
+
+/**
+ * Maximum request-body size (bytes) the proxy will buffer for parsing. Bodies
+ * above this are still forwarded to the upstream untouched but skipped during
+ * capture, so a huge upload cannot exhaust the proxy's memory.
+ */
+export const MAX_PROXY_BODY_BYTES = 50 * 1024 * 1024
 
 /** Default proxy listen port. */
 export const DEFAULT_PROXY_PORT = 8899

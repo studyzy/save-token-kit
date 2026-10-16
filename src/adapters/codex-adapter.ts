@@ -149,6 +149,10 @@ export class CodeXAdapter implements PlatformAdapter {
     }
   }
 
+  getSettingsPath(): string {
+    return this.getConfigPaths().settings
+  }
+
   getHeadlessCommand(prompt: string, schema?: object): string[] {
     const args = ['exec', prompt, '--skip-git-repo-check', '--sandbox', 'read-only']
     if (schema) {

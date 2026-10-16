@@ -1,5 +1,6 @@
 import { parseRequestBody } from './parser.js'
 import { readFile } from '../utils/fs-operations.js'
+import { estimateTokens } from '../collectors/token-estimator.js'
 import type {
   DiagnosisReport,
   ContextItem,
@@ -96,7 +97,7 @@ export function buildDiagnosisReport(
       .filter((t) => t.name.startsWith(serverPrefix))
       .reduce((s, t) => s + t.estimatedTokens, 0)
     // If no direct tool definitions, estimate from tool names (deferred loading)
-    const estTokens = defTokens || toolNames.reduce((s, n) => s + Math.ceil(n.length / 4), 0)
+    const estTokens = defTokens || toolNames.reduce((s, n) => s + estimateTokens(n), 0)
     return {
       ...mcp,
       toolsCount: toolNames.length,

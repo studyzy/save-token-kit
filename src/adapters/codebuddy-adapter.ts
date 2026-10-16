@@ -2,14 +2,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { InstallPaths, PlatformAdapter, PlatformConfigPaths } from './platform-adapter.js'
 import { commandExists, getHomeDir } from '../utils/platform.js'
-
-function safeParse(s: string): unknown {
-  try {
-    return JSON.parse(s)
-  } catch {
-    return null
-  }
-}
+import { extractBalancedJson } from './headless-output.js'
 
 /**
  * CodeBuddy adapter.
@@ -68,6 +61,10 @@ export class CodeBuddyAdapter implements PlatformAdapter {
     }
   }
 
+  getSettingsPath(): string {
+    return this.getConfigPaths().settings
+  }
+
   getHeadlessCommand(prompt: string, schema?: object): string[] {
     // Use plain `-p` output (the model answer itself) so the structured JSON
     // answer is printed directly and can be parsed. The schema is already
@@ -80,32 +77,9 @@ export class CodeBuddyAdapter implements PlatformAdapter {
   }
 
   parseHeadlessOutput(raw: string): unknown {
-    const text = raw.trim()
     // CodeBuddy may prefix/suffix the JSON payload with log lines; extract the
     // first balanced JSON array/object instead of requiring a pure JSON string.
-    const start = text.search(/[[{]/)
-    if (start < 0) return safeParse(text)
-    const opener = text[start]
-    const closer = opener === '[' ? ']' : '}'
-    let depth = 0
-    let inStr = false
-    let esc = false
-    for (let i = start; i < text.length; i++) {
-      const ch = text[i]
-      if (inStr) {
-        if (esc) esc = false
-        else if (ch === '\\') esc = true
-        else if (ch === '"') inStr = false
-        continue
-      }
-      if (ch === '"') inStr = true
-      else if (ch === opener) depth++
-      else if (ch === closer) {
-        depth--
-        if (depth === 0) return safeParse(text.slice(start, i + 1))
-      }
-    }
-    return safeParse(text.slice(start))
+    return extractBalancedJson(raw)
   }
 }
 
@@ -139,6 +113,7 @@ function unsupportedStub(name: string): PlatformAdapter {
       projectCommandsDir: '',
       projectRulesDir: '',
     }),
+    getSettingsPath: () => '',
     getHeadlessCommand: () => [],
     parseHeadlessOutput: () => null,
   }
